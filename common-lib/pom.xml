@@ -12,7 +12,7 @@
     <artifactId>common-lib</artifactId>
     <packaging>jar</packaging>
     <name>common-lib</name>
-    <description>Shared DTOs,enums,and utilities for airline microservices</description>
+    <description>Shared DTOs,enums,and utilities for mentify microservices</description>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -37,6 +37,14 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
     </dependencies>
 </project>
