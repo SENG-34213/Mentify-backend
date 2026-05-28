@@ -4,50 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8cce6631-c940-4304-8f99-dad6c4c65d1c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/.gitattributes" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/.mvn/wrapper/maven-wrapper.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/mvnw" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/mvnw.cmd" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/src/main/java/com/mentify/configserver/ConfigServerApplication.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/src/main/resources/application.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/src/main/resources/configuration/course-service.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/src/main/resources/configuration/user-service.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/config-server/src/test/java/com/mentify/configserver/ConfigServerApplicationTests.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/.gitattributes" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/.mvn/wrapper/maven-wrapper.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/mvnw" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/mvnw.cmd" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/src/main/java/com/mentify/ServiceRegistryApplication.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cloud/service-registry/src/main/resources/application.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/controller/CourseController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/dto/CourseRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/dto/CourseResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/entity/Course.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/entity/LearningMaterial.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/entity/Lesson.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/entity/Module.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/enums/MaterialType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/mapper/CourseMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/repository/CourseRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/service/CourseService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/java/com/mentify/service/impl/CourseServiceImpl.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/course-service/src/main/resources/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cloud/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cloud/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/common-lib/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/common-lib/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+    <list default="true" id="8cce6631-c940-4304-8f99-dad6c4c65d1c" name="Changes" comment="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/course-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/services/course-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/course-service/src/main/resources/application.properties" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/services/user-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/services/user-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/user-service/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/services/user-service/src/main/resources/application.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +61,7 @@
       </set>
     </option>
   </component>
-  <component name="RunManager" selected="Spring Boot.CourseServiceApplication">
+  <component name="RunManager" selected="Spring Boot.UserServiceApplication">
     <configuration default="true" type="JetRunConfigurationType">
       <module name="Mentify-backend" />
       <method v="2">
@@ -163,11 +123,32 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1779959817427</updated>
-      <workItem from="1779959818570" duration="2369000" />
+      <workItem from="1779959818570" duration="3344000" />
     </task>
+    <task id="LOCAL-00001" summary="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3">
+      <option name="closed" value="true" />
+      <created>1779962570259</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1779962570259</updated>
+    </task>
+    <task id="LOCAL-00002" summary="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3">
+      <option name="closed" value="true" />
+      <created>1779962697916</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1779962697916</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3" />
   </component>
 </project>
