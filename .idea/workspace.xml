@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="8cce6631-c940-4304-8f99-dad6c4c65d1c" name="Changes" comment="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/course-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/services/course-service/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/user-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/services/user-service/pom.xml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
+  <component name="KubernetesApiProvider"><![CDATA[{
+  "isMigrated": true
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 4
+}]]></component>
+  <component name="ProjectId" id="3ELZTPxNEAJRkutzWpzHNzYDJPZ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "Spring Boot.ConfigServerApplication.executor": "Run",
+    "Spring Boot.CourseServiceApplication.executor": "Run",
+    "Spring Boot.ServiceRegistryApplication.executor": "Run",
+    "Spring Boot.UserServiceApplication.executor": "Run",
+    "git-widget-placeholder": "feature/3-Backend-Microservice-Architecture-setup",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunDashboard">
+    <option name="configurationTypes">
+      <set>
+        <option value="KtorApplicationConfigurationType" />
+        <option value="MicronautRunConfigurationType" />
+        <option value="QuarkusRunConfigurationType" />
+        <option value="SpringBootApplicationConfigurationType" />
+      </set>
+    </option>
+  </component>
+  <component name="RunManager" selected="Spring Boot.UserServiceApplication">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="Mentify-backend" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="Mentify-backend" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+    <configuration name="ConfigServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="config-server" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.mentify.configserver.ConfigServerApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CourseServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="course-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.mentify.CourseServiceApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="ServiceRegistryApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="service-registry" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.mentify.ServiceRegistryApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="UserServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="user-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.mentify.UserServiceApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-125ca727e0f0-intellij.indexing.shared.core-IU-243.23654.117" />
+        <option value="bundled-js-predefined-d6986cc7102b-822845ee3bb5-JavaScript-IU-243.23654.117" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="StructureViewState">
+    <option name="selectedTab" value="Logical" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="8cce6631-c940-4304-8f99-dad6c4c65d1c" name="Changes" comment="" />
+      <created>1779959817427</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1779959817427</updated>
+      <workItem from="1779959818570" duration="3344000" />
+    </task>
+    <task id="LOCAL-00001" summary="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3">
+      <option name="closed" value="true" />
+      <created>1779962570259</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1779962570259</updated>
+    </task>
+    <task id="LOCAL-00002" summary="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3">
+      <option name="closed" value="true" />
+      <created>1779962697916</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1779962697916</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(data-layer, api, dev-setup): implement course service foundation with config and discovery servers&#10;&#10;Implements the complete Course microservice foundation including domain&#10;entities, data access layer, business logic, REST API, and infrastructure&#10;setup for the Mentify LMS platform.&#10;&#10;## Entities&#10;- Add Course entity with bidirectional relationships to Module, Enrollment,&#10;  Announcement and DiscussionForum. Cross-service references (teacherId, gradeId)&#10;  stored as plain UUID strings per microservice boundary design.&#10;- Add Module entity with sequenceOrder, visibility controls and dateDuration.&#10;- Add Lesson entity with releaseDate and module-level content grouping.&#10;- Add LearningMaterial entity with MaterialType enum (VIDEO, PDF, IMAGE, AUDIO, PPT, DOC).&#10;&#10;## Data Layer&#10;- Add CourseRepository with domain query methods: existsByCourseNameAndGradeId,&#10;  findAllByTeacherId, findAllByGradeId and findAllByIsPublishedTrueAndIsVisibleTrue.&#10;&#10;## API Layer&#10;- Add CourseRequest DTO with @NotBlank, @NotNull and @DecimalMin validation constraints.&#10;- Add CourseResponse DTO exposing all fields including publishedDate,&#10;  numberOfStudents and audit timestamps.&#10;- Add CourseMapper with hardcoded safe defaults on creation (isPublished=false,&#10;  isVisible=true, numberOfStudents=0) to prevent client override.&#10;- Add CourseService interface and CourseServiceImpl with duplicate guard using&#10;  existsByCourseNameAndGradeId. Throws ResourceAlreadyExistsException on conflict.&#10;  teacherId injected from authenticated principal, never from request body.&#10;&#10;## Infrastructure&#10;- Initialise Spring Cloud Config Server for centralised externalised configuration&#10;  across all microservices.&#10;- Initialise Eureka Service Discovery Server for dynamic service registration&#10;  and inter-service communication without hardcoded host addresses.&#10;&#10;Closes #3" />
+  </component>
+</project>
