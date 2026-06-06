@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -22,6 +23,7 @@ public class CourseRequest {
     @Size(max = 150, message = "Course name must not exceed 150 characters")
     private String courseName;
 
+    @NotBlank(message = "Description is required.")
     @Size(max = 2000, message = "Description must not exceed 2000 characters")
     private String courseDescription;
 
@@ -32,5 +34,9 @@ public class CourseRequest {
     private BigDecimal courseFeeMonthly;
 
     @NotBlank(message = "Grade ID is required")
-    private String gradeId;
+    private UUID gradeId;
+
+    @NotNull(message = "Assigned teacher ID is required.")
+    private UUID assignedTeacherId;
+
 }

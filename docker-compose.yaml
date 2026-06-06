@@ -1,0 +1,40 @@
+services:
+
+  postgres:
+    container_name: postgres_container_menify
+    image: postgres:14
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: Viber+1014
+      PGDATA: /data/postgres
+      POSTGRES_DB: product
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+    restart: unless-stopped
+  pgadmin:
+    container_name: pgadmin_container_menifys
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-jeyarubanjenushan@gmail.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-Viber+1014}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - backend
+    restart: unless-stopped
+
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres:
+  pgadmin:

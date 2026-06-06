@@ -10,11 +10,6 @@ import java.util.UUID;
 @Repository
 public interface CourseRepository extends JpaRepository<Course, UUID> {
 
-    boolean existsByCourseNameAndGradeId(String courseName, String gradeId);
+    boolean existsByCourseNameAndGradeId(String courseName, UUID gradeId);
 
-    List<Course> findAllByTeacherId(String teacherId);
-
-    List<Course> findAllByGradeId(String gradeId);
-
-    List<Course> findAllByIsPublishedTrueAndIsVisibleTrue();
 }
