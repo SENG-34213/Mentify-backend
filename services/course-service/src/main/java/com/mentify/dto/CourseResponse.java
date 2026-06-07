@@ -1,5 +1,6 @@
 package com.mentify.dto;
 
+import com.mentify.enums.CourseStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,12 +22,14 @@ public class CourseResponse {
     private String courseDescription;
     private String courseThumbnail;
     private BigDecimal courseFeeMonthly;
-    private String teacherId;
-    private String gradeId;
+    private UUID assignedTeacherId;
+    private UUID gradeId;
     private boolean isPublished;
+    private CourseStatus CourseStatus;
     private LocalDate publishedDate;
-    private boolean isVisible;
     private int numberOfStudents;
+    private UUID createdBy;
+    private UUID lastModifiedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -4,6 +4,8 @@ import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.payload.response.ApiResponse;
 
+import java.util.UUID;
+
 public interface CourseService {
-    ApiResponse<CourseResponse> createCourse(CourseRequest request, String teacherId);
+    ApiResponse<CourseResponse> createCourse(CourseRequest request);
 }

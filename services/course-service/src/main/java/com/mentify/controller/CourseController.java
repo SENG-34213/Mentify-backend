@@ -7,7 +7,10 @@ import com.mentify.service.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/courses")
@@ -17,10 +20,10 @@ public class CourseController {
     private final CourseService courseService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
-            @Valid @RequestBody CourseRequest request,
-            @RequestHeader("X-teacher-Id") String teacherId) {
+            @Valid @RequestBody CourseRequest request) {
 
-        ApiResponse<CourseResponse> response = courseService.createCourse(request, teacherId);
+        ApiResponse<CourseResponse> response = courseService.createCourse(request);
         return new ResponseEntity<>(response, response.getStatus());
     }}

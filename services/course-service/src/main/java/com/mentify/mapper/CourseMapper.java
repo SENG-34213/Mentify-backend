@@ -4,9 +4,12 @@ package com.mentify.mapper;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.entity.Course;
+import com.mentify.enums.CourseStatus;
 import org.springframework.stereotype.Component;
 
-@Component
+import java.util.UUID;
+
+
 public class CourseMapper {
 
     /**
@@ -16,13 +19,14 @@ public class CourseMapper {
      */
     public static Course toCourseEntity(CourseRequest request) {
         return Course.builder()
-                .courseName(request.getCourseName())
-                .courseDescription(request.getCourseDescription())
+                .courseName(request.getCourseName().trim())
+                .courseDescription(request.getCourseDescription().trim())
                 .courseThumbnail(request.getCourseThumbnail())
                 .courseFeeMonthly(request.getCourseFeeMonthly())
                 .gradeId(request.getGradeId())
                 .isPublished(false)
-                .isVisible(true)
+                .assignedTeacherId(request.getAssignedTeacherId())
+                .status(CourseStatus.DRAFT)
                 .numberOfStudents(0)
                 .build();
     }
@@ -37,11 +41,12 @@ public class CourseMapper {
                 .courseDescription(course.getCourseDescription())
                 .courseThumbnail(course.getCourseThumbnail())
                 .courseFeeMonthly(course.getCourseFeeMonthly())
-                .teacherId(course.getTeacherId())
+                .assignedTeacherId(course.getAssignedTeacherId())
                 .gradeId(course.getGradeId())
                 .isPublished(course.isPublished())
                 .publishedDate(course.getPublishedDate())
-                .isVisible(course.isVisible())
+                .createdBy(course.getCreatedBy())
+                .lastModifiedBy(course.getUpdatedBy())
                 .numberOfStudents(course.getNumberOfStudents())
                 .createdAt(course.getCreatedAt())
                 .updatedAt(course.getUpdatedAt())
