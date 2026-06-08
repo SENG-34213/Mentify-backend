@@ -3,6 +3,16 @@ spring:
     name: user-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/mentify}
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
 
 
 eureka:

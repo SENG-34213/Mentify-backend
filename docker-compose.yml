@@ -1,0 +1,77 @@
+services:
+  postgres:
+    container_name: postgres_container_mentify
+    image: postgres:14
+    environment:
+      POSTGRES_USER: ${APP_DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-change-me}
+      PGDATA: /data/postgres
+      POSTGRES_DB: ${APP_DB_NAME:-mentify}
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - "${APP_DB_PORT:-5432}:5432"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: pgadmin_container_mentify
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-change-me}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  mentify-keycloak-db:
+    image: postgres:16
+    container_name: mentify-keycloak-db
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME}
+      POSTGRES_USER: ${KEYCLOAK_DB_USERNAME}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    ports:
+      - "${KEYCLOAK_DB_PORT}:5432"
+    volumes:
+      - mentify_keycloak_db_data:/var/lib/postgresql/data
+    networks:
+      - mentify-network
+
+  mentify-keycloak:
+    image: quay.io/keycloak/keycloak:26.6.3
+    container_name: mentify-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://mentify-keycloak-db:5432/${KEYCLOAK_DB_NAME}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
+    ports:
+      - "${KEYCLOAK_PORT}:8080"
+    volumes:
+      - ./keycloak/mentify-realm.json:/opt/keycloak/data/import/mentify-realm.json:ro
+    depends_on:
+      - mentify-keycloak-db
+    networks:
+      - mentify-network
+
+networks:
+  backend:
+    driver: bridge
+  mentify-network:
+    driver: bridge
+
+volumes:
+  postgres:
+  pgadmin:
+  mentify_keycloak_db_data:
