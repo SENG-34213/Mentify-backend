@@ -17,20 +17,32 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class User extends BaseEntity {
 
-    @Column(unique = true, nullable = false, length = 100)
+    @Column(unique = true, length = 100)
+    private String keycloakUserId;
+
+    @Column(unique = true, nullable = false, length = 150)
     private String email;
 
     @JsonIgnore
-    @Column(nullable = false)
+    @Column
     private String password;
 
+    @Column(nullable = false, length = 100)
+    private String firstName;
+
+    @Column(nullable = false, length = 100)
+    private String lastName;
+
+    @Column(length = 20)
+    private String phoneNumber;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private Role role;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private AccountStatus accountStatus = AccountStatus.ACTIVE;
+    private AccountStatus accountStatus = AccountStatus.INVITED;
 
     @Column(nullable = false)
     private boolean accountNonLocked = true;

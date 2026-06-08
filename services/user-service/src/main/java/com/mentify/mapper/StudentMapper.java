@@ -18,7 +18,9 @@ public class StudentMapper {
     public User toUserEntity(StudentRegistrationRequest request) {
         return User.builder()
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .phoneNumber(request.getPhoneNumber())
                 .role(Role.STUDENT)
                 .accountStatus(AccountStatus.ACTIVE)
                 .accountNonLocked(true)
