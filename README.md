@@ -21,7 +21,7 @@ docker compose up -d mentify-keycloak-db mentify-keycloak
 Keycloak runs at:
 
 ```txt
-http://localhost:8080
+http://localhost:8180
 ```
 
 The local Docker setup imports `keycloak/mentify-realm.json` on first startup. If the named database volume already exists, remove the local Keycloak volume or configure the realm manually in the admin console.
@@ -29,7 +29,7 @@ The local Docker setup imports `keycloak/mentify-realm.json` on first startup. I
 ### 3. Open Keycloak Admin Console
 
 ```txt
-http://localhost:8080
+http://localhost:8180
 ```
 
 Sign in with:
@@ -119,7 +119,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/mentify}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
 
 mentify:
   security:
@@ -134,7 +134,7 @@ mentify:
 Use Postman or curl against the frontend public client:
 
 ```txt
-POST http://localhost:8080/realms/mentify/protocol/openid-connect/token
+POST http://localhost:8180/realms/mentify/protocol/openid-connect/token
 Content-Type: application/x-www-form-urlencoded
 ```
 
