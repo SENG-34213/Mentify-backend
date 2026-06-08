@@ -42,12 +42,15 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
         userRepresentation.setRequiredActions(PASSWORD_SETUP_ACTIONS);
 
         try (Response response = realmUsers().create(userRepresentation)) {
+            System.out.println(response.getStatus());
             if (response.getStatus() != Response.Status.CREATED.getStatusCode()) {
                 throw new KeycloakUserCreationException(buildCreateUserFailureMessage(response));
             }
 
             return extractCreatedUserId(response.getLocation());
         } catch (KeycloakUserCreationException exception) {
+            log.error("Keycloak user creation failed: {}", exception.getMessage(), exception);
+
             throw exception;
         } catch (ProcessingException | WebApplicationException exception) {
             throw new KeycloakUserCreationException("Failed to create user in Keycloak", exception);
