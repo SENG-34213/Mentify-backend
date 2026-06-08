@@ -192,6 +192,13 @@ sh cloud/config-server/mvnw -f pom.xml -pl cloud/api-gateway -am test
 
 If Maven is installed globally, you can use equivalent `mvn` commands.
 
+Testing standards and test registers are maintained here:
+
+```txt
+docs/testing/README.md
+docs/testing/TEST_REGISTER_KEYCLOAK_AUTH.md
+```
+
 ## 9. Useful Docker Commands
 
 Check containers:

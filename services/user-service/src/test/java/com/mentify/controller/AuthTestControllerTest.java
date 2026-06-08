@@ -34,25 +34,37 @@ class AuthTestControllerTest {
     private JwtDecoder jwtDecoder;
 
     @Test
-    void publicEndpointShouldReturnOkWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/public-test"))
+    void givenNoToken_whenCallingPublicEndpoint_thenReturnsOk() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/public-test");
+
+        // Act and Assert
+        mockMvc.perform(request)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"));
     }
 
     @Test
-    void protectedEndpointShouldReturnUnauthorizedWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/protected-test"))
+    void givenNoToken_whenCallingProtectedEndpoint_thenReturnsUnauthorized() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/protected-test");
+
+        // Act and Assert
+        mockMvc.perform(request)
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void protectedEndpointShouldReturnOkWithValidMockJwt() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/protected-test")
-                        .with(jwt().jwt(jwt -> jwt
-                                .subject("user-123")
-                                .claim("email", "admin@mentify.com")
-                                .claim("preferred_username", "admin@mentify.com"))))
+    void givenValidJwt_whenCallingProtectedEndpoint_thenReturnsUserClaims() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/protected-test")
+                .with(jwt().jwt(jwt -> jwt
+                        .subject("user-123")
+                        .claim("email", "admin@mentify.com")
+                        .claim("preferred_username", "admin@mentify.com")));
+
+        // Act and Assert
+        mockMvc.perform(request)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value("user-123"))
                 .andExpect(jsonPath("$.email").value("admin@mentify.com"))
@@ -60,23 +72,35 @@ class AuthTestControllerTest {
     }
 
     @Test
-    void adminEndpointShouldReturnOkWithAdminRole() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/admin-test")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+    void givenAdminRole_whenCallingAdminEndpoint_thenReturnsOk() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/admin-test")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        // Act and Assert
+        mockMvc.perform(request)
                 .andExpect(status().isOk());
     }
 
     @Test
-    void adminEndpointShouldReturnForbiddenWithStudentRole() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/admin-test")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+    void givenStudentRole_whenCallingAdminEndpoint_thenReturnsForbidden() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/admin-test")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT")));
+
+        // Act and Assert
+        mockMvc.perform(request)
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void studentEndpointShouldReturnOkWithStudentRole() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/student-test")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+    void givenStudentRole_whenCallingStudentEndpoint_thenReturnsOk() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/student-test")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT")));
+
+        // Act and Assert
+        mockMvc.perform(request)
                 .andExpect(status().isOk());
     }
 }

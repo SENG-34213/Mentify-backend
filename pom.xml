@@ -23,6 +23,7 @@
         <spring.boot.version>3.2.5</spring.boot.version>
         <spring.cloud.version>2023.0.1</spring.cloud.version>
         <lombok.version>1.18.38</lombok.version>
+        <jacoco.version>0.8.12</jacoco.version>
     </properties>
 
     <dependencyManagement>
@@ -77,7 +78,82 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.2.5</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <configuration>
+                            <includes>
+                                <include>com.mentify.*</include>
+                            </includes>
+                            <excludes>
+                                <exclude>java.*</exclude>
+                                <exclude>jdk.*</exclude>
+                                <exclude>sun.*</exclude>
+                                <exclude>com.sun.*</exclude>
+                            </excludes>
+                        </configuration>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <configuration>
+                            <includes>
+                                <include>com/mentify/common/security/*</include>
+                                <include>com/mentify/controller/AuthTestController*</include>
+                                <include>com/mentify/gateway/config/GatewaySecurityConfig*</include>
+                            </includes>
+                        </configuration>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check-keycloak-auth-coverage</id>
+                        <phase>verify</phase>
+                        <configuration>
+                            <includes>
+                                <include>com/mentify/common/security/*</include>
+                                <include>com/mentify/controller/AuthTestController*</include>
+                                <include>com/mentify/gateway/config/GatewaySecurityConfig*</include>
+                            </includes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>

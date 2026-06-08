@@ -14,55 +14,70 @@ class KeycloakRoleConverterTest {
     private final KeycloakRoleConverter converter = new KeycloakRoleConverter();
 
     @Test
-    void shouldConvertAdminRoleIntoRoleAdmin() {
+    void givenAdminRealmRole_whenConvertingJwt_thenReturnsRoleAdminAuthority() {
+        // Arrange
         Jwt jwt = jwtWithRealmRoles(List.of("ADMIN"));
 
+        // Act
         var authorities = converter.convert(jwt);
 
+        // Assert
         assertThat(authorities)
                 .extracting("authority")
                 .containsExactly("ROLE_ADMIN");
     }
 
     @Test
-    void shouldConvertStudentRoleIntoRoleStudent() {
+    void givenStudentRealmRole_whenConvertingJwt_thenReturnsRoleStudentAuthority() {
+        // Arrange
         Jwt jwt = jwtWithRealmRoles(List.of("STUDENT"));
 
+        // Act
         var authorities = converter.convert(jwt);
 
+        // Assert
         assertThat(authorities)
                 .extracting("authority")
                 .containsExactly("ROLE_STUDENT");
     }
 
     @Test
-    void shouldConvertMultipleKeycloakRealmRolesToSpringAuthorities() {
+    void givenMultipleRealmRoles_whenConvertingJwt_thenReturnsSpringAuthorities() {
+        // Arrange
         Jwt jwt = jwtWithRealmRoles(List.of("ADMIN", "STUDENT"));
 
+        // Act
         var authorities = converter.convert(jwt);
 
+        // Assert
         assertThat(authorities)
                 .extracting("authority")
                 .contains("ROLE_ADMIN", "ROLE_STUDENT");
     }
 
     @Test
-    void shouldReturnEmptyAuthoritiesWhenRealmAccessClaimIsMissing() {
+    void givenMissingRealmAccessClaim_whenConvertingJwt_thenReturnsEmptyAuthorities() {
+        // Arrange
         Jwt jwt = baseJwtBuilder().build();
 
+        // Act
         var authorities = converter.convert(jwt);
 
+        // Assert
         assertThat(authorities).isEmpty();
     }
 
     @Test
-    void shouldReturnEmptyAuthoritiesWhenRolesClaimIsMissing() {
+    void givenMissingRolesClaim_whenConvertingJwt_thenReturnsEmptyAuthorities() {
+        // Arrange
         Jwt jwt = baseJwtBuilder()
                 .claim("realm_access", Map.of("not_roles", List.of("ADMIN")))
                 .build();
 
+        // Act
         var authorities = converter.convert(jwt);
 
+        // Assert
         assertThat(authorities).isEmpty();
     }
 

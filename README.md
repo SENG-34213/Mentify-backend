@@ -11,6 +11,7 @@ Use these setup guides:
 ```txt
 docs/PROJECT_SETUP.md   Full local project setup
 docs/KEYCLOAK_SETUP.md  Keycloak realm, clients, roles, and token testing
+docs/testing/README.md  Testing standards, coverage commands, and registers
 ```
 
 ## Quick Start
