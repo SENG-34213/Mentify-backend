@@ -9,8 +9,11 @@ services:
       POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-change-me}
       PGDATA: /data/postgres
       POSTGRES_DB: ${APP_DB_NAME:-mentify}
+      USER_DB_NAME: ${USER_DB_NAME:-user_db}
+      COURSE_DB_NAME: ${COURSE_DB_NAME:-course_db}
     volumes:
       - postgres:/data/postgres
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "${APP_DB_PORT:-5434}:5432"
     networks:
