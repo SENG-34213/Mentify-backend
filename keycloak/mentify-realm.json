@@ -1,0 +1,73 @@
+{
+  "realm": "mentify",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "SUPER_ADMIN",
+        "description": "Mentify super administrator"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Mentify administrator"
+      },
+      {
+        "name": "TEACHER",
+        "description": "Mentify teacher"
+      },
+      {
+        "name": "STUDENT",
+        "description": "Mentify student"
+      },
+      {
+        "name": "PARENT",
+        "description": "Mentify parent"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mentify-web-client",
+      "name": "Mentify Web Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "clientAuthenticatorType": "client-secret",
+      "authorizationServicesEnabled": false,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "http://localhost:5173",
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*"
+      }
+    },
+    {
+      "clientId": "mentify-backend-client",
+      "name": "Mentify Backend Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_BACKEND_CLIENT_SECRET}",
+      "authorizationServicesEnabled": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ]
+}
