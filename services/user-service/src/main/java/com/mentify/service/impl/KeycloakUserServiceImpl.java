@@ -1,11 +1,11 @@
 package com.mentify.service.impl;
 
 import com.mentify.config.KeycloakProperties;
-import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.service.KeycloakUserService;
+import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
@@ -31,7 +31,7 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
     private final KeycloakProperties keycloakProperties;
 
     @Override
-    public String createUser(AdminRegisterUserRequest request) {
+    public String createUser(KeycloakUserProvisionRequest request) {
         UserRepresentation userRepresentation = new UserRepresentation();
         userRepresentation.setUsername(request.getEmail());
         userRepresentation.setEmail(request.getEmail());

@@ -1,6 +1,7 @@
 package com.mentify.dto;
 
 import com.mentify.entity.Address;
+import com.mentify.entity.AdminProfile;
 import com.mentify.entity.StudentProfile;
 import com.mentify.entity.TeacherProfile;
 import com.mentify.entity.User;
@@ -31,6 +32,7 @@ public class UserRegistrationResponse {
     private AccountStatus accountStatus;
     private StudentProfileResponse studentProfile;
     private TeacherProfileResponse teacherProfile;
+    private AdminProfileResponse adminProfile;
     private AddressResponse address;
 
     public static UserRegistrationResponse from(User user) {
@@ -45,6 +47,7 @@ public class UserRegistrationResponse {
                 .accountStatus(user.getAccountStatus())
                 .studentProfile(StudentProfileResponse.from(user.getStudentProfile()))
                 .teacherProfile(TeacherProfileResponse.from(user.getTeacherProfile()))
+                .adminProfile(AdminProfileResponse.from(user.getAdminProfile()))
                 .address(AddressResponse.from(user.getAddress()))
                 .build();
     }
@@ -103,6 +106,30 @@ public class UserRegistrationResponse {
                     .nic(profile.getNic())
                     .specialization(profile.getSpecialization())
                     .hireDate(profile.getHireDate())
+                    .build();
+        }
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AdminProfileResponse {
+        private UUID id;
+        private String adminCode;
+        private LocalDate dateOfBirth;
+        private String nic;
+
+        public static AdminProfileResponse from(AdminProfile profile) {
+            if (profile == null) {
+                return null;
+            }
+
+            return AdminProfileResponse.builder()
+                    .id(profile.getId())
+                    .adminCode(profile.getAdminCode())
+                    .dateOfBirth(profile.getDateOfBirth())
+                    .nic(profile.getNic())
                     .build();
         }
     }

@@ -1,39 +1,31 @@
 package com.mentify.service;
 
-import com.mentify.dto.AdminRegisterUserRequest;
+import com.mentify.dto.SuperAdminRegisterAdminRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.entity.User;
-import com.mentify.enums.AccountStatus;
+import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
-import com.mentify.exception.InvalidUserStateException;
-import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
-import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserRegistrationService {
+public class AdminRegistrationService {
 
     private final UserRepository userRepository;
     private final KeycloakUserService keycloakUserService;
-    private final RegistrationRequestValidator registrationRequestValidator;
     private final UserRegistrationFactory userRegistrationFactory;
     private final PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
 
     @Transactional
-    public UserRegistrationResponse registerUser(AdminRegisterUserRequest request) {
-        registrationRequestValidator.validate(request);
-
+    public UserRegistrationResponse registerAdmin(SuperAdminRegisterAdminRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Email already exists");
         }
@@ -43,9 +35,9 @@ public class UserRegistrationService {
         try {
             keycloakUserId = keycloakUserService.createUser(KeycloakUserProvisionRequest.from(request));
 
-            keycloakUserService.assignRealmRole(keycloakUserId, request.getRole().name());
+            keycloakUserService.assignRealmRole(keycloakUserId, Role.ADMIN.name());
 
-            User user = userRegistrationFactory.create(request, keycloakUserId);
+            User user = userRegistrationFactory.createAdmin(request, keycloakUserId);
             User savedUser = userRepository.saveAndFlush(user);
             passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
 
@@ -54,22 +46,6 @@ public class UserRegistrationService {
             compensateKeycloakUserCreation(keycloakUserId, exception);
             throw exception;
         }
-    }
-
-    @Transactional(readOnly = true)
-    public void resendInvitation(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        if (user.getAccountStatus() != AccountStatus.INVITED) {
-            throw new InvalidUserStateException("Invitation can only be resent for invited users");
-        }
-
-        if (user.getKeycloakUserId() == null || user.getKeycloakUserId().isBlank()) {
-            throw new InvalidUserStateException("User is not linked to Keycloak");
-        }
-
-        keycloakUserService.sendPasswordSetupEmail(user.getKeycloakUserId());
     }
 
     private void compensateKeycloakUserCreation(String keycloakUserId, Exception originalException) {
@@ -81,7 +57,7 @@ public class UserRegistrationService {
             keycloakUserService.deleteUser(keycloakUserId);
         } catch (Exception deleteException) {
             originalException.addSuppressed(deleteException);
-            log.warn("Failed to delete Keycloak user {} during registration compensation", keycloakUserId, deleteException);
+            log.warn("Failed to delete Keycloak user {} during admin registration compensation", keycloakUserId, deleteException);
         }
     }
 }

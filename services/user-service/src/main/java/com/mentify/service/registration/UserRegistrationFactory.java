@@ -2,6 +2,8 @@ package com.mentify.service.registration;
 
 import com.mentify.dto.AddressDto;
 import com.mentify.dto.AdminRegisterUserRequest;
+import com.mentify.dto.SuperAdminRegisterAdminRequest;
+import com.mentify.entity.AdminProfile;
 import com.mentify.entity.Address;
 import com.mentify.entity.StudentProfile;
 import com.mentify.entity.TeacherProfile;
@@ -17,10 +19,30 @@ public class UserRegistrationFactory {
 
     private final StudentIdGenerator studentIdGenerator;
     private final TeacherCodeGenerator teacherCodeGenerator;
+    private final AdminCodeGenerator adminCodeGenerator;
 
     public User create(AdminRegisterUserRequest request, String keycloakUserId) {
         User user = buildUser(request, keycloakUserId);
         attachRoleProfile(user, request);
+        attachAddress(user, request.getAddress());
+        return user;
+    }
+
+    public User createAdmin(SuperAdminRegisterAdminRequest request, String keycloakUserId) {
+        User user = User.builder()
+                .keycloakUserId(keycloakUserId)
+                .email(request.getEmail())
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .phoneNumber(request.getPhoneNumber())
+                .role(Role.ADMIN)
+                .accountStatus(AccountStatus.INVITED)
+                .accountNonLocked(true)
+                .emailVerified(false)
+                .loginAttempts(0)
+                .build();
+
+        attachAdminProfile(user, request);
         attachAddress(user, request.getAddress());
         return user;
     }
@@ -78,6 +100,19 @@ public class UserRegistrationFactory {
                 .nic(profileRequest.getNic())
                 .specialization(profileRequest.getSpecialization())
                 .hireDate(profileRequest.getHireDate())
+                .build());
+    }
+
+    private void attachAdminProfile(User user, SuperAdminRegisterAdminRequest request) {
+        SuperAdminRegisterAdminRequest.AdminProfileRequest profileRequest = request.getAdminProfile();
+
+        user.setAdminProfile(AdminProfile.builder()
+                .adminCode(adminCodeGenerator.generate())
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .dateOfBirth(profileRequest.getDateOfBirth())
+                .phoneNumber(request.getPhoneNumber())
+                .nic(profileRequest.getNic())
                 .build());
     }
 

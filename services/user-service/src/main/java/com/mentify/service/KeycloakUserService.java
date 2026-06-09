@@ -1,10 +1,10 @@
 package com.mentify.service;
 
-import com.mentify.dto.AdminRegisterUserRequest;
+import com.mentify.service.registration.KeycloakUserProvisionRequest;
 
 public interface KeycloakUserService {
 
-    String createUser(AdminRegisterUserRequest request);
+    String createUser(KeycloakUserProvisionRequest request);
 
     void assignRealmRole(String keycloakUserId, String roleName);
 

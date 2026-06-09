@@ -16,6 +16,8 @@ import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.AdminCodeGenerator;
+import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
@@ -61,7 +63,8 @@ class UserRegistrationServiceTest {
         RegistrationRequestValidator validator = new RegistrationRequestValidator();
         StudentIdGenerator studentIdGenerator = new StudentIdGenerator(studentProfileRepository);
         TeacherCodeGenerator teacherCodeGenerator = new TeacherCodeGenerator();
-        UserRegistrationFactory factory = new UserRegistrationFactory(studentIdGenerator, teacherCodeGenerator);
+        AdminCodeGenerator adminCodeGenerator = new AdminCodeGenerator();
+        UserRegistrationFactory factory = new UserRegistrationFactory(studentIdGenerator, teacherCodeGenerator, adminCodeGenerator);
         userRegistrationService = new UserRegistrationService(
                 userRepository,
                 keycloakUserService,
@@ -78,7 +81,7 @@ class UserRegistrationServiceTest {
         UUID localUserId = UUID.randomUUID();
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
         when(studentProfileRepository.findLastStudentNumberByGrade("07")).thenReturn(23);
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -120,7 +123,7 @@ class UserRegistrationServiceTest {
         String keycloakUserId = "keycloak-teacher-id";
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserRegistrationResponse response = userRegistrationService.registerUser(request);
@@ -235,7 +238,7 @@ class UserRegistrationServiceTest {
         AdminRegisterUserRequest request = validRequest(Role.STUDENT);
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(keycloakUserService.createUser(request))
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class)))
                 .thenThrow(new KeycloakUserCreationException("Failed to create user in Keycloak"));
 
         assertThatThrownBy(() -> userRegistrationService.registerUser(request))
@@ -251,7 +254,7 @@ class UserRegistrationServiceTest {
         String keycloakUserId = "keycloak-user-id";
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
         org.mockito.Mockito.doThrow(new KeycloakRoleAssignmentException("Role missing"))
                 .when(keycloakUserService)
                 .assignRealmRole(keycloakUserId, "STUDENT");
@@ -269,7 +272,7 @@ class UserRegistrationServiceTest {
         String keycloakUserId = "keycloak-user-id";
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
         when(studentProfileRepository.findLastStudentNumberByGrade("07")).thenReturn(23);
         when(userRepository.saveAndFlush(any(User.class))).thenThrow(new DataIntegrityViolationException("DB failure"));
 
