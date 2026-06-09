@@ -8,6 +8,7 @@ import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
+import com.mentify.repository.AdminProfileRepository;
 import com.mentify.repository.UserRepository;
 import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.service.registration.AdminCodeGenerator;
@@ -50,6 +51,9 @@ class AdminRegistrationServiceTest {
     private TeacherProfileRepository teacherProfileRepository;
 
     @Mock
+    private AdminProfileRepository adminProfileRepository;
+
+    @Mock
     private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
 
     private AdminRegistrationService adminRegistrationService;
@@ -59,7 +63,7 @@ class AdminRegistrationServiceTest {
         UserRegistrationFactory factory = new UserRegistrationFactory(
                 studentIdGenerator,
                 new TeacherCodeGenerator(teacherProfileRepository),
-                new AdminCodeGenerator()
+                new AdminCodeGenerator(adminProfileRepository)
         );
 
         adminRegistrationService = new AdminRegistrationService(
@@ -78,6 +82,7 @@ class AdminRegistrationServiceTest {
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
+        when(adminProfileRepository.findLastAdminNumber()).thenReturn(4);
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setId(localUserId);
@@ -92,7 +97,7 @@ class AdminRegistrationServiceTest {
         assertThat(response.getRole()).isEqualTo(Role.ADMIN);
         assertThat(response.getAccountStatus()).isEqualTo(AccountStatus.INVITED);
         assertThat(response.getAdminProfile()).isNotNull();
-        assertThat(response.getAdminProfile().getAdminCode()).startsWith("ADM-");
+        assertThat(response.getAdminProfile().getAdminCode()).isEqualTo("TIT-ADM-005");
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "ADMIN");
         verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);

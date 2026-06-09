@@ -13,6 +13,7 @@ import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.exception.ResourceNotFoundException;
+import com.mentify.repository.AdminProfileRepository;
 import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.repository.UserRepository;
@@ -56,6 +57,9 @@ class UserRegistrationServiceTest {
     private TeacherProfileRepository teacherProfileRepository;
 
     @Mock
+    private AdminProfileRepository adminProfileRepository;
+
+    @Mock
     private KeycloakUserService keycloakUserService;
 
     @Mock
@@ -68,7 +72,7 @@ class UserRegistrationServiceTest {
         RegistrationRequestValidator validator = new RegistrationRequestValidator();
         StudentIdGenerator studentIdGenerator = new StudentIdGenerator(studentProfileRepository);
         TeacherCodeGenerator teacherCodeGenerator = new TeacherCodeGenerator(teacherProfileRepository);
-        AdminCodeGenerator adminCodeGenerator = new AdminCodeGenerator();
+        AdminCodeGenerator adminCodeGenerator = new AdminCodeGenerator(adminProfileRepository);
         UserRegistrationFactory factory = new UserRegistrationFactory(studentIdGenerator, teacherCodeGenerator, adminCodeGenerator);
         userRegistrationService = new UserRegistrationService(
                 userRepository,
