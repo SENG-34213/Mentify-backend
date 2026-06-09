@@ -9,8 +9,10 @@ import com.mentify.enums.AttendanceMode;
 import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidRoleException;
+import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
+import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
@@ -27,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -276,6 +279,60 @@ class UserRegistrationServiceTest {
         verify(keycloakUserService).deleteUser(keycloakUserId);
     }
 
+    @Test
+    void resendInvitation_whenUserIsInvited_sendsPasswordSetupEmail() {
+        UUID userId = UUID.randomUUID();
+        User user = invitedUser(userId, "keycloak-user-id");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        userRegistrationService.resendInvitation(userId);
+
+        verify(keycloakUserService).sendPasswordSetupEmail("keycloak-user-id");
+    }
+
+    @Test
+    void resendInvitation_whenUserDoesNotExist_throwsResourceNotFoundException() {
+        UUID userId = UUID.randomUUID();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userRegistrationService.resendInvitation(userId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("User not found");
+
+        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+    }
+
+    @Test
+    void resendInvitation_whenUserIsNotInvited_throwsInvalidUserStateException() {
+        UUID userId = UUID.randomUUID();
+        User user = invitedUser(userId, "keycloak-user-id");
+        user.setAccountStatus(AccountStatus.ACTIVE);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userRegistrationService.resendInvitation(userId))
+                .isInstanceOf(InvalidUserStateException.class)
+                .hasMessage("Invitation can only be resent for invited users");
+
+        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+    }
+
+    @Test
+    void resendInvitation_whenUserIsNotLinkedToKeycloak_throwsInvalidUserStateException() {
+        UUID userId = UUID.randomUUID();
+        User user = invitedUser(userId, null);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userRegistrationService.resendInvitation(userId))
+                .isInstanceOf(InvalidUserStateException.class)
+                .hasMessage("User is not linked to Keycloak");
+
+        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+    }
+
     private AdminRegisterUserRequest validRequest(Role role) {
         return new AdminRegisterUserRequest(
                 "student@gmail.com",
@@ -316,5 +373,18 @@ class UserRegistrationServiceTest {
                 .district("Colombo")
                 .postalCode("00100")
                 .build();
+    }
+
+    private User invitedUser(UUID userId, String keycloakUserId) {
+        User user = User.builder()
+                .keycloakUserId(keycloakUserId)
+                .email("student@gmail.com")
+                .firstName("Kamal")
+                .lastName("Perera")
+                .role(Role.STUDENT)
+                .accountStatus(AccountStatus.INVITED)
+                .build();
+        user.setId(userId);
+        return user;
     }
 }

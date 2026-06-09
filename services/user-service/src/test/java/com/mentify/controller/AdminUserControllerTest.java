@@ -121,6 +121,53 @@ class AdminUserControllerTest {
         verify(userRegistrationService).registerUser(any(AdminRegisterUserRequest.class));
     }
 
+    @Test
+    void resendInvitation_whenUnauthenticated_returnsUnauthorized() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userRegistrationService);
+    }
+
+    @Test
+    void resendInvitation_whenStudentRole_returnsForbidden() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(userRegistrationService);
+    }
+
+    @Test
+    void resendInvitation_whenAdminRole_returnsOk() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("Invitation email sent successfully."))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(userRegistrationService).resendInvitation(userId);
+    }
+
+    @Test
+    void resendInvitation_whenSuperAdminRole_returnsOk() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Invitation email sent successfully."));
+
+        verify(userRegistrationService).resendInvitation(userId);
+    }
+
     private AdminRegisterUserRequest validRequest(Role role) {
         return new AdminRegisterUserRequest(
                 "student@gmail.com",

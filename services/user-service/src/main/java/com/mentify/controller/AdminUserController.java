@@ -10,9 +10,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
@@ -33,6 +36,20 @@ public class AdminUserController {
                         HttpStatus.CREATED.value(),
                         "User registered successfully. Password setup email will be sent.",
                         response
+                )
+        );
+    }
+
+    @PostMapping("/{userId}/resend-invitation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> resendInvitation(@PathVariable UUID userId) {
+        userRegistrationService.resendInvitation(userId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "Invitation email sent successfully.",
+                        null
                 )
         );
     }

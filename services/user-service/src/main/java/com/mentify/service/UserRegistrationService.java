@@ -3,7 +3,10 @@ package com.mentify.service;
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.entity.User;
+import com.mentify.enums.AccountStatus;
 import com.mentify.exception.DuplicateResourceException;
+import com.mentify.exception.InvalidUserStateException;
+import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
 import com.mentify.service.registration.RegistrationRequestValidator;
@@ -12,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -48,6 +53,22 @@ public class UserRegistrationService {
             compensateKeycloakUserCreation(keycloakUserId, exception);
             throw exception;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public void resendInvitation(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getAccountStatus() != AccountStatus.INVITED) {
+            throw new InvalidUserStateException("Invitation can only be resent for invited users");
+        }
+
+        if (user.getKeycloakUserId() == null || user.getKeycloakUserId().isBlank()) {
+            throw new InvalidUserStateException("User is not linked to Keycloak");
+        }
+
+        keycloakUserService.sendPasswordSetupEmail(user.getKeycloakUserId());
     }
 
     private void compensateKeycloakUserCreation(String keycloakUserId, Exception originalException) {

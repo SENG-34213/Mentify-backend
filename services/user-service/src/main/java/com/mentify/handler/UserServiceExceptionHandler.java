@@ -3,9 +3,11 @@ package com.mentify.handler;
 import com.mentify.dto.ErrorResponse;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidRoleException;
+import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
+import com.mentify.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -39,6 +41,22 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(
+            ResourceNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidUserStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidUserState(
+            InvalidUserStateException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
     @ExceptionHandler(KeycloakUserCreationException.class)
