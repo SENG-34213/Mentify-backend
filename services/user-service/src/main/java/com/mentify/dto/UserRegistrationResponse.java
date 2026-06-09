@@ -14,6 +14,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -91,7 +92,7 @@ public class UserRegistrationResponse {
         private String teacherCode;
         private LocalDate dateOfBirth;
         private String nic;
-        private String specialization;
+        private List<String> specializations;
         private LocalDate hireDate;
 
         public static TeacherProfileResponse from(TeacherProfile profile) {
@@ -104,7 +105,7 @@ public class UserRegistrationResponse {
                     .teacherCode(profile.getTeacherCode())
                     .dateOfBirth(profile.getDateOfBirth())
                     .nic(profile.getNic())
-                    .specialization(profile.getSpecialization())
+                    .specializations(profile.getSpecializations())
                     .hireDate(profile.getHireDate())
                     .build();
         }

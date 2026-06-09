@@ -13,6 +13,9 @@ import com.mentify.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class UserRegistrationFactory {
@@ -90,6 +93,7 @@ public class UserRegistrationFactory {
 
     private void attachTeacherProfile(User user, AdminRegisterUserRequest request) {
         AdminRegisterUserRequest.TeacherProfileRequest profileRequest = request.getTeacherProfile();
+        List<String> specializations = normalizeSpecializations(profileRequest.getSpecializations());
 
         user.setTeacherProfile(TeacherProfile.builder()
                 .teacherCode(teacherCodeGenerator.generate())
@@ -98,9 +102,21 @@ public class UserRegistrationFactory {
                 .dateOfBirth(profileRequest.getDateOfBirth())
                 .phoneNumber(request.getPhoneNumber())
                 .nic(profileRequest.getNic())
-                .specialization(profileRequest.getSpecialization())
+                .specializations(specializations)
                 .hireDate(profileRequest.getHireDate())
                 .build());
+    }
+
+    private List<String> normalizeSpecializations(List<String> specializations) {
+        if (specializations == null) {
+            return new ArrayList<>();
+        }
+
+        return specializations.stream()
+                .filter(specialization -> specialization != null && !specialization.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
     }
 
     private void attachAdminProfile(User user, SuperAdminRegisterAdminRequest request) {

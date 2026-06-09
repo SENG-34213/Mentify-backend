@@ -24,6 +24,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -238,7 +239,7 @@ class AdminUserControllerTest {
         return new AdminRegisterUserRequest.TeacherProfileRequest(
                 LocalDate.of(1990, 2, 20),
                 "901234567V",
-                "Mathematics",
+                List.of("Mathematics", "Physics"),
                 LocalDate.of(2026, 6, 9)
         );
     }

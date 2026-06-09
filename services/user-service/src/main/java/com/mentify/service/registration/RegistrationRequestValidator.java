@@ -41,5 +41,10 @@ public class RegistrationRequestValidator {
         if (request.getStudentProfile() != null) {
             throw new InvalidRoleException("Student profile details are not allowed when registering a TEACHER");
         }
+        if (request.getTeacherProfile().getSpecializations() == null
+                || request.getTeacherProfile().getSpecializations().isEmpty()
+                || request.getTeacherProfile().getSpecializations().stream().anyMatch(specialization -> specialization == null || specialization.isBlank())) {
+            throw new InvalidRoleException("At least one valid teacher specialization is required");
+        }
     }
 }

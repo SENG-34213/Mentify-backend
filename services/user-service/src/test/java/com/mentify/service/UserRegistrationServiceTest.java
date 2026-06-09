@@ -14,6 +14,7 @@ import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.StudentProfileRepository;
+import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
 import com.mentify.service.registration.AdminCodeGenerator;
@@ -31,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,6 +53,9 @@ class UserRegistrationServiceTest {
     private StudentProfileRepository studentProfileRepository;
 
     @Mock
+    private TeacherProfileRepository teacherProfileRepository;
+
+    @Mock
     private KeycloakUserService keycloakUserService;
 
     @Mock
@@ -62,7 +67,7 @@ class UserRegistrationServiceTest {
     void setUp() {
         RegistrationRequestValidator validator = new RegistrationRequestValidator();
         StudentIdGenerator studentIdGenerator = new StudentIdGenerator(studentProfileRepository);
-        TeacherCodeGenerator teacherCodeGenerator = new TeacherCodeGenerator();
+        TeacherCodeGenerator teacherCodeGenerator = new TeacherCodeGenerator(teacherProfileRepository);
         AdminCodeGenerator adminCodeGenerator = new AdminCodeGenerator();
         UserRegistrationFactory factory = new UserRegistrationFactory(studentIdGenerator, teacherCodeGenerator, adminCodeGenerator);
         userRegistrationService = new UserRegistrationService(
@@ -124,6 +129,7 @@ class UserRegistrationServiceTest {
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
+        when(teacherProfileRepository.findLastTeacherNumber()).thenReturn(4);
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserRegistrationResponse response = userRegistrationService.registerUser(request);
@@ -135,9 +141,10 @@ class UserRegistrationServiceTest {
         verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getTeacherProfile()).isNotNull();
-        assertThat(savedUser.getTeacherProfile().getTeacherCode()).startsWith("TCH-");
+        assertThat(savedUser.getTeacherProfile().getTeacherCode()).isEqualTo("TIT-TCH-005");
         assertThat(savedUser.getTeacherProfile().getNic()).isEqualTo(request.getTeacherProfile().getNic());
-        assertThat(savedUser.getTeacherProfile().getSpecialization()).isEqualTo(request.getTeacherProfile().getSpecialization());
+        assertThat(savedUser.getTeacherProfile().getSpecializations())
+                .containsExactly("Mathematics", "Physics");
         assertThat(savedUser.getAddress()).isNotNull();
         assertThat(savedUser.getAddress().getCity()).isEqualTo(request.getAddress().getCity());
 
@@ -363,7 +370,7 @@ class UserRegistrationServiceTest {
         return new AdminRegisterUserRequest.TeacherProfileRequest(
                 LocalDate.of(1990, 2, 20),
                 "901234567V",
-                "Mathematics",
+                List.of("Mathematics", "Physics"),
                 LocalDate.of(2026, 6, 9)
         );
     }

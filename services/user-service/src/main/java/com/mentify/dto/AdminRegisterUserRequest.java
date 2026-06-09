@@ -8,12 +8,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -84,7 +86,9 @@ public class AdminRegisterUserRequest {
 
         private String nic;
 
-        private String specialization;
+        @NotNull(message = "At least one specialization is required")
+        @Size(min = 1, message = "At least one specialization is required")
+        private List<@NotBlank(message = "Specialization cannot be blank") String> specializations;
 
         private LocalDate hireDate;
     }

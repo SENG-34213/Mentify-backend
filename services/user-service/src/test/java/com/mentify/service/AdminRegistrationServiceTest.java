@@ -9,6 +9,7 @@ import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.repository.UserRepository;
+import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.service.registration.AdminCodeGenerator;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
@@ -46,6 +47,9 @@ class AdminRegistrationServiceTest {
     private StudentIdGenerator studentIdGenerator;
 
     @Mock
+    private TeacherProfileRepository teacherProfileRepository;
+
+    @Mock
     private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
 
     private AdminRegistrationService adminRegistrationService;
@@ -54,7 +58,7 @@ class AdminRegistrationServiceTest {
     void setUp() {
         UserRegistrationFactory factory = new UserRegistrationFactory(
                 studentIdGenerator,
-                new TeacherCodeGenerator(),
+                new TeacherCodeGenerator(teacherProfileRepository),
                 new AdminCodeGenerator()
         );
 
