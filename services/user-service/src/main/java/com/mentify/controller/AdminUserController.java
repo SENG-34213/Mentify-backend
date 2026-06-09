@@ -31,7 +31,7 @@ public class AdminUserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(
                         HttpStatus.CREATED.value(),
-                        "User registered successfully. Password setup email sent.",
+                        "User registered successfully. Password setup email will be sent.",
                         response
                 )
         );

@@ -98,7 +98,7 @@ class AdminUserControllerTest {
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.statusCode").value(201))
-                .andExpect(jsonPath("$.message").value("User registered successfully. Password setup email sent."))
+                .andExpect(jsonPath("$.message").value("User registered successfully. Password setup email will be sent."))
                 .andExpect(jsonPath("$.data.email").value("student@gmail.com"))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"))
                 .andExpect(jsonPath("$.data.accountStatus").value("INVITED"));

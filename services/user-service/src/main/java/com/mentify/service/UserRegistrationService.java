@@ -5,6 +5,7 @@ import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.entity.User;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.repository.UserRepository;
+import com.mentify.service.registration.PasswordSetupEmailDispatcher;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class UserRegistrationService {
     private final KeycloakUserService keycloakUserService;
     private final RegistrationRequestValidator registrationRequestValidator;
     private final UserRegistrationFactory userRegistrationFactory;
+    private final PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
 
     @Transactional
     public UserRegistrationResponse registerUser(AdminRegisterUserRequest request) {
@@ -36,10 +38,11 @@ public class UserRegistrationService {
             keycloakUserId = keycloakUserService.createUser(request);
 
             keycloakUserService.assignRealmRole(keycloakUserId, request.getRole().name());
-            keycloakUserService.sendPasswordSetupEmail(keycloakUserId);
 
             User user = userRegistrationFactory.create(request, keycloakUserId);
-            User savedUser = userRepository.save(user);
+            User savedUser = userRepository.saveAndFlush(user);
+            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
+
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {
             compensateKeycloakUserCreation(keycloakUserId, exception);

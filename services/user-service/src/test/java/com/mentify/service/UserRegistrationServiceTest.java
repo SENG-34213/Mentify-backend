@@ -9,11 +9,11 @@ import com.mentify.enums.AttendanceMode;
 import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidRoleException;
-import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.UserRepository;
+import com.mentify.service.registration.PasswordSetupEmailDispatcher;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
@@ -48,6 +48,9 @@ class UserRegistrationServiceTest {
     @Mock
     private KeycloakUserService keycloakUserService;
 
+    @Mock
+    private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+
     private UserRegistrationService userRegistrationService;
 
     @BeforeEach
@@ -60,7 +63,8 @@ class UserRegistrationServiceTest {
                 userRepository,
                 keycloakUserService,
                 validator,
-                factory
+                factory,
+                passwordSetupEmailDispatcher
         );
     }
 
@@ -73,7 +77,7 @@ class UserRegistrationServiceTest {
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
         when(studentProfileRepository.findLastStudentNumberByGrade("07")).thenReturn(23);
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setId(localUserId);
             return user;
@@ -88,10 +92,10 @@ class UserRegistrationServiceTest {
         assertThat(response.getAccountStatus()).isEqualTo(AccountStatus.INVITED);
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "STUDENT");
-        verify(keycloakUserService).sendPasswordSetupEmail(keycloakUserId);
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
+        verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getPassword()).isNull();
         assertThat(savedUser.getFirstName()).isEqualTo(request.getFirstName());
@@ -114,7 +118,7 @@ class UserRegistrationServiceTest {
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserRegistrationResponse response = userRegistrationService.registerUser(request);
 
@@ -122,7 +126,7 @@ class UserRegistrationServiceTest {
         assertThat(response.getAccountStatus()).isEqualTo(AccountStatus.INVITED);
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
+        verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getTeacherProfile()).isNotNull();
         assertThat(savedUser.getTeacherProfile().getTeacherCode()).startsWith("TCH-");
@@ -132,7 +136,7 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getAddress().getCity()).isEqualTo(request.getAddress().getCity());
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "TEACHER");
-        verify(keycloakUserService).sendPasswordSetupEmail(keycloakUserId);
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
     }
 
     @Test
@@ -235,7 +239,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(KeycloakUserCreationException.class);
 
         verify(keycloakUserService, never()).deleteUser(any());
-        verify(userRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -253,25 +257,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(KeycloakRoleAssignmentException.class);
 
         verify(keycloakUserService).deleteUser(keycloakUserId);
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void registerUser_whenPasswordSetupEmailFails_deletesCreatedKeycloakUser() {
-        AdminRegisterUserRequest request = validRequest(Role.STUDENT);
-        String keycloakUserId = "keycloak-user-id";
-
-        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
-        org.mockito.Mockito.doThrow(new KeycloakEmailActionException("Email failed"))
-                .when(keycloakUserService)
-                .sendPasswordSetupEmail(keycloakUserId);
-
-        assertThatThrownBy(() -> userRegistrationService.registerUser(request))
-                .isInstanceOf(KeycloakEmailActionException.class);
-
-        verify(keycloakUserService).deleteUser(keycloakUserId);
-        verify(userRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -282,7 +268,7 @@ class UserRegistrationServiceTest {
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
         when(studentProfileRepository.findLastStudentNumberByGrade("07")).thenReturn(23);
-        when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("DB failure"));
+        when(userRepository.saveAndFlush(any(User.class))).thenThrow(new DataIntegrityViolationException("DB failure"));
 
         assertThatThrownBy(() -> userRegistrationService.registerUser(request))
                 .isInstanceOf(DataIntegrityViolationException.class);
