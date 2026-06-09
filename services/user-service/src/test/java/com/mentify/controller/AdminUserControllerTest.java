@@ -140,7 +140,7 @@ class AdminUserControllerTest {
                 "Sunil Perera",
                 "0771112222",
                 AttendanceMode.PHYSICAL,
-                "grade-10-chat"
+                "7"
         );
     }
 

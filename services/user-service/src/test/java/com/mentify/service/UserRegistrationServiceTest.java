@@ -12,11 +12,16 @@ import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
+import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.UserRepository;
+import com.mentify.service.registration.RegistrationRequestValidator;
+import com.mentify.service.registration.StudentIdGenerator;
+import com.mentify.service.registration.TeacherCodeGenerator;
+import com.mentify.service.registration.UserRegistrationFactory;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,10 +43,26 @@ class UserRegistrationServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private StudentProfileRepository studentProfileRepository;
+
+    @Mock
     private KeycloakUserService keycloakUserService;
 
-    @InjectMocks
     private UserRegistrationService userRegistrationService;
+
+    @BeforeEach
+    void setUp() {
+        RegistrationRequestValidator validator = new RegistrationRequestValidator();
+        StudentIdGenerator studentIdGenerator = new StudentIdGenerator(studentProfileRepository);
+        TeacherCodeGenerator teacherCodeGenerator = new TeacherCodeGenerator();
+        UserRegistrationFactory factory = new UserRegistrationFactory(studentIdGenerator, teacherCodeGenerator);
+        userRegistrationService = new UserRegistrationService(
+                userRepository,
+                keycloakUserService,
+                validator,
+                factory
+        );
+    }
 
     @Test
     void registerUser_whenStudentRequestIsValid_createsKeycloakUserAssignsRoleSendsEmailAndSavesProfile() {
@@ -51,6 +72,7 @@ class UserRegistrationServiceTest {
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
+        when(studentProfileRepository.findLastStudentNumberByGrade("07")).thenReturn(23);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setId(localUserId);
@@ -76,7 +98,8 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getLastName()).isEqualTo(request.getLastName());
         assertThat(savedUser.getPhoneNumber()).isEqualTo(request.getPhoneNumber());
         assertThat(savedUser.getStudentProfile()).isNotNull();
-        assertThat(savedUser.getStudentProfile().getAdmissionId()).startsWith("STU-");
+        assertThat(savedUser.getStudentProfile().getStudentId()).isEqualTo("TIT-07-24");
+        assertThat(savedUser.getStudentProfile().getGrade()).isEqualTo("07");
         assertThat(savedUser.getStudentProfile().getGuardianName()).isEqualTo(request.getStudentProfile().getGuardianName());
         assertThat(savedUser.getStudentProfile().getGuardianPhone()).isEqualTo(request.getStudentProfile().getGuardianPhone());
         assertThat(savedUser.getStudentProfile().getAttendanceMode()).isEqualTo(request.getStudentProfile().getAttendanceMode());
@@ -258,6 +281,7 @@ class UserRegistrationServiceTest {
 
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(keycloakUserService.createUser(request)).thenReturn(keycloakUserId);
+        when(studentProfileRepository.findLastStudentNumberByGrade("07")).thenReturn(23);
         when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("DB failure"));
 
         assertThatThrownBy(() -> userRegistrationService.registerUser(request))
@@ -285,7 +309,7 @@ class UserRegistrationServiceTest {
                 "Sunil Perera",
                 "0771112222",
                 AttendanceMode.PHYSICAL,
-                "grade-10-chat"
+                "7"
         );
     }
 

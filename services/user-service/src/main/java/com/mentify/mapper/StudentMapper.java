@@ -38,7 +38,8 @@ public class StudentMapper {
                 .guardianName(request.getGuardianName())
                 .guardianPhone(request.getGuardianPhone())
                 .attendanceMode(request.getAttendanceMode())
-                .admissionId("STU-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .grade("00")
+                .studentId("LEGACY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .build();
     }
 

@@ -67,7 +67,9 @@ public class AdminRegisterUserRequest {
         @NotNull(message = "Attendance mode is required")
         private AttendanceMode attendanceMode;
 
-        private String gradeGroupChatId;
+        @NotBlank(message = "Grade is required")
+        @Pattern(regexp = "^[0-9]{1,2}$", message = "Grade must be one or two digits")
+        private String grade;
     }
 
     @Data

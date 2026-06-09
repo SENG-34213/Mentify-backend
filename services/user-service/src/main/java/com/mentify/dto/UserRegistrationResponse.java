@@ -55,12 +55,12 @@ public class UserRegistrationResponse {
     @AllArgsConstructor
     public static class StudentProfileResponse {
         private UUID id;
-        private String admissionId;
+        private String studentId;
+        private String grade;
         private LocalDate dateOfBirth;
         private String guardianName;
         private String guardianPhone;
         private AttendanceMode attendanceMode;
-        private String gradeGroupChatId;
 
         public static StudentProfileResponse from(StudentProfile profile) {
             if (profile == null) {
@@ -69,12 +69,12 @@ public class UserRegistrationResponse {
 
             return StudentProfileResponse.builder()
                     .id(profile.getId())
-                    .admissionId(profile.getAdmissionId())
+                    .studentId(profile.getStudentId())
+                    .grade(profile.getGrade())
                     .dateOfBirth(profile.getDateOfBirth())
                     .guardianName(profile.getGuardianName())
                     .guardianPhone(profile.getGuardianPhone())
                     .attendanceMode(profile.getAttendanceMode())
-                    .gradeGroupChatId(profile.getGradeGroupChatId())
                     .build();
         }
     }
