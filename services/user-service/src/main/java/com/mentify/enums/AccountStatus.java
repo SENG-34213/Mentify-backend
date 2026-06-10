@@ -6,15 +6,14 @@ package com.mentify.enums;
  */
 public enum AccountStatus {
     /**
+     * The account has been invited through Keycloak and is waiting for setup.
+     */
+    INVITED,
+
+    /**
      * The account is active and the user can log in.
      */
     ACTIVE,
-
-    /**
-     * The account has been created but is not yet active (e.g., pending email verification).
-     * It can also be manually deactivated by an admin.
-     */
-    INACTIVE,
 
     /**
      * The account is temporarily suspended by an admin. The user cannot log in,
@@ -23,14 +22,7 @@ public enum AccountStatus {
     SUSPENDED,
 
     /**
-     * The account is permanently blocked, usually due to a violation of terms.
-     * This is a more severe state than SUSPENDED.
+     * The account is disabled and cannot be used.
      */
-    BLOCKED,
-
-    /**
-     * The account is awaiting approval from an administrator before it can become active.
-     * Useful for systems with manual vetting processes.
-     */
-    PENDING_APPROVAL
+    DISABLED
 }

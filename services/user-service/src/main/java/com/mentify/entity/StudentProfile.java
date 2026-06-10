@@ -24,8 +24,11 @@ public class StudentProfile extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(unique = true, length = 50)
-    private String admissionId;
+    @Column(unique = true, length = 20)
+    private String studentId;
+
+    @Column(nullable = false, length = 2)
+    private String grade;
 
     @Column(nullable = false, length = 50)
     private String firstName;
@@ -50,9 +53,6 @@ public class StudentProfile extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private AttendanceMode attendanceMode;
-
-    @Column(length = 100)
-    private String gradeGroupChatId;
 
     /**
      * Helper to get the full name of the student.

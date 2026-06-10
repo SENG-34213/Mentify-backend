@@ -91,6 +91,7 @@ Current registers:
 
 ```txt
 docs/testing/TEST_REGISTER_KEYCLOAK_AUTH.md
+docs/testing/ADMIN_USER_REGISTRATION_FLOW.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:

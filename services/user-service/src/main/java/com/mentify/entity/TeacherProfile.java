@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.time.LocalDate;
 
 @Entity
@@ -41,8 +43,14 @@ public class TeacherProfile extends BaseEntity {
     @Column(length = 20)
     private String phoneNumber;
 
-    @Column(length = 100)
-    private String specialization;
+    @ElementCollection
+    @CollectionTable(
+            name = "teacher_specializations",
+            joinColumns = @JoinColumn(name = "teacher_profile_id")
+    )
+    @Column(name = "specialization", nullable = false, length = 100)
+    @Builder.Default
+    private List<String> specializations = new ArrayList<>();
 
     private LocalDate hireDate;
 }

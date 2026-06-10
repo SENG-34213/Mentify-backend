@@ -24,11 +24,5 @@ public enum Role {
      * A super-administrator with the highest level of permissions, capable of managing
      * the entire system, including other admins.
      */
-    SUPER_ADMIN,
-
-    /**
-     * A support role with specific, often read-only, permissions to assist users
-     * and troubleshoot issues.
-     */
-    SUPPORT
+    SUPER_ADMIN
 }

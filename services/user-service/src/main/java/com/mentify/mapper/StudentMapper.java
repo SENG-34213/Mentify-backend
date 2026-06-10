@@ -18,7 +18,9 @@ public class StudentMapper {
     public User toUserEntity(StudentRegistrationRequest request) {
         return User.builder()
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .phoneNumber(request.getPhoneNumber())
                 .role(Role.STUDENT)
                 .accountStatus(AccountStatus.ACTIVE)
                 .accountNonLocked(true)
@@ -36,7 +38,8 @@ public class StudentMapper {
                 .guardianName(request.getGuardianName())
                 .guardianPhone(request.getGuardianPhone())
                 .attendanceMode(request.getAttendanceMode())
-                .admissionId("STU-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .grade("00")
+                .studentId("LEGACY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .build();
     }
 
