@@ -25,7 +25,7 @@ public class CourseResponse {
     private UUID assignedTeacherId;
     private UUID gradeId;
     private boolean isPublished;
-    private CourseStatus CourseStatus;
+    private CourseStatus courseStatus;
     private LocalDate publishedDate;
     private int numberOfStudents;
     private UUID createdBy;

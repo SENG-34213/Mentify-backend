@@ -44,6 +44,7 @@ public class CourseMapper {
                 .assignedTeacherId(course.getAssignedTeacherId())
                 .gradeId(course.getGradeId())
                 .isPublished(course.isPublished())
+                .courseStatus(course.getStatus())
                 .publishedDate(course.getPublishedDate())
                 .createdBy(course.getCreatedBy())
                 .lastModifiedBy(course.getUpdatedBy())
