@@ -33,7 +33,7 @@ public class CourseRequest {
     @DecimalMin(value = "0.0", inclusive = false, message = "Monthly fee must be greater than zero")
     private BigDecimal courseFeeMonthly;
 
-    @NotBlank(message = "Grade ID is required")
+    @NotNull(message = "Grade ID is required")
     private UUID gradeId;
 
     @NotNull(message = "Assigned teacher ID is required.")
