@@ -52,6 +52,7 @@ public class Course extends BaseEntity {
     private UUID gradeId;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isPublished = false;
 
     private LocalDate publishedDate;
