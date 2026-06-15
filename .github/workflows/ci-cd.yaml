@@ -355,6 +355,7 @@
         - name: Install Gitleaks CLI
           run: |
             curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
+            gitleaks version
 
         - name: Secret Scan - Gitleaks CLI
           run: |
