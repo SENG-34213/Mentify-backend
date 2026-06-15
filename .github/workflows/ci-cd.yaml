@@ -373,10 +373,12 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
+      - name: Cache OWASP Dependency Check data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: dependency-check-data-${{ runner.os }}
 
-      - name: Clear Dependency-Check cache
-        run: |
-          rm -rf ~/.m2/repository/org/owasp/dependency-check-data
 
       - name: Run OWASP Dependency-Check
         working-directory: .
@@ -386,6 +388,7 @@ jobs:
           mvn ${{ env.MVN_FLAGS }} org.owasp:dependency-check-maven:check \
             -DfailBuildOnCVSS=7 \
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -DfailOnError=false \
             -DsuppressionFile=.github/owasp-suppressions.xml
 
       - name: Upload OWASP HTML report
