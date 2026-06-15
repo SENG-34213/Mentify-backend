@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -72,8 +73,8 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.data.courseName").value("Mathematics"))
                 .andExpect(jsonPath("$.data.courseDescription").value("Grade 10 mathematics"))
                 .andExpect(jsonPath("$.data.courseStatus").value("DRAFT"))
-                .andExpect(jsonPath("$.data.published").value(false))
-                .andExpect(jsonPath("$.data.numberOfStudents").value(0));
+                .andExpect(jsonPath("$.data.published").value(Optional.of(false)))
+                .andExpect(jsonPath("$.data.numberOfStudents").value(Optional.of(0)));
 
         verify(courseService).createCourse(any(CourseRequest.class));
     }
