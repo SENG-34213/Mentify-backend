@@ -1,438 +1,473 @@
-name: Mentify Spring CI/CD
+  name: Mentify Spring CI/CD
 
-on:
-  push:
-    branches:
-      - main
-      - development
-      - feature/**
-      - fix/**
-      - hotfix/**
-      - release/**
-  workflow_dispatch:
+  on:
+    push:
+      branches:
+        - main
+        - development
+        - feature/**
+        - fix/**
+        - hotfix/**
+        - release/**
 
+    pull_request:
+      branches:
+        - main
+        - development
 
-env:
-  JAVA_VERSION: "17"
-  JAVA_DISTRIBUTION: "temurin"
-  ARTIFACT_RETENTION_DAYS: "30"
-  MVN_FLAGS: "-B --no-transfer-progress"
+    workflow_dispatch:
 
-  SPRING_PROFILES_ACTIVE: "test"
-  SPRING_JPA_HIBERNATE_DDL_AUTO: "create-drop"
+    schedule:
+      - cron: "0 18 * * 0" # Weekly OWASP scan - Sunday 18:00 UTC
 
-  SPRING_CONFIG_IMPORT: "optional:configserver:"
-  SPRING_CLOUD_CONFIG_ENABLED: "false"
-  EUREKA_CLIENT_ENABLED: "false"
-  EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
-  EUREKA_CLIENT_FETCH_REGISTRY: "false"
+  concurrency:
+    group: mentify-ci-${{ github.ref }}
+    cancel-in-progress: true
 
-permissions:
-  contents: read
-  checks: write
+  env:
+    JAVA_VERSION: "17"
+    JAVA_DISTRIBUTION: "temurin"
+    ARTIFACT_RETENTION_DAYS: "30"
+    MVN_FLAGS: "-B --no-transfer-progress"
 
-jobs:
-  lint:
-    name: "Lint & Format Check (${{ matrix.service }})"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    SPRING_PROFILES_ACTIVE: "test"
+    SPRING_JPA_HIBERNATE_DDL_AUTO: "create-drop"
 
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - service: config-server
-            path: cloud/config-server
-          - service: service-registry
-            path: cloud/service-registry
-          - service: api-gateway
-            path: cloud/api-gateway
-          - service: user-service
-            path: services/user-service
-          - service: course-service
-            path: services/course-service
+    SPRING_CONFIG_IMPORT: "optional:configserver:"
+    SPRING_CLOUD_CONFIG_ENABLED: "false"
+    EUREKA_CLIENT_ENABLED: "false"
+    EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+    EUREKA_CLIENT_FETCH_REGISTRY: "false"
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  permissions:
+    contents: read
+    checks: write
+    actions: read
 
-      - name: Setup JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
+  jobs:
+    lint:
+      name: "Lint & Format Check (${{ matrix.service }})"
+      runs-on: ubuntu-latest
+      timeout-minutes: 10
 
-      - name: Run Checkstyle
-        working-directory: ${{ matrix.path }}
-        run: mvn ${{ env.MVN_FLAGS }} validate
+      strategy:
+        fail-fast: true
+        matrix:
+          include:
+            - service: config-server
+              path: cloud/config-server
+            - service: service-registry
+              path: cloud/service-registry
+            - service: api-gateway
+              path: cloud/api-gateway
+            - service: user-service
+              path: services/user-service
+            - service: course-service
+              path: services/course-service
 
-  build:
-    name: "Build (${{ matrix.service }})"
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: lint
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - service: config-server
-            path: cloud/config-server
-          - service: service-registry
-            path: cloud/service-registry
-          - service: api-gateway
-            path: cloud/api-gateway
-          - service: user-service
-            path: services/user-service
-          - service: course-service
-            path: services/course-service
+        - name: Setup JDK ${{ env.JAVA_VERSION }}
+          uses: actions/setup-java@v4
+          with:
+            distribution: ${{ env.JAVA_DISTRIBUTION }}
+            java-version: ${{ env.JAVA_VERSION }}
+            cache: maven
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        - name: Run Checkstyle / Validate
+          working-directory: .
+          run: mvn ${{ env.MVN_FLAGS }} validate -pl ${{ matrix.path }} -am
 
-      - name: Setup JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
+    build:
+      name: "Build (${{ matrix.service }})"
+      runs-on: ubuntu-latest
+      timeout-minutes: 15
+      needs: lint
 
-      - name: Compile service
-        working-directory: .
-        run: mvn ${{ env.MVN_FLAGS }} compile -pl ${{ matrix.path }} -am -DskipTests
+      strategy:
+        fail-fast: true
+        matrix:
+          include:
+            - service: config-server
+              path: cloud/config-server
+            - service: service-registry
+              path: cloud/service-registry
+            - service: api-gateway
+              path: cloud/api-gateway
+            - service: user-service
+              path: services/user-service
+            - service: course-service
+              path: services/course-service
 
-      - name: Cache compiled output
-        uses: actions/cache@v4
-        with:
-          path: ${{ matrix.path }}/target
-          key: build-${{ matrix.service }}-${{ github.sha }}
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-  unit-tests:
-    name: "Unit Tests + Coverage (${{ matrix.service }})"
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: build
+        - name: Setup JDK ${{ env.JAVA_VERSION }}
+          uses: actions/setup-java@v4
+          with:
+            distribution: ${{ env.JAVA_DISTRIBUTION }}
+            java-version: ${{ env.JAVA_VERSION }}
+            cache: maven
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: config-server
-            path: cloud/config-server
-          - service: service-registry
-            path: cloud/service-registry
-          - service: api-gateway
-            path: cloud/api-gateway
-          - service: user-service
-            path: services/user-service
-          - service: course-service
-            path: services/course-service
+        - name: Compile service
+          working-directory: .
+          run: mvn ${{ env.MVN_FLAGS }} compile -pl ${{ matrix.path }} -am -DskipTests
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        - name: Cache compiled output
+          uses: actions/cache@v4
+          with:
+            path: ${{ matrix.path }}/target
+            key: build-${{ matrix.service }}-${{ github.sha }}
 
-      - name: Setup JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
+    unit-tests:
+      name: "Unit Tests + Coverage (${{ matrix.service }})"
+      runs-on: ubuntu-latest
+      timeout-minutes: 20
+      needs: build
 
-      - name: Restore compiled output
-        uses: actions/cache@v4
-        with:
-          path: ${{ matrix.path }}/target
-          key: build-${{ matrix.service }}-${{ github.sha }}
+      strategy:
+        fail-fast: false
+        matrix:
+          include:
+            - service: config-server
+              path: cloud/config-server
+            - service: service-registry
+              path: cloud/service-registry
+            - service: api-gateway
+              path: cloud/api-gateway
+            - service: user-service
+              path: services/user-service
+            - service: course-service
+              path: services/course-service
 
-      - name: Run unit tests with JaCoCo
-        working-directory: .
-        run: |
-          mvn ${{ env.MVN_FLAGS }} test \
-            -pl ${{ matrix.path }} -am \
-            -Djacoco.skip=false
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-      - name: Upload JaCoCo HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-unit-${{ matrix.service }}-${{ github.run_number }}
-          path: ${{ matrix.path }}/target/site/jacoco/
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+        - name: Setup JDK ${{ env.JAVA_VERSION }}
+          uses: actions/setup-java@v4
+          with:
+            distribution: ${{ env.JAVA_DISTRIBUTION }}
+            java-version: ${{ env.JAVA_VERSION }}
+            cache: maven
 
-      - name: Upload Surefire XML reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: surefire-unit-${{ matrix.service }}-${{ github.run_number }}
-          path: ${{ matrix.path }}/target/surefire-reports/*.xml
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+        - name: Restore compiled output
+          uses: actions/cache@v4
+          with:
+            path: ${{ matrix.path }}/target
+            key: build-${{ matrix.service }}-${{ github.sha }}
 
-      - name: Publish Unit Test Results
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: ${{ matrix.path }}/target/surefire-reports/*.xml
-          check_name: "Unit Test Results – ${{ matrix.service }}"
-          comment_mode: off
+        - name: Run unit tests with JaCoCo
+          working-directory: .
+          run: |
+            mvn ${{ env.MVN_FLAGS }} test \
+              -pl ${{ matrix.path }} -am \
+              -Djacoco.skip=false
 
-  integration-tests:
-    name: "Integration Tests (${{ matrix.service }})"
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: unit-tests
+        - name: Upload JaCoCo HTML report
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: jacoco-unit-${{ matrix.service }}-${{ github.run_number }}
+            path: ${{ matrix.path }}/target/site/jacoco/
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    if: |
-      github.ref == 'refs/heads/development' ||
-      github.ref == 'refs/heads/main'
+        - name: Upload Surefire XML reports
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: surefire-unit-${{ matrix.service }}-${{ github.run_number }}
+            path: ${{ matrix.path }}/target/surefire-reports/*.xml
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: user-service
-            path: services/user-service
-            server_port: "8081"
-          - service: course-service
-            path: services/course-service
-            server_port: "8082"
-          - service: api-gateway
-            path: cloud/api-gateway
-            server_port: "8080"
-          - service: config-server
-            path: cloud/config-server
-            server_port: "8888"
-          - service: service-registry
-            path: cloud/service-registry
-            server_port: "8761"
+        - name: Publish Unit Test Results
+          if: always()
+          uses: EnricoMi/publish-unit-test-result-action@v2
+          with:
+            files: ${{ matrix.path }}/target/surefire-reports/*.xml
+            check_name: "Unit Test Results – ${{ matrix.service }}"
+            comment_mode: off
 
-    services:
-      postgres-user:
-        image: ${{ vars.POSTGRES_IMAGE }}
-        env:
-          POSTGRES_DB: ${{ vars.USER_DB_NAME }}
-          POSTGRES_USER: ${{ vars.USER_DB_USERNAME }}
-          POSTGRES_PASSWORD: ${{ secrets.CI_USER_DB_PASSWORD }}
-        ports:
-          - ${{ vars.HOST_PORT_USER_DB }}:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    integration-tests:
+      name: "Integration Tests (${{ matrix.service }})"
+      runs-on: ubuntu-latest
+      timeout-minutes: 30
+      needs: unit-tests
 
-      postgres-course:
-        image: ${{ vars.POSTGRES_IMAGE }}
-        env:
-          POSTGRES_DB: ${{ vars.COURSE_DB_NAME }}
-          POSTGRES_USER: ${{ vars.COURSE_DB_USERNAME }}
-          POSTGRES_PASSWORD: ${{ secrets.CI_COURSE_DB_PASSWORD }}
-        ports:
-          - ${{ vars.HOST_PORT_COURSE_DB }}:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+      if: |
+        github.ref == 'refs/heads/development' ||
+        github.ref == 'refs/heads/main' ||
+        github.event_name == 'pull_request'
 
-      postgres-keycloak:
-        image: ${{ vars.POSTGRES_IMAGE }}
-        env:
-          POSTGRES_DB: ${{ vars.KEYCLOAK_DB_NAME }}
-          POSTGRES_USER: ${{ vars.KEYCLOAK_DB_USERNAME }}
-          POSTGRES_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
-        ports:
-          - ${{ vars.HOST_PORT_KEYCLOAK_DB }}:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+      strategy:
+        fail-fast: false
+        matrix:
+          include:
+            - service: user-service
+              path: services/user-service
+              server_port: "8081"
+            - service: course-service
+              path: services/course-service
+              server_port: "8082"
+            - service: api-gateway
+              path: cloud/api-gateway
+              server_port: "8080"
 
-      keycloak:
-        image: ${{ vars.KEYCLOAK_IMAGE }}
-        env:
-          KEYCLOAK_ADMIN: admin
-          KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.CI_KEYCLOAK_ADMIN_PASSWORD }}
-          KC_DB: postgres
-          KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/${{ vars.KEYCLOAK_DB_NAME }}
-          KC_DB_USERNAME: ${{ vars.KEYCLOAK_DB_USERNAME }}
-          KC_DB_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
-          KC_HOSTNAME_STRICT: "false"
-          KC_HTTP_ENABLED: "true"
-          KC_HEALTH_ENABLED: "true"
-        ports:
-          - ${{ vars.HOST_PORT_KEYCLOAK }}:8080
-        options: >-
-          --health-cmd "curl -f http://localhost:8080/health/ready || exit 1"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 12
+      services:
+        postgres-user:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.USER_DB_NAME }}
+            POSTGRES_USER: ${{ vars.USER_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_USER_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_USER_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        postgres-course:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.COURSE_DB_NAME }}
+            POSTGRES_USER: ${{ vars.COURSE_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_COURSE_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_COURSE_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
 
-      - name: Setup JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
+        postgres-keycloak:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.KEYCLOAK_DB_NAME }}
+            POSTGRES_USER: ${{ vars.KEYCLOAK_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_KEYCLOAK_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
 
-      - name: Run integration tests
-        working-directory: .
-        env:
-          SERVER_PORT: ${{ matrix.server_port }}
+        keycloak:
+          image: ${{ vars.KEYCLOAK_IMAGE }}
+          env:
+            KEYCLOAK_ADMIN: admin
+            KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.CI_KEYCLOAK_ADMIN_PASSWORD }}
+            KC_DB: postgres
+            KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/${{ vars.KEYCLOAK_DB_NAME }}
+            KC_DB_USERNAME: ${{ vars.KEYCLOAK_DB_USERNAME }}
+            KC_DB_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
+            KC_HOSTNAME_STRICT: "false"
+            KC_HTTP_ENABLED: "true"
+            KC_HEALTH_ENABLED: "true"
+          ports:
+            - ${{ vars.HOST_PORT_KEYCLOAK }}:8080
 
-          USER_SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${{ vars.HOST_PORT_USER_DB }}/${{ vars.USER_DB_NAME }}
-          USER_SPRING_DATASOURCE_USERNAME: ${{ vars.USER_DB_USERNAME }}
-          USER_SPRING_DATASOURCE_PASSWORD: ${{ secrets.CI_USER_DB_PASSWORD }}
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-          COURSE_SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${{ vars.HOST_PORT_COURSE_DB }}/${{ vars.COURSE_DB_NAME }}
-          COURSE_SPRING_DATASOURCE_USERNAME: ${{ vars.COURSE_DB_USERNAME }}
-          COURSE_SPRING_DATASOURCE_PASSWORD: ${{ secrets.CI_COURSE_DB_PASSWORD }}
+        - name: Setup JDK ${{ env.JAVA_VERSION }}
+          uses: actions/setup-java@v4
+          with:
+            distribution: ${{ env.JAVA_DISTRIBUTION }}
+            java-version: ${{ env.JAVA_VERSION }}
+            cache: maven
 
-          SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
+        - name: Run integration tests
+          working-directory: .
+          env:
+            SERVER_PORT: ${{ matrix.server_port }}
 
-          KEYCLOAK_AUTH_SERVER_URL: ${{ vars.KEYCLOAK_AUTH_SERVER_URL }}
-          KEYCLOAK_REALM: ${{ vars.KEYCLOAK_REALM }}
-          KEYCLOAK_ISSUER_URI: ${{ vars.KEYCLOAK_ISSUER_URI }}
-          KEYCLOAK_FRONTEND_CLIENT_ID: ${{ vars.KEYCLOAK_FRONTEND_CLIENT_ID }}
-          KEYCLOAK_BACKEND_CLIENT_ID: ${{ vars.KEYCLOAK_BACKEND_CLIENT_ID }}
-          KEYCLOAK_BACKEND_CLIENT_SECRET: ${{ secrets.CI_KEYCLOAK_BACKEND_SECRET }}
+            USER_SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${{ vars.HOST_PORT_USER_DB }}/${{ vars.USER_DB_NAME }}
+            USER_SPRING_DATASOURCE_USERNAME: ${{ vars.USER_DB_USERNAME }}
+            USER_SPRING_DATASOURCE_PASSWORD: ${{ secrets.CI_USER_DB_PASSWORD }}
 
-          SPRING_CONFIG_IMPORT: ${{ env.SPRING_CONFIG_IMPORT }}
-          SPRING_CLOUD_CONFIG_ENABLED: ${{ env.SPRING_CLOUD_CONFIG_ENABLED }}
+            COURSE_SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${{ vars.HOST_PORT_COURSE_DB }}/${{ vars.COURSE_DB_NAME }}
+            COURSE_SPRING_DATASOURCE_USERNAME: ${{ vars.COURSE_DB_USERNAME }}
+            COURSE_SPRING_DATASOURCE_PASSWORD: ${{ secrets.CI_COURSE_DB_PASSWORD }}
 
-          EUREKA_CLIENT_ENABLED: ${{ env.EUREKA_CLIENT_ENABLED }}
-          EUREKA_CLIENT_REGISTER_WITH_EUREKA: ${{ env.EUREKA_CLIENT_REGISTER_WITH_EUREKA }}
-          EUREKA_CLIENT_FETCH_REGISTRY: ${{ env.EUREKA_CLIENT_FETCH_REGISTRY }}
+            SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
 
-          SPRING_PROFILES_ACTIVE: ${{ env.SPRING_PROFILES_ACTIVE }}
+            KEYCLOAK_AUTH_SERVER_URL: ${{ vars.KEYCLOAK_AUTH_SERVER_URL }}
+            KEYCLOAK_REALM: ${{ vars.KEYCLOAK_REALM }}
+            KEYCLOAK_ISSUER_URI: ${{ vars.KEYCLOAK_ISSUER_URI }}
+            KEYCLOAK_FRONTEND_CLIENT_ID: ${{ vars.KEYCLOAK_FRONTEND_CLIENT_ID }}
+            KEYCLOAK_BACKEND_CLIENT_ID: ${{ vars.KEYCLOAK_BACKEND_CLIENT_ID }}
+            KEYCLOAK_BACKEND_CLIENT_SECRET: ${{ secrets.CI_KEYCLOAK_BACKEND_SECRET }}
 
-        run: |
-          mvn ${{ env.MVN_FLAGS }} verify \
-            -pl ${{matrix.path}} -am \
-            -Djacoco.skip=false
+            SPRING_CONFIG_IMPORT: ${{ env.SPRING_CONFIG_IMPORT }}
+            SPRING_CLOUD_CONFIG_ENABLED: ${{ env.SPRING_CLOUD_CONFIG_ENABLED }}
 
-      - name: Upload integration JaCoCo report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-integration-${{ matrix.service }}-${{ github.run_number }}
-          path: ${{ matrix.path }}/target/site/jacoco/
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+            EUREKA_CLIENT_ENABLED: ${{ env.EUREKA_CLIENT_ENABLED }}
+            EUREKA_CLIENT_REGISTER_WITH_EUREKA: ${{ env.EUREKA_CLIENT_REGISTER_WITH_EUREKA }}
+            EUREKA_CLIENT_FETCH_REGISTRY: ${{ env.EUREKA_CLIENT_FETCH_REGISTRY }}
 
-      - name: Upload Surefire XML reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: surefire-integration-${{ matrix.service }}-${{ github.run_number }}
-          path: ${{ matrix.path }}/target/surefire-reports/*.xml
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+            SPRING_PROFILES_ACTIVE: ${{ env.SPRING_PROFILES_ACTIVE }}
 
-      - name: Publish Integration Test Results
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: ${{ matrix.path }}/target/surefire-reports/*.xml
-          check_name: "Integration Test Results – ${{ matrix.service }}"
-          comment_mode: off
+          run: |
+            mvn ${{ env.MVN_FLAGS }} verify \
+              -pl ${{ matrix.path }} -am \
+              -Djacoco.skip=false
 
-  security-scan:
-    name: "Security Scan (${{ matrix.service }})"
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: build
+        - name: Upload integration JaCoCo report
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: jacoco-integration-${{ matrix.service }}-${{ github.run_number }}
+            path: ${{ matrix.path }}/target/site/jacoco/
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: config-server
-            path: cloud/config-server
-          - service: service-registry
-            path: cloud/service-registry
-          - service: api-gateway
-            path: cloud/api-gateway
-          - service: user-service
-            path: services/user-service
-          - service: course-service
-            path: services/course-service
+        - name: Upload Surefire XML reports
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: surefire-integration-${{ matrix.service }}-${{ github.run_number }}
+            path: ${{ matrix.path }}/target/surefire-reports/*.xml
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        - name: Publish Integration Test Results
+          if: always()
+          uses: EnricoMi/publish-unit-test-result-action@v2
+          with:
+            files: ${{ matrix.path }}/target/surefire-reports/*.xml
+            check_name: "Integration Test Results – ${{ matrix.service }}"
+            comment_mode: off
 
-      - name: Setup JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-      - name: Cache OWASP Dependency Check data
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: dependency-check-data-${{ runner.os }}
+    security-scan:
+      name: "Security Scan"
+      runs-on: ubuntu-latest
+      timeout-minutes: 15
+      needs: build
 
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
 
-      - name: Run OWASP Dependency-Check
-        working-directory: .
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          mvn ${{ env.MVN_FLAGS }} org.owasp:dependency-check-maven:check \
-            -DfailBuildOnCVSS=7 \
-            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
-            -DfailOnError=false \
-            -DsuppressionFile=.github/owasp-suppressions.xml
+        - name: Secret Scan - Gitleaks
+          uses: gitleaks/gitleaks-action@v2
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload OWASP HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: owasp-report-${{ matrix.service }}-${{ github.run_number }}
-          path: ${{ matrix.path }}/target/dependency-check-report.html
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+        - name: Trivy Filesystem Vulnerability Scan
+          uses: aquasecurity/trivy-action@master
+          with:
+            scan-type: fs
+            scan-ref: .
+            severity: HIGH,CRITICAL
+            ignore-unfixed: true
+            format: table
+            output: trivy-report.txt
+            exit-code: 1
 
-  ci-summary:
-    name: "CI Summary – All Checks Passed"
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: always()
-    needs:
-      - lint
-      - build
-      - unit-tests
-      - integration-tests
-      - security-scan
+        - name: Upload Trivy Security Report
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: trivy-security-report-${{ github.run_number }}
+            path: trivy-report.txt
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    steps:
-      - name: Evaluate all job results
-        run: |
-          echo "Lint              : ${{ needs.lint.result }}"
-          echo "Build             : ${{ needs.build.result }}"
-          echo "Unit Tests        : ${{ needs.unit-tests.result }}"
-          echo "Integration Tests : ${{ needs.integration-tests.result }}"
-          echo "Security Scan     : ${{ needs.security-scan.result }}"
+    owasp-dependency-check:
+      name: "Weekly OWASP Dependency Check"
+      runs-on: ubuntu-latest
+      timeout-minutes: 40
+      needs: build
 
-          FAILED=false
+      if: |
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch'
 
-          if [[ "${{ needs.lint.result }}" != "success" ]]; then FAILED=true; fi
-          if [[ "${{ needs.build.result }}" != "success" ]]; then FAILED=true; fi
-          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then FAILED=true; fi
-          if [[ "${{ needs.security-scan.result }}" != "success" ]]; then FAILED=true; fi
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-          INT_RESULT="${{ needs.integration-tests.result }}"
-          if [[ "$INT_RESULT" == "failure" || "$INT_RESULT" == "cancelled" ]]; then FAILED=true; fi
+        - name: Setup JDK ${{ env.JAVA_VERSION }}
+          uses: actions/setup-java@v4
+          with:
+            distribution: ${{ env.JAVA_DISTRIBUTION }}
+            java-version: ${{ env.JAVA_VERSION }}
+            cache: maven
 
-          if [[ "$FAILED" == "true" ]]; then
-            echo "One or more required CI jobs failed."
-            exit 1
-          fi
+        - name: Cache OWASP Dependency Check data
+          uses: actions/cache@v4
+          with:
+            path: ~/.m2/repository/org/owasp/dependency-check-data
+            key: dependency-check-data-${{ runner.os }}
 
-          echo "All CI checks passed."
+        - name: Run OWASP Dependency-Check
+          working-directory: .
+          env:
+            NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          run: |
+            mvn ${{ env.MVN_FLAGS }} org.owasp:dependency-check-maven:check \
+              -DfailBuildOnCVSS=7 \
+              -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+              -DfailOnError=false \
+              -DsuppressionFile=.github/owasp-suppressions.xml
+
+        - name: Upload OWASP HTML report
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: owasp-dependency-check-report-${{ github.run_number }}
+            path: "**/target/dependency-check-report.html"
+            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    ci-summary:
+      name: "CI Summary – All Checks Passed"
+      runs-on: ubuntu-latest
+      timeout-minutes: 5
+      if: always()
+
+      needs:
+        - lint
+        - build
+        - unit-tests
+        - integration-tests
+        - security-scan
+        - owasp-dependency-check
+
+      steps:
+        - name: Evaluate all job results
+          run: |
+            echo "Lint                  : ${{ needs.lint.result }}"
+            echo "Build                 : ${{ needs.build.result }}"
+            echo "Unit Tests            : ${{ needs.unit-tests.result }}"
+            echo "Integration Tests     : ${{ needs.integration-tests.result }}"
+            echo "Security Scan         : ${{ needs.security-scan.result }}"
+            echo "OWASP Dependency Check: ${{ needs.owasp-dependency-check.result }}"
+            
+            FAILED=false
+            
+            if [[ "${{ needs.lint.result }}" != "success" ]]; then FAILED=true; fi
+            if [[ "${{ needs.build.result }}" != "success" ]]; then FAILED=true; fi
+            if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then FAILED=true; fi
+            if [[ "${{ needs.security-scan.result }}" != "success" ]]; then FAILED=true; fi
+            
+            INT_RESULT="${{ needs.integration-tests.result }}"
+            if [[ "$INT_RESULT" == "failure" || "$INT_RESULT" == "cancelled" ]]; then FAILED=true; fi
+            
+            OWASP_RESULT="${{ needs.owasp-dependency-check.result }}"
+            if [[ "$OWASP_RESULT" == "failure" || "$OWASP_RESULT" == "cancelled" ]]; then FAILED=true; fi
+            
+            if [[ "$FAILED" == "true" ]]; then
+              echo "One or more required CI jobs failed."
+              exit 1
+            fi
+            
+            echo "All required CI checks passed."
+
