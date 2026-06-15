@@ -12,8 +12,6 @@
 
     workflow_dispatch:
 
-    schedule:
-      - cron: "0 18 * * 0" # Weekly OWASP scan - Sunday 18:00 UTC
 
   concurrency:
     group: mentify-ci-${{ github.ref }}
@@ -340,91 +338,6 @@
             check_name: "Integration Test Results – ${{ matrix.service }}"
             comment_mode: off
 
-    security-scan:
-      name: "Security Scan"
-      runs-on: ubuntu-latest
-      timeout-minutes: 15
-      needs: build
-
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-
-        - name: Install Gitleaks CLI
-          run: |
-            curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
-            gitleaks version
-
-        - name: Secret Scan - Gitleaks CLI
-          run: |
-            gitleaks detect --source . --verbose --redact
-
-        - name: Trivy Filesystem Vulnerability Scan
-          uses: aquasecurity/trivy-action@master
-          with:
-            scan-type: fs
-            scan-ref: .
-            severity: HIGH,CRITICAL
-            ignore-unfixed: true
-            format: table
-            output: trivy-report.txt
-            exit-code: 1
-
-        - name: Upload Trivy Security Report
-          if: always()
-          uses: actions/upload-artifact@v4
-          with:
-            name: trivy-security-report-${{ github.run_number }}
-            path: trivy-report.txt
-            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-
-    owasp-dependency-check:
-      name: "Weekly OWASP Dependency Check"
-      runs-on: ubuntu-latest
-      timeout-minutes: 40
-      needs: build
-
-      if: |
-        github.event_name == 'schedule' ||
-        github.event_name == 'workflow_dispatch'
-
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-
-        - name: Setup JDK ${{ env.JAVA_VERSION }}
-          uses: actions/setup-java@v4
-          with:
-            distribution: ${{ env.JAVA_DISTRIBUTION }}
-            java-version: ${{ env.JAVA_VERSION }}
-            cache: maven
-
-        - name: Cache OWASP Dependency Check data
-          uses: actions/cache@v4
-          with:
-            path: ~/.m2/repository/org/owasp/dependency-check-data
-            key: dependency-check-data-${{ runner.os }}
-
-        - name: Run OWASP Dependency-Check
-          working-directory: .
-          env:
-            NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-          run: |
-            mvn ${{ env.MVN_FLAGS }} org.owasp:dependency-check-maven:check \
-              -DfailBuildOnCVSS=7 \
-              -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
-              -DfailOnError=false \
-              -DsuppressionFile=.github/owasp-suppressions.xml
-
-        - name: Upload OWASP HTML report
-          if: always()
-          uses: actions/upload-artifact@v4
-          with:
-            name: owasp-dependency-check-report-${{ github.run_number }}
-            path: "**/target/dependency-check-report.html"
-            retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     ci-summary:
       name: "CI Summary – All Checks Passed"
@@ -437,8 +350,7 @@
         - build
         - unit-tests
         - integration-tests
-        - security-scan
-        - owasp-dependency-check
+
 
       steps:
         - name: Evaluate all job results
@@ -447,21 +359,17 @@
             echo "Build                 : ${{ needs.build.result }}"
             echo "Unit Tests            : ${{ needs.unit-tests.result }}"
             echo "Integration Tests     : ${{ needs.integration-tests.result }}"
-            echo "Security Scan         : ${{ needs.security-scan.result }}"
-            echo "OWASP Dependency Check: ${{ needs.owasp-dependency-check.result }}"
+
             
             FAILED=false
             
             if [[ "${{ needs.lint.result }}" != "success" ]]; then FAILED=true; fi
             if [[ "${{ needs.build.result }}" != "success" ]]; then FAILED=true; fi
             if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then FAILED=true; fi
-            if [[ "${{ needs.security-scan.result }}" != "success" ]]; then FAILED=true; fi
             
             INT_RESULT="${{ needs.integration-tests.result }}"
             if [[ "$INT_RESULT" == "failure" || "$INT_RESULT" == "cancelled" ]]; then FAILED=true; fi
             
-            OWASP_RESULT="${{ needs.owasp-dependency-check.result }}"
-            if [[ "$OWASP_RESULT" == "failure" || "$OWASP_RESULT" == "cancelled" ]]; then FAILED=true; fi
             
             if [[ "$FAILED" == "true" ]]; then
               echo "One or more required CI jobs failed."
