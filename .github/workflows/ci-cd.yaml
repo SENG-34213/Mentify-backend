@@ -9,6 +9,8 @@ on:
       - fix/**
       - hotfix/**
       - release/**
+  workflow_dispatch:
+
 
 env:
   JAVA_VERSION: "17"
