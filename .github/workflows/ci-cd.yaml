@@ -152,7 +152,6 @@ jobs:
         run: |
           mvn ${{ env.MVN_FLAGS }} test \
             -pl ${{ matrix.path }} -am \
-            -Dgroups=unit \
             -Djacoco.skip=false
 
       - name: Upload JaCoCo HTML report
@@ -317,7 +316,6 @@ jobs:
         run: |
           mvn ${{ env.MVN_FLAGS }} verify \
             -pl ${{matrix.path}} -am \
-            -Dgroups=integration \
             -Djacoco.skip=false
 
       - name: Upload integration JaCoCo report
@@ -376,15 +374,19 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
+      - name: Clear Dependency-Check cache
+        run: |
+          rm -rf ~/.m2/repository/org/owasp/dependency-check-data
+
       - name: Run OWASP Dependency-Check
         working-directory: .
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mvn ${{ env.MVN_FLAGS }} org.owasp:dependency-check-maven:check \
-            -pl ${{matrix.path}} -am \
             -DfailBuildOnCVSS=7 \
-            -DsuppressionFile=../../.github/owasp-suppressions.xml
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -DsuppressionFile=.github/owasp-suppressions.xml
 
       - name: Upload OWASP HTML report
         if: always()
