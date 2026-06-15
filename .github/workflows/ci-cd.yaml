@@ -98,8 +98,8 @@ jobs:
           cache: maven
 
       - name: Compile service
-        working-directory: ${{ matrix.path }}
-        run: mvn ${{ env.MVN_FLAGS }} compile -DskipTests
+        working-directory: .
+        run: mvn ${{ env.MVN_FLAGS }} compile -pl ${{ matrix.path }} -am -DskipTests
 
       - name: Cache compiled output
         uses: actions/cache@v4
@@ -146,9 +146,10 @@ jobs:
           key: build-${{ matrix.service }}-${{ github.sha }}
 
       - name: Run unit tests with JaCoCo
-        working-directory: ${{ matrix.path }}
+        working-directory: .
         run: |
           mvn ${{ env.MVN_FLAGS }} test \
+            -pl ${{ matrix.path }} -am \
             -Dgroups=unit \
             -Djacoco.skip=false
 
@@ -281,7 +282,7 @@ jobs:
           cache: maven
 
       - name: Run integration tests
-        working-directory: ${{ matrix.path }}
+        working-directory: .
         env:
           SERVER_PORT: ${{ matrix.server_port }}
 
@@ -313,6 +314,7 @@ jobs:
 
         run: |
           mvn ${{ env.MVN_FLAGS }} verify \
+            -pl ${{matrix.path}} -am \
             -Dgroups=integration \
             -Djacoco.skip=false
 
@@ -373,11 +375,12 @@ jobs:
           cache: maven
 
       - name: Run OWASP Dependency-Check
-        working-directory: ${{ matrix.path }}
+        working-directory: .
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mvn ${{ env.MVN_FLAGS }} org.owasp:dependency-check-maven:check \
+            -pl ${{matrix.path}} -am \
             -DfailBuildOnCVSS=7 \
             -DsuppressionFile=../../.github/owasp-suppressions.xml
 
