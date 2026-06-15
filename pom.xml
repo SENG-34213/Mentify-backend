@@ -83,6 +83,16 @@
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.owasp</groupId>
+                    <artifactId>dependency-check-maven</artifactId>
+                    <version>12.2.2</version>
+                    <configuration>
+                        <nvdApiDelay>6000</nvdApiDelay>
+                        <failOnError>false</failOnError>
+                        <format>HTML</format>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
