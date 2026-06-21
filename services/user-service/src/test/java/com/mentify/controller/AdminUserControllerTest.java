@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
-        controllers = AdminUserController.class,
+        controllers = UserRegistration.class,
         properties = {
                 "spring.cloud.config.enabled=false",
                 "mentify.security.enabled=true"
