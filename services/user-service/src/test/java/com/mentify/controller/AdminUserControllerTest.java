@@ -63,7 +63,7 @@ class AdminUserControllerTest {
 
     @Test
     void registerUser_whenUnauthenticated_returnsUnauthorized() throws Exception {
-        mockMvc.perform(post("/api/v1/admin/users/register")
+        mockMvc.perform(post("/api/v1/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
                 .andExpect(status().isUnauthorized());
@@ -73,7 +73,7 @@ class AdminUserControllerTest {
 
     @Test
     void registerUser_whenStudentRole_returnsForbidden() throws Exception {
-        mockMvc.perform(post("/api/v1/admin/users/register")
+        mockMvc.perform(post("/api/v1/users/register")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
@@ -84,7 +84,7 @@ class AdminUserControllerTest {
 
     @Test
     void registerUser_whenTeacherRole_returnsForbidden() throws Exception {
-        mockMvc.perform(post("/api/v1/admin/users/register")
+        mockMvc.perform(post("/api/v1/users/register")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TEACHER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
@@ -98,7 +98,7 @@ class AdminUserControllerTest {
         UserRegistrationResponse response = registrationResponse(Role.STUDENT);
         when(userRegistrationService.registerUser(any(AdminRegisterUserRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/admin/users/register")
+        mockMvc.perform(post("/api/v1/users/register")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
@@ -117,7 +117,7 @@ class AdminUserControllerTest {
         UserRegistrationResponse response = registrationResponse(Role.TEACHER);
         when(userRegistrationService.registerUser(any(AdminRegisterUserRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/admin/users/register")
+        mockMvc.perform(post("/api/v1/users/register")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(Role.TEACHER))))
@@ -131,7 +131,7 @@ class AdminUserControllerTest {
     void resendInvitation_whenUnauthenticated_returnsUnauthorized() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId))
+        mockMvc.perform(post("/api/v1/users/{userId}/resend-invitation", userId))
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(userRegistrationService, adminRegistrationService);
@@ -141,7 +141,7 @@ class AdminUserControllerTest {
     void resendInvitation_whenStudentRole_returnsForbidden() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId)
+        mockMvc.perform(post("/api/v1/users/{userId}/resend-invitation", userId)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
                 .andExpect(status().isForbidden());
 
@@ -152,7 +152,7 @@ class AdminUserControllerTest {
     void resendInvitation_whenAdminRole_returnsOk() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId)
+        mockMvc.perform(post("/api/v1/users/{userId}/resend-invitation", userId)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statusCode").value(200))
@@ -166,7 +166,7 @@ class AdminUserControllerTest {
     void resendInvitation_whenSuperAdminRole_returnsOk() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/admin/users/{userId}/resend-invitation", userId)
+        mockMvc.perform(post("/api/v1/users/{userId}/resend-invitation", userId)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Invitation email sent successfully."));
@@ -176,7 +176,7 @@ class AdminUserControllerTest {
 
     @Test
     void registerAdmin_whenUnauthenticated_returnsUnauthorized() throws Exception {
-        mockMvc.perform(post("/api/v1/admin/users/admins/register")
+        mockMvc.perform(post("/api/v1/users/admins/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validAdminRequest())))
                 .andExpect(status().isUnauthorized());
@@ -186,7 +186,7 @@ class AdminUserControllerTest {
 
     @Test
     void registerAdmin_whenAdminRole_returnsForbidden() throws Exception {
-        mockMvc.perform(post("/api/v1/admin/users/admins/register")
+        mockMvc.perform(post("/api/v1/users/admins/register")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validAdminRequest())))
@@ -200,7 +200,7 @@ class AdminUserControllerTest {
         UserRegistrationResponse response = registrationResponse(Role.ADMIN);
         when(adminRegistrationService.registerAdmin(any(SuperAdminRegisterAdminRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/admin/users/admins/register")
+        mockMvc.perform(post("/api/v1/users/admins/register")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validAdminRequest())))
