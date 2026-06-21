@@ -22,7 +22,7 @@ KEYCLOAK_AUTH_CLIENT_SECRET
 KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE
 ```
 
-Active local profiles can log in. Complete `INVITED` profiles are activated on the first successful Keycloak login when roles match. `SUSPENDED`, `DISABLED`, locked, missing, incomplete, or role-mismatched profiles receive controlled error responses. Invalid credentials always return the same generic `401` message.
+Active local profiles can log in. Complete `INVITED` profiles are activated on the first successful Keycloak login when roles match. `SUSPENDED`, `DISABLED`, locked, missing, incomplete, or role-mismatched profiles receive controlled error responses. Invalid credentials return the generic `401` message until a known local profile reaches 5 failed attempts. On the 5th failed attempt and later attempts for that locked profile, the response is `403` with `Your account is locked`.
 
 ## Documentation
 

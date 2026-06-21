@@ -162,6 +162,8 @@ KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE=true
 
 Refresh-token rotation, logout, MFA, account lockout dashboards, and long-term session storage are intentionally deferred to follow-up tickets. This flow does not bypass Keycloak brute-force protection; failed credential validation remains inside Keycloak.
 
+Known local profiles also track failed login attempts. Each failed Keycloak credential response increments `users.login_attempts`; on the 5th failed attempt the backend sets `users.account_non_locked=false` and returns `403` with `Your account is locked`. Later attempts for that locked local profile return the same locked message. Unknown identifiers still receive the generic `401` response.
+
 ## 7. Spring Boot Configuration
 
 Protected backend services validate Keycloak access tokens with OAuth2 Resource Server support.

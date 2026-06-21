@@ -102,16 +102,73 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void login_whenInvalidCredentials_doesNotLookupLocalProfileAndLogsGenericFailure() {
+    void login_whenInvalidCredentials_incrementsLocalFailureCountAndLogsGenericFailure() {
         LoginRequest request = loginRequest();
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
         when(keycloakAuthenticationClient.authenticate(request))
                 .thenThrow(new AuthenticationFailedException("Invalid email or password"));
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authenticationService.login(request))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage("Invalid email or password");
 
-        verifyNoInteractions(userRepository);
+        assertThat(user.getLoginAttempts()).isEqualTo(1);
+        assertThat(user.isAccountNonLocked()).isTrue();
+        verify(authenticationEventLogger).loginFailed("INVALID_CREDENTIALS", "student@gmail.com", null);
+    }
+
+    @Test
+    void login_whenInvalidCredentialsReachFiveAttempts_locksLocalAccount() {
+        LoginRequest request = loginRequest();
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
+        user.setLoginAttempts(4);
+
+        when(keycloakAuthenticationClient.authenticate(request))
+                .thenThrow(new AuthenticationFailedException("Invalid email or password"));
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authenticationService.login(request))
+                .isInstanceOf(AccountAccessDeniedException.class)
+                .hasMessage("Your account is locked");
+
+        assertThat(user.getLoginAttempts()).isEqualTo(5);
+        assertThat(user.isAccountNonLocked()).isFalse();
+        verify(authenticationEventLogger).loginFailed("LOCAL_ACCOUNT_LOCKED", "student@gmail.com", "keycloak-student-id");
+    }
+
+    @Test
+    void login_whenInvalidCredentialsAfterAccountIsLocked_returnsAccountLockedMessage() {
+        LoginRequest request = loginRequest();
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
+        user.setLoginAttempts(5);
+        user.setAccountNonLocked(false);
+
+        when(keycloakAuthenticationClient.authenticate(request))
+                .thenThrow(new AuthenticationFailedException("Invalid email or password"));
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authenticationService.login(request))
+                .isInstanceOf(AccountAccessDeniedException.class)
+                .hasMessage("Your account is locked");
+
+        assertThat(user.getLoginAttempts()).isEqualTo(5);
+        assertThat(user.isAccountNonLocked()).isFalse();
+        verify(authenticationEventLogger).loginFailed("LOCAL_ACCOUNT_LOCKED", "student@gmail.com", "keycloak-student-id");
+    }
+
+    @Test
+    void login_whenInvalidCredentialsForUnknownIdentifier_keepsGenericFailure() {
+        LoginRequest request = loginRequest();
+        when(keycloakAuthenticationClient.authenticate(request))
+                .thenThrow(new AuthenticationFailedException("Invalid email or password"));
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase("student@gmail.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authenticationService.login(request))
+                .isInstanceOf(AuthenticationFailedException.class)
+                .hasMessage("Invalid email or password");
+
         verify(authenticationEventLogger).loginFailed("INVALID_CREDENTIALS", "student@gmail.com", null);
     }
 
@@ -201,9 +258,9 @@ class AuthenticationServiceTest {
 
         assertThatThrownBy(() -> authenticationService.login(request))
                 .isInstanceOf(AccountAccessDeniedException.class)
-                .hasMessage("Account is not allowed to access the platform");
+                .hasMessage("Your account is locked");
 
-        verify(authenticationEventLogger).loginFailed("LOCAL_ACCOUNT_NOT_ACTIVE", "student@gmail.com", "keycloak-student-id");
+        verify(authenticationEventLogger).loginFailed("LOCAL_ACCOUNT_LOCKED", "student@gmail.com", "keycloak-student-id");
     }
 
     @Test

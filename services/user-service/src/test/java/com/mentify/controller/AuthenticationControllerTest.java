@@ -138,6 +138,19 @@ class AuthenticationControllerTest {
     }
 
     @Test
+    void login_whenAccountIsLocked_returnsForbiddenWithLockedMessage() throws Exception {
+        when(authenticationService.login(any(LoginRequest.class)))
+                .thenThrow(new AccountAccessDeniedException("Your account is locked"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.statusCode").value(403))
+                .andExpect(jsonPath("$.message").value("Your account is locked"));
+    }
+
+    @Test
     void login_whenKeycloakUnavailable_returnsControlledServiceError() throws Exception {
         when(authenticationService.login(any(LoginRequest.class)))
                 .thenThrow(new KeycloakAuthenticationException("connection refused: http://internal"));

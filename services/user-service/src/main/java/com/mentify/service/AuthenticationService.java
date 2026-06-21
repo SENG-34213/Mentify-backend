@@ -28,13 +28,17 @@ import java.util.Set;
 public class AuthenticationService {
 
     private static final String ACCOUNT_NOT_ALLOWED = "Account is not allowed to access the platform";
+    private static final String ACCOUNT_LOCKED = "Your account is locked";
 
     private final KeycloakAuthenticationClient keycloakAuthenticationClient;
     private final UserRepository userRepository;
     private final KeycloakProperties keycloakProperties;
     private final AuthenticationEventLogger authenticationEventLogger;
 
-    @Transactional
+    @Transactional(noRollbackFor = {
+            AuthenticationFailedException.class,
+            AccountAccessDeniedException.class
+    })
     public LoginResponse login(LoginRequest request) {
         try {
             KeycloakAuthenticationResult keycloakSession = keycloakAuthenticationClient.authenticate(request);
@@ -50,6 +54,9 @@ public class AuthenticationService {
             authenticationEventLogger.loginSucceeded(user.getId(), user.getKeycloakUserId(), user.getRole());
             return response;
         } catch (AuthenticationFailedException exception) {
+            if (recordFailedLoginAttempt(request)) {
+                throw new AccountAccessDeniedException(ACCOUNT_LOCKED);
+            }
             authenticationEventLogger.loginFailed("INVALID_CREDENTIALS", safeIdentifier(request), null);
             throw exception;
         } catch (KeycloakAuthenticationException exception) {
@@ -94,9 +101,54 @@ public class AuthenticationService {
         return userRepository.findByEmailIgnoreCase(email.trim());
     }
 
+    private boolean recordFailedLoginAttempt(LoginRequest request) {
+        String identifier = safeIdentifier(request);
+        if (identifier == null) {
+            return false;
+        }
+
+        Optional<User> localUser = findByEmail(identifier)
+                .or(() -> findByEmailIgnoreCase(identifier));
+
+        if (localUser.isEmpty()) {
+            return false;
+        }
+
+        User user = localUser.get();
+        if (!user.isAccountNonLocked()) {
+            authenticationEventLogger.loginFailed(
+                    "LOCAL_ACCOUNT_LOCKED",
+                    safeEmail(user.getEmail()),
+                    user.getKeycloakUserId()
+            );
+            return true;
+        }
+
+        user.incrementLoginAttempts();
+        if (!user.isAccountNonLocked()) {
+            authenticationEventLogger.loginFailed(
+                    "LOCAL_ACCOUNT_LOCKED",
+                    safeEmail(user.getEmail()),
+                    user.getKeycloakUserId()
+            );
+            return true;
+        }
+
+        return false;
+    }
+
     private void validateLocalAccountStatus(User user) {
         if (user.isFullyActive()) {
             return;
+        }
+
+        if (!user.isAccountNonLocked()) {
+            authenticationEventLogger.loginFailed(
+                    "LOCAL_ACCOUNT_LOCKED",
+                    safeEmail(user.getEmail()),
+                    user.getKeycloakUserId()
+            );
+            throw new AccountAccessDeniedException(ACCOUNT_LOCKED);
         }
 
         authenticationEventLogger.loginFailed(
@@ -112,7 +164,16 @@ public class AuthenticationService {
             return;
         }
 
-        if (!user.isActive() || !user.isAccountNonLocked() || !isProfileComplete(user)) {
+        if (!user.isAccountNonLocked()) {
+            authenticationEventLogger.loginFailed(
+                    "LOCAL_ACCOUNT_LOCKED",
+                    safeEmail(user.getEmail()),
+                    user.getKeycloakUserId()
+            );
+            throw new AccountAccessDeniedException(ACCOUNT_LOCKED);
+        }
+
+        if (!user.isActive() || !isProfileComplete(user)) {
             authenticationEventLogger.loginFailed(
                     "INVITED_PROFILE_NOT_ACTIVATED",
                     safeEmail(user.getEmail()),
