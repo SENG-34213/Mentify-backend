@@ -9,6 +9,11 @@
         - fix/**
         - hotfix/**
         - release/**
+    pull_request:
+      branches:
+        - development
+        - main
+
 
     workflow_dispatch:
 
