@@ -1,9 +1,12 @@
 package com.mentify.handler;
 
 import com.mentify.dto.ErrorResponse;
+import com.mentify.exception.AccountAccessDeniedException;
+import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.InvalidUserStateException;
+import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
@@ -21,6 +24,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -59,6 +64,30 @@ public class UserServiceExceptionHandler {
         return buildErrorResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(AuthenticationFailedException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationFailed(
+            AuthenticationFailedException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid email or password", request);
+    }
+
+    @ExceptionHandler(AccountAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountAccessDenied(
+            AccountAccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(KeycloakAuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleKeycloakAuthentication(
+            KeycloakAuthenticationException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Authentication service is unavailable", request);
+    }
+
     @ExceptionHandler(KeycloakUserCreationException.class)
     public ResponseEntity<ErrorResponse> handleKeycloakUserCreation(
             KeycloakUserCreationException exception,
@@ -88,13 +117,18 @@ public class UserServiceExceptionHandler {
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        exception.getBindingResult()
+                .getFieldErrors()
+                .forEach(fieldError -> fieldErrors.put(fieldError.getField(), fieldError.getDefaultMessage()));
+
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(this::formatFieldError)
                 .collect(Collectors.joining(", "));
 
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request, fieldErrors);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -136,6 +170,24 @@ public class UserServiceExceptionHandler {
                 status.getReasonPhrase(),
                 message,
                 request.getRequestURI()
+        );
+
+        return ResponseEntity.status(status).body(response);
+    }
+
+    private ResponseEntity<ErrorResponse> buildErrorResponse(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request,
+            Map<String, String> fieldErrors
+    ) {
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                request.getRequestURI(),
+                fieldErrors
         );
 
         return ResponseEntity.status(status).body(response);

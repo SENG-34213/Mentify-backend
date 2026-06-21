@@ -92,9 +92,77 @@ Standard flow: Off
 Direct access grants: Off
 ```
 
-This client is created for future backend-to-Keycloak communication, such as Keycloak Admin API calls. User provisioning is not implemented yet.
+This client is used for backend-to-Keycloak communication, including user provisioning through the Admin API and the controlled login bridge token exchange. For local login testing, enable Direct Access Grants on the confidential backend client or configure a dedicated confidential login client through `KEYCLOAK_AUTH_CLIENT_ID` and `KEYCLOAK_AUTH_CLIENT_SECRET`.
 
-## 6. Spring Boot Configuration
+## 6. User Service Login Bridge
+
+Endpoint:
+
+```txt
+POST /api/v1/auth/login
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "identifier": "student@mentify.com",
+  "password": "your-password"
+}
+```
+
+The backend responsibilities are:
+
+```txt
+1. Validate identifier and password fields.
+2. Exchange credentials with Keycloak through the token endpoint.
+3. Load the local Mentify user profile by Keycloak user ID or email.
+4. Compare Keycloak realm roles with the local Mentify role.
+5. Activate complete local `INVITED` profiles after successful Keycloak authentication.
+6. Allow access only when the local profile is active and unlocked.
+7. Return only approved token metadata and safe user summary fields.
+```
+
+Successful response shape:
+
+```json
+{
+  "statusCode": 200,
+  "message": "Login successful",
+  "data": {
+    "accessToken": "<access-token>",
+    "tokenType": "Bearer",
+    "expiresIn": 300,
+    "user": {
+      "email": "student@mentify.com",
+      "role": "STUDENT",
+      "accountStatus": "ACTIVE"
+    }
+  }
+}
+```
+
+Do not paste real tokens into docs, tickets, or logs.
+
+Failed login behavior:
+
+```txt
+Invalid credentials or disabled Keycloak account: 401 with a generic message
+Invalid request payload: 400 with field-level validation errors
+Incomplete invited, suspended, disabled, locked, missing, inactive, or role-mismatched local profile: 403
+Keycloak unavailable or misconfigured: 503 with a controlled service message
+```
+
+Refresh token handling is controlled by:
+
+```env
+KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE=true
+```
+
+Refresh-token rotation, logout, MFA, account lockout dashboards, and long-term session storage are intentionally deferred to follow-up tickets. This flow does not bypass Keycloak brute-force protection; failed credential validation remains inside Keycloak.
+
+## 7. Spring Boot Configuration
 
 Protected backend services validate Keycloak access tokens with OAuth2 Resource Server support.
 
@@ -120,7 +188,25 @@ mentify:
 
 `principal-claim` controls which JWT claim becomes the Spring principal name. The default is `preferred_username`.
 
-## 7. Role Mapping
+Login bridge configuration:
+
+```yaml
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+  realm: ${KEYCLOAK_REALM:mentify}
+  auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:mentify-backend-client}
+  auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:change-me}
+  include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
+```
+
+Safe logging rules:
+
+```txt
+Logs may include event type, timestamp, local user ID, Keycloak user ID, role, and a normalized login identifier.
+Logs must not include passwords, access tokens, refresh tokens, client secrets, or raw Keycloak error payloads.
+```
+
+## 8. Role Mapping
 
 Keycloak realm roles appear in the JWT like this:
 
@@ -146,25 +232,25 @@ This enables annotations like:
 @PreAuthorize("hasRole('ADMIN')")
 ```
 
-## 8. Test Users
+## 9. Test Users
 
 Create these users manually inside the `mentify` realm and set passwords as non-temporary:
 
 ```txt
 admin@mentify.com
 Role: ADMIN
-Password: Admin@123
+Password: <set-local-password>
 
 student@mentify.com
 Role: STUDENT
-Password: Student@123
+Password: <set-local-password>
 
 teacher@mentify.com
 Role: TEACHER
-Password: Teacher@123
+Password: <set-local-password>
 ```
 
-## 9. Get Local Access Token
+## 10. Get Local Access Token
 
 Use Postman or curl against the frontend public client:
 
@@ -179,7 +265,7 @@ Form body:
 client_id=mentify-web-client
 grant_type=password
 username=admin@mentify.com
-password=Admin@123
+password=<set-local-password>
 ```
 
 Use the returned access token:
@@ -188,12 +274,13 @@ Use the returned access token:
 Authorization: Bearer <access_token>
 ```
 
-## 10. Verify Backend Endpoints
+## 11. Verify Backend Endpoints
 
 Test endpoints in `user-service`:
 
 ```txt
 GET /api/v1/auth/public-test
+POST /api/v1/auth/login
 GET /api/v1/auth/protected-test
 GET /api/v1/auth/admin-test
 GET /api/v1/auth/student-test
@@ -203,6 +290,7 @@ Expected results:
 
 ```txt
 Public endpoint without token: 200
+Login endpoint without token: 200 for valid active users
 Protected endpoint without token: 401
 Protected endpoint with valid token: 200
 ADMIN endpoint with ADMIN token: 200
@@ -210,7 +298,7 @@ ADMIN endpoint with STUDENT token: 403
 STUDENT endpoint with STUDENT token: 200
 ```
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 If Keycloak starts but the `mentify` realm is missing, the import probably did not run because an old database volume already existed.
 
@@ -233,3 +321,15 @@ Then restart:
 ```bash
 docker compose up -d
 ```
+
+If login returns `503`, verify:
+
+```txt
+KEYCLOAK_SERVER_URL points to the Keycloak base URL, not the realm URL.
+KEYCLOAK_REALM matches the imported realm.
+KEYCLOAK_AUTH_CLIENT_ID exists in the realm.
+KEYCLOAK_AUTH_CLIENT_SECRET matches the configured confidential client secret.
+Direct Access Grants are enabled for the selected local login client.
+```
+
+If login returns `403` after Keycloak accepts credentials, verify the local user-service database has a matching complete profile, `account_non_locked=true`, `is_active=true`, and a local role that matches the Keycloak realm role. Complete `INVITED` profiles become `ACTIVE` during first successful login; incomplete invited profiles remain blocked.

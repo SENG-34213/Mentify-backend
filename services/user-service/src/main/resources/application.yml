@@ -21,7 +21,10 @@ keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
   realm: ${KEYCLOAK_REALM:mentify}
   admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
-  admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:Admin@123}}
+  admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
+  auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
+  auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:Admin@123}}
+  include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
 
 eureka:
   instance:

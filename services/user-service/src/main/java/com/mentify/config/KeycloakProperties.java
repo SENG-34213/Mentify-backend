@@ -21,4 +21,12 @@ public class KeycloakProperties {
 
     @NotBlank
     private String adminClientSecret;
+
+    @NotBlank
+    private String authClientId;
+
+    @NotBlank
+    private String authClientSecret;
+
+    private boolean includeRefreshTokenInLoginResponse = true;
 }
