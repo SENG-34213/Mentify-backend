@@ -29,4 +29,18 @@ public class KeycloakProperties {
     private String authClientSecret;
 
     private boolean includeRefreshTokenInLoginResponse = true;
+
+    private BootstrapSuperAdmin bootstrapSuperAdmin = new BootstrapSuperAdmin();
+
+    @Data
+    public static class BootstrapSuperAdmin {
+        private boolean enabled;
+        private String email;
+        private String password;
+        private String firstName = "Super";
+        private String lastName = "Admin";
+        private boolean resetPasswordOnStartup = true;
+        private int retryAttempts = 10;
+        private long retryDelayMillis = 2000;
+    }
 }
