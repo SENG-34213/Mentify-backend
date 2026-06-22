@@ -20,9 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/admin/users")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
-public class AdminUserController {
+public class UserRegistration {
 
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;

@@ -22,6 +22,7 @@ public class GatewaySecurityConfig {
                                 "/api/v1/auth/public-test",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
+                                "/api/v1/auth/login",
                                 "/swagger-ui.html"
                         ).permitAll()
                         .anyExchange().authenticated()
