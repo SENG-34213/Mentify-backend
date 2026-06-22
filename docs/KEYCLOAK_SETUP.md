@@ -196,6 +196,8 @@ Login bridge configuration:
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
   realm: ${KEYCLOAK_REALM:mentify}
+  admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
+  admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
   auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:mentify-backend-client}
   auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:change-me}
   include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
@@ -234,7 +236,33 @@ This enables annotations like:
 @PreAuthorize("hasRole('ADMIN')")
 ```
 
-## 9. Test Users
+## 9. Bootstrap SUPER_ADMIN
+
+When `user-service` starts, it can bootstrap a Keycloak-only `SUPER_ADMIN` user. This user is intended for getting a Keycloak token from Postman and calling protected registration endpoints. It does not create or update a local `users` table record.
+
+Default local configuration:
+
+```txt
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_ENABLED=true
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_EMAIL=superadmin@gmail.com
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_PASSWORD=SuperAdmin@123
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_FIRST_NAME=Super
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_LAST_NAME=Admin
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RESET_PASSWORD=true
+```
+
+On startup, the bootstrap:
+
+```txt
+1. Ensures the SUPER_ADMIN realm role exists.
+2. Creates the configured Keycloak user if missing.
+3. Sets a permanent password.
+4. Assigns the SUPER_ADMIN realm role.
+```
+
+Use this account only with direct Keycloak token requests. The backend `/api/v1/auth/login` endpoint still requires a matching local user profile.
+
+## 10. Test Users
 
 Create these users manually inside the `mentify` realm and set passwords as non-temporary:
 
@@ -252,7 +280,7 @@ Role: TEACHER
 Password: <set-local-password>
 ```
 
-## 10. Get Local Access Token
+## 11. Get Local Access Token
 
 Use Postman or curl against the frontend public client:
 
@@ -266,8 +294,8 @@ Form body:
 ```txt
 client_id=mentify-web-client
 grant_type=password
-username=admin@mentify.com
-password=<set-local-password>
+username=superadmin@gmail.com
+password=SuperAdmin@123
 ```
 
 Use the returned access token:
@@ -276,7 +304,7 @@ Use the returned access token:
 Authorization: Bearer <access_token>
 ```
 
-## 11. Verify Backend Endpoints
+## 12. Verify Backend Endpoints
 
 Test endpoints in `user-service`:
 
@@ -300,7 +328,7 @@ ADMIN endpoint with STUDENT token: 403
 STUDENT endpoint with STUDENT token: 200
 ```
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 If Keycloak starts but the `mentify` realm is missing, the import probably did not run because an old database volume already existed.
 
@@ -333,5 +361,41 @@ KEYCLOAK_AUTH_CLIENT_ID exists in the realm.
 KEYCLOAK_AUTH_CLIENT_SECRET matches the configured confidential client secret.
 Direct Access Grants are enabled for the selected local login client.
 ```
+
+If startup `SUPER_ADMIN` bootstrap returns `401 Unauthorized`, verify the service account credentials:
+
+```txt
+KEYCLOAK_ADMIN_CLIENT_ID=mentify-backend-client
+KEYCLOAK_ADMIN_CLIENT_SECRET matches the Keycloak mentify-backend-client secret
+KEYCLOAK_BACKEND_CLIENT_SECRET matches the value used when the realm was imported
+```
+
+For local Docker defaults, the backend client secret is:
+
+```txt
+change-me
+```
+
+If an old Keycloak Docker volume already exists, changing `.env` does not re-import the realm. Either update the client secret in the Keycloak admin console or reset the local Keycloak volume and import again.
+
+If startup `SUPER_ADMIN` bootstrap returns `403 Forbidden`, the backend client authenticated but its service account does not have enough Keycloak admin permissions.
+
+For existing local Keycloak volumes, assign these roles manually:
+
+```txt
+Realm: mentify
+Client: mentify-backend-client
+Tab: Service account roles
+Client roles: realm-management
+
+Required roles:
+manage-realm
+view-realm
+manage-users
+view-users
+query-users
+```
+
+Fresh realm imports include these mappings automatically.
 
 If login returns `403` after Keycloak accepts credentials, verify the local user-service database has a matching complete profile, `account_non_locked=true`, `is_active=true`, and a local role that matches the Keycloak realm role. Complete `INVITED` profiles become `ACTIVE` during first successful login; incomplete invited profiles remain blocked.

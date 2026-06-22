@@ -27,6 +27,22 @@
       }
     ]
   },
+  "users": [
+    {
+      "username": "service-account-mentify-backend-client",
+      "enabled": true,
+      "serviceAccountClientId": "mentify-backend-client",
+      "clientRoles": {
+        "realm-management": [
+          "manage-realm",
+          "view-realm",
+          "manage-users",
+          "view-users",
+          "query-users"
+        ]
+      }
+    }
+  ],
   "clients": [
     {
       "clientId": "mentify-web-client",

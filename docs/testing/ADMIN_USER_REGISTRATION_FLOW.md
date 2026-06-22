@@ -54,20 +54,16 @@ Required test users:
 
 ```txt
 One SUPER_ADMIN user
-One ADMIN user
+One ADMIN user, if testing ADMIN-only access separately
 ```
 
-These users are needed only to call the protected registration endpoints from Postman. The `SUPER_ADMIN` creation flow is intentionally not implemented in this ticket, so create the first `SUPER_ADMIN` manually in Keycloak or through a separate seed/bootstrap process.
+These users are needed only to call the protected registration endpoints from Postman. The first `SUPER_ADMIN` is bootstrapped in Keycloak by `user-service` startup when `KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_ENABLED=true`. This bootstrap does not create a local database user.
 
-Minimum setup for the seed `SUPER_ADMIN` user:
+Default seed `SUPER_ADMIN` configuration:
 
 ```txt
-1. Create user in Keycloak realm mentify.
-2. Set email and username.
-3. Set enabled = ON.
-4. Set a temporary or permanent password.
-5. Assign realm role SUPER_ADMIN.
-6. Login through Postman and use the access token to create ADMIN users.
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_EMAIL=superadmin@gmail.com
+KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_PASSWORD=SuperAdmin@123
 ```
 
 Minimum setup for a seed `ADMIN` user, if needed for testing student/teacher registration:
@@ -524,6 +520,10 @@ Required service account role usually includes:
 
 ```txt
 realm-management manage-users
+realm-management view-users
+realm-management query-users
+realm-management manage-realm
+realm-management view-realm
 ```
 
 ### Password setup email fails
