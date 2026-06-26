@@ -3,6 +3,7 @@ package com.mentify.service.authentication;
 import com.mentify.config.KeycloakProperties;
 import com.mentify.dto.LoginRequest;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
@@ -28,6 +29,8 @@ import java.util.Set;
 public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticationClient {
 
     private static final String PASSWORD_GRANT_TYPE = "password";
+    private static final String REFRESH_TOKEN_GRANT_TYPE = "refresh_token";
+    private static final String INVALID_REFRESH_TOKEN = "Invalid or expired refresh token";
 
     private final RestClient.Builder restClientBuilder;
     private final KeycloakProperties keycloakProperties;
@@ -65,16 +68,91 @@ public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticati
         }
     }
 
+    @Override
+    public KeycloakAuthenticationResult refreshAccessToken(String refreshToken) {
+        MultiValueMap<String, String> form = buildRefreshTokenRequest(refreshToken);
+
+        try {
+            KeycloakTokenResponse tokenResponse = restClientBuilder.build()
+                    .post()
+                    .uri(tokenEndpoint())
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .onStatus(status -> status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNAUTHORIZED,
+                            (clientRequest, clientResponse) -> {
+                                throw new InvalidRefreshTokenException(INVALID_REFRESH_TOKEN);
+                            })
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            (clientRequest, clientResponse) -> {
+                                throw new KeycloakAuthenticationException("Authentication service is unavailable");
+                            })
+                    .body(KeycloakTokenResponse.class);
+
+            return toAuthenticationResult(tokenResponse);
+        } catch (InvalidRefreshTokenException | KeycloakAuthenticationException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw new KeycloakAuthenticationException("Authentication service is unavailable", exception);
+        }
+    }
+
+    @Override
+    public void logout(String refreshToken) {
+        MultiValueMap<String, String> form = buildLogoutRequest(refreshToken);
+
+        try {
+            restClientBuilder.build()
+                    .post()
+                    .uri(logoutEndpoint())
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .onStatus(status -> status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNAUTHORIZED,
+                            (clientRequest, clientResponse) -> {
+                                throw new InvalidRefreshTokenException(INVALID_REFRESH_TOKEN);
+                            })
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            (clientRequest, clientResponse) -> {
+                                throw new KeycloakAuthenticationException("Authentication service is unavailable");
+                            })
+                    .toBodilessEntity();
+        } catch (InvalidRefreshTokenException | KeycloakAuthenticationException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw new KeycloakAuthenticationException("Authentication service is unavailable", exception);
+        }
+    }
+
     private MultiValueMap<String, String> buildTokenRequest(LoginRequest request) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", PASSWORD_GRANT_TYPE);
+        addClientCredentials(form);
+        form.add("username", request.getIdentifier().trim());
+        form.add("password", request.getPassword());
+        return form;
+    }
+
+    private MultiValueMap<String, String> buildRefreshTokenRequest(String refreshToken) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("grant_type", REFRESH_TOKEN_GRANT_TYPE);
+        addClientCredentials(form);
+        form.add("refresh_token", refreshToken.trim());
+        return form;
+    }
+
+    private MultiValueMap<String, String> buildLogoutRequest(String refreshToken) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        addClientCredentials(form);
+        form.add("refresh_token", refreshToken.trim());
+        return form;
+    }
+
+    private void addClientCredentials(MultiValueMap<String, String> form) {
         form.add("client_id", keycloakProperties.getAuthClientId());
         if (keycloakProperties.getAuthClientSecret() != null && !keycloakProperties.getAuthClientSecret().isBlank()) {
             form.add("client_secret", keycloakProperties.getAuthClientSecret());
         }
-        form.add("username", request.getIdentifier().trim());
-        form.add("password", request.getPassword());
-        return form;
     }
 
     private KeycloakAuthenticationResult toAuthenticationResult(KeycloakTokenResponse tokenResponse) {
@@ -145,6 +223,13 @@ public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticati
         return UriComponentsBuilder
                 .fromHttpUrl(keycloakProperties.getServerUrl())
                 .pathSegment("realms", keycloakProperties.getRealm(), "protocol", "openid-connect", "token")
+                .toUriString();
+    }
+
+    private String logoutEndpoint() {
+        return UriComponentsBuilder
+                .fromHttpUrl(keycloakProperties.getServerUrl())
+                .pathSegment("realms", keycloakProperties.getRealm(), "protocol", "openid-connect", "logout")
                 .toUriString();
     }
 }

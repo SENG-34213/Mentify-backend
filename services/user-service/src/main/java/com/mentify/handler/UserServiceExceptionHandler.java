@@ -5,6 +5,7 @@ import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidRoleException;
+import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.exception.KeycloakEmailActionException;
@@ -70,6 +71,14 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid email or password", request);
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
+            InvalidRefreshTokenException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token", request);
     }
 
     @ExceptionHandler(AccountAccessDeniedException.class)

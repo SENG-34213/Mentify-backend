@@ -3,6 +3,9 @@ package com.mentify.service;
 import com.mentify.config.KeycloakProperties;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.LoginResponse;
+import com.mentify.dto.LogoutRequest;
+import com.mentify.dto.TokenRefreshRequest;
+import com.mentify.dto.TokenRefreshResponse;
 import com.mentify.entity.User;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
@@ -63,6 +66,26 @@ public class AuthenticationService {
             authenticationEventLogger.loginFailed("KEYCLOAK_UNAVAILABLE", safeIdentifier(request), null);
             throw exception;
         }
+    }
+
+    public TokenRefreshResponse refreshAccessToken(TokenRefreshRequest request) {
+        KeycloakAuthenticationResult keycloakSession = keycloakAuthenticationClient.refreshAccessToken(
+                request.getRefreshToken()
+        );
+
+        return TokenRefreshResponse.builder()
+                .accessToken(keycloakSession.getAccessToken())
+                .refreshToken(keycloakSession.getRefreshToken())
+                .tokenType(keycloakSession.getTokenType())
+                .expiresIn(keycloakSession.getExpiresIn())
+                .refreshExpiresIn(keycloakSession.getRefreshExpiresIn())
+                .scope(keycloakSession.getScope())
+                .issuedAt(Instant.now())
+                .build();
+    }
+
+    public void logout(LogoutRequest request) {
+        keycloakAuthenticationClient.logout(request.getRefreshToken());
     }
 
     private User loadLocalProfile(KeycloakAuthenticationResult keycloakSession) {

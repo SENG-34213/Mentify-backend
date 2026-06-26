@@ -3,6 +3,9 @@ package com.mentify.service;
 import com.mentify.config.KeycloakProperties;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.LoginResponse;
+import com.mentify.dto.LogoutRequest;
+import com.mentify.dto.TokenRefreshRequest;
+import com.mentify.dto.TokenRefreshResponse;
 import com.mentify.entity.AdminProfile;
 import com.mentify.entity.StudentProfile;
 import com.mentify.entity.TeacherProfile;
@@ -11,6 +14,7 @@ import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.authentication.AuthenticationEventLogger;
@@ -309,6 +313,90 @@ class AuthenticationServiceTest {
 
         verify(authenticationEventLogger, never()).loginFailed(any(), any(), any());
         verify(authenticationEventLogger).loginSucceeded(user.getId(), "keycloak-student-id", Role.STUDENT);
+    }
+
+    @Test
+    void refreshAccessToken_whenRefreshTokenIsValid_returnsNewTokenResponse() {
+        TokenRefreshRequest request = TokenRefreshRequest.builder()
+                .refreshToken("valid-refresh-token")
+                .build();
+        KeycloakAuthenticationResult keycloakSession = keycloakSession(
+                "keycloak-student-id",
+                "student@gmail.com",
+                Set.of("STUDENT")
+        );
+
+        when(keycloakAuthenticationClient.refreshAccessToken("valid-refresh-token")).thenReturn(keycloakSession);
+
+        TokenRefreshResponse response = authenticationService.refreshAccessToken(request);
+
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+        assertThat(response.getTokenType()).isEqualTo("Bearer");
+        assertThat(response.getExpiresIn()).isEqualTo(300L);
+        assertThat(response.getRefreshExpiresIn()).isEqualTo(1800L);
+        assertThat(response.getIssuedAt()).isNotNull();
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void refreshAccessToken_whenRefreshTokenIsExpired_returnsUnauthorizedError() {
+        TokenRefreshRequest request = TokenRefreshRequest.builder()
+                .refreshToken("expired-refresh-token")
+                .build();
+
+        when(keycloakAuthenticationClient.refreshAccessToken("expired-refresh-token"))
+                .thenThrow(new InvalidRefreshTokenException("Keycloak error must not leak"));
+
+        assertThatThrownBy(() -> authenticationService.refreshAccessToken(request))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Keycloak error must not leak");
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void refreshAccessToken_whenKeycloakFails_returnsControlledServiceError() {
+        TokenRefreshRequest request = TokenRefreshRequest.builder()
+                .refreshToken("valid-refresh-token")
+                .build();
+
+        when(keycloakAuthenticationClient.refreshAccessToken("valid-refresh-token"))
+                .thenThrow(new KeycloakAuthenticationException("connection refused: internal-keycloak"));
+
+        assertThatThrownBy(() -> authenticationService.refreshAccessToken(request))
+                .isInstanceOf(KeycloakAuthenticationException.class);
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void logout_whenRefreshTokenIsProvided_callsKeycloakInvalidationFlow() {
+        LogoutRequest request = LogoutRequest.builder()
+                .refreshToken("valid-refresh-token")
+                .build();
+
+        authenticationService.logout(request);
+
+        verify(keycloakAuthenticationClient).logout("valid-refresh-token");
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void logout_whenRefreshTokenIsInvalid_returnsUnauthorizedError() {
+        LogoutRequest request = LogoutRequest.builder()
+                .refreshToken("invalid-refresh-token")
+                .build();
+
+        org.mockito.Mockito.doThrow(new InvalidRefreshTokenException("invalid_grant"))
+                .when(keycloakAuthenticationClient)
+                .logout("invalid-refresh-token");
+
+        assertThatThrownBy(() -> authenticationService.logout(request))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("invalid_grant");
+
+        verifyNoInteractions(userRepository);
     }
 
     private void assertInactiveStatusIsRejected(AccountStatus accountStatus) {

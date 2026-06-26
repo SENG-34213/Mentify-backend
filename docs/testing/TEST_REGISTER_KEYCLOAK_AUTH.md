@@ -10,6 +10,8 @@ Realm role conversion
 Public/protected endpoint authorization
 ADMIN/STUDENT method-level role checks
 Gateway token enforcement
+Refresh token handling
+Keycloak logout/session invalidation
 ```
 
 Related implementation files:
@@ -19,6 +21,9 @@ common-lib/src/main/java/com/mentify/common/security/KeycloakRoleConverter.java
 common-lib/src/main/java/com/mentify/common/security/KeycloakJwtAuthenticationConverter.java
 common-lib/src/main/java/com/mentify/common/security/SecurityConfig.java
 services/user-service/src/main/java/com/mentify/controller/AuthTestController.java
+services/user-service/src/main/java/com/mentify/controller/UserLoginController.java
+services/user-service/src/main/java/com/mentify/service/AuthenticationService.java
+services/user-service/src/main/java/com/mentify/service/authentication/DefaultKeycloakAuthenticationClient.java
 cloud/api-gateway/src/main/java/com/mentify/gateway/config/GatewaySecurityConfig.java
 ```
 
@@ -29,6 +34,9 @@ common-lib/src/test/java/com/mentify/common/security/KeycloakRoleConverterTest.j
 common-lib/src/test/java/com/mentify/common/security/KeycloakJwtAuthenticationConverterTest.java
 common-lib/src/test/java/com/mentify/common/security/SecurityConfigTest.java
 services/user-service/src/test/java/com/mentify/controller/AuthTestControllerTest.java
+services/user-service/src/test/java/com/mentify/controller/AuthenticationControllerTest.java
+services/user-service/src/test/java/com/mentify/service/AuthenticationServiceTest.java
+services/user-service/src/test/java/com/mentify/service/authentication/DefaultKeycloakAuthenticationClientTest.java
 cloud/api-gateway/src/test/java/com/mentify/gateway/config/GatewaySecurityConfigTest.java
 ```
 
@@ -54,6 +62,12 @@ cloud/api-gateway/src/test/java/com/mentify/gateway/config/GatewaySecurityConfig
 | TC-AUTH-16 | STUDENT endpoint accepts STUDENT role | MENT-AUTH-RBAC | `AuthTestControllerTest` | Integration | P1 Must Pass | Mock JWT authority `ROLE_STUDENT` | `GET /api/v1/auth/student-test` | HTTP 200 | Passes in Maven verify | Pass |
 | TC-AUTH-17 | Gateway allows configured public endpoint | MENT-AUTH-GATEWAY | `GatewaySecurityConfigTest` | Integration | P1 Must Pass | Gateway security filter chain enabled | `GET /api/v1/auth/public-test` without token | HTTP 200 | Passes in Maven verify | Pass |
 | TC-AUTH-18 | Gateway rejects protected endpoint without token | MENT-AUTH-GATEWAY | `GatewaySecurityConfigTest` | Integration | P1 Must Pass | Gateway security filter chain enabled | `GET /protected-gateway-resource` without token | HTTP 401 | Passes in Maven verify | Pass |
+| TC-AUTH-19 | Refresh access token with valid refresh token | MENT-AUTH-REFRESH | `AuthenticationServiceTest`, `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Keycloak returns a valid token response | `POST /api/v1/auth/refresh` with valid refresh token | HTTP 200 with new token response | Passes in Maven test | Pass |
+| TC-AUTH-20 | Reject expired refresh token | MENT-AUTH-REFRESH | `AuthenticationServiceTest`, `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Keycloak rejects refresh grant | `POST /api/v1/auth/refresh` with expired refresh token | HTTP 401 with safe error message | Passes in Maven test | Pass |
+| TC-AUTH-21 | Reject invalid or revoked refresh token safely | MENT-AUTH-REFRESH | `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Keycloak rejects refresh grant | `POST /api/v1/auth/refresh` with invalid refresh token | HTTP 401 without Keycloak details or token values | Passes in Maven test | Pass |
+| TC-AUTH-22 | Logout invalidates Keycloak session | MENT-AUTH-LOGOUT | `AuthenticationServiceTest`, `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Active refresh token exists | `POST /api/v1/auth/logout` with refresh token | Backend calls Keycloak logout and returns HTTP 200 | Passes in Maven test | Pass |
+| TC-AUTH-23 | Logout handles invalid token safely | MENT-AUTH-LOGOUT | `AuthenticationServiceTest`, `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Keycloak rejects logout request | `POST /api/v1/auth/logout` with invalid refresh token | HTTP 401 with safe error message | Passes in Maven test | Pass |
+| TC-AUTH-24 | Gateway allows refresh/logout without access token | MENT-AUTH-GATEWAY | `GatewaySecurityConfigTest` | Integration | P1 Must Pass | Gateway security filter chain enabled | `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` without access token | HTTP 200 in test controller | Passes in Maven test | Pass |
 
 ## Coverage Notes
 

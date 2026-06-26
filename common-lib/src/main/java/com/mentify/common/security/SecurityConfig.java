@@ -34,6 +34,8 @@ public class SecurityConfig {
                                 "/actuator/info",
                                 "/api/v1/auth/public-test",
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
