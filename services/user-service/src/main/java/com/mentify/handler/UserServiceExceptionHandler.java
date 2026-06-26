@@ -118,7 +118,7 @@ public class UserServiceExceptionHandler {
             KeycloakEmailActionException exception,
             HttpServletRequest request
     ) {
-        return buildErrorResponse(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
+        return buildErrorResponse(HttpStatus.BAD_GATEWAY, "Authentication email service is unavailable", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

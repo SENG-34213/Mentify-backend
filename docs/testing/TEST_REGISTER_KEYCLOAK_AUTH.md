@@ -12,6 +12,7 @@ ADMIN/STUDENT method-level role checks
 Gateway token enforcement
 Refresh token handling
 Keycloak logout/session invalidation
+Keycloak-native forgot password email trigger
 ```
 
 Related implementation files:
@@ -24,6 +25,7 @@ services/user-service/src/main/java/com/mentify/controller/AuthTestController.ja
 services/user-service/src/main/java/com/mentify/controller/UserLoginController.java
 services/user-service/src/main/java/com/mentify/service/AuthenticationService.java
 services/user-service/src/main/java/com/mentify/service/authentication/DefaultKeycloakAuthenticationClient.java
+services/user-service/src/main/java/com/mentify/service/impl/KeycloakUserServiceImpl.java
 cloud/api-gateway/src/main/java/com/mentify/gateway/config/GatewaySecurityConfig.java
 ```
 
@@ -68,6 +70,11 @@ cloud/api-gateway/src/test/java/com/mentify/gateway/config/GatewaySecurityConfig
 | TC-AUTH-22 | Logout invalidates Keycloak session | MENT-AUTH-LOGOUT | `AuthenticationServiceTest`, `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Active refresh token exists | `POST /api/v1/auth/logout` with refresh token | Backend calls Keycloak logout and returns HTTP 200 | Passes in Maven test | Pass |
 | TC-AUTH-23 | Logout handles invalid token safely | MENT-AUTH-LOGOUT | `AuthenticationServiceTest`, `AuthenticationControllerTest`, `DefaultKeycloakAuthenticationClientTest` | Unit/Integration | P1 Must Pass | Keycloak rejects logout request | `POST /api/v1/auth/logout` with invalid refresh token | HTTP 401 with safe error message | Passes in Maven test | Pass |
 | TC-AUTH-24 | Gateway allows refresh/logout without access token | MENT-AUTH-GATEWAY | `GatewaySecurityConfigTest` | Integration | P1 Must Pass | Gateway security filter chain enabled | `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` without access token | HTTP 200 in test controller | Passes in Maven test | Pass |
+| TC-AUTH-25 | Forgot password triggers Keycloak email for eligible user | MENT-AUTH-FORGOT-PASSWORD | `AuthenticationServiceTest`, `AuthenticationControllerTest` | Unit/Integration | P1 Must Pass | Active local user linked to Keycloak | `POST /api/v1/auth/forgot-password` with registered email | HTTP 200 safe response and Keycloak reset email call | Passes in Maven test | Pass |
+| TC-AUTH-26 | Forgot password protects against email enumeration | MENT-AUTH-FORGOT-PASSWORD | `AuthenticationServiceTest`, `AuthenticationControllerTest` | Unit/Integration | P1 Must Pass | Email is not registered | `POST /api/v1/auth/forgot-password` with unknown email | Identical HTTP 200 response and no Keycloak call | Passes in Maven test | Pass |
+| TC-AUTH-27 | Forgot password silences ineligible local profiles | MENT-AUTH-FORGOT-PASSWORD | `AuthenticationServiceTest` | Unit | P1 Must Pass | User is invited, suspended, disabled, locked, or unlinked | `requestPasswordReset(...)` | Safe completion and no Keycloak call | Passes in Maven test | Pass |
+| TC-AUTH-28 | Forgot password validates request payload | MENT-AUTH-FORGOT-PASSWORD | `AuthenticationControllerTest` | Integration | P1 Must Pass | Request has missing or malformed email | `POST /api/v1/auth/forgot-password` | HTTP 400 with field errors and no service call | Passes in Maven test | Pass |
+| TC-AUTH-29 | Forgot password endpoint is public through gateway and service security | MENT-AUTH-GATEWAY | `SecurityConfigTest`, `GatewaySecurityConfigTest` | Integration | P1 Must Pass | Security filter chain enabled | `POST /api/v1/auth/forgot-password` without token | HTTP 200 in test controller | Passes in Maven test | Pass |
 
 ## Coverage Notes
 

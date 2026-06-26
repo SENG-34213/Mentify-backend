@@ -95,10 +95,41 @@ Successful response:
 
 Invalid or expired refresh tokens return the same controlled `401 Unauthorized` response as refresh.
 
+## Forgot Password
+
+`POST /api/v1/auth/forgot-password`
+
+Request:
+
+```json
+{
+  "email": "student@gmail.com"
+}
+```
+
+Mentify validates the email format and looks up the local user profile. If the profile is active, unlocked, and linked to Keycloak, the backend calls Keycloak Admin REST through the Keycloak admin client to execute the `UPDATE_PASSWORD` action email.
+
+Mentify always returns the same response for registered, unregistered, inactive, disabled, suspended, locked, or unlinked users:
+
+```json
+{
+  "statusCode": 200,
+  "message": "If an account matches that email, a password reset link will be sent."
+}
+```
+
+This protects against email enumeration. Mentify does not generate, store, validate, or log password reset tokens.
+
+## Password Reset Completion
+
+Password reset completion is Keycloak-native in this implementation. The email link takes the user into Keycloak's required-action flow. Keycloak validates the action token, enforces token expiry and one-time use, displays the password update form, and updates the credential.
+
+There is no Mentify `POST /api/v1/auth/reset-password` endpoint in this flow. A custom Mentify reset form would require a separate backend-owned token design or a verified Keycloak token exchange flow.
+
 ## Security Notes
 
 Access tokens, refresh tokens, passwords, and client secrets must not be logged.
 
-Authentication errors must use local, controlled messages. Do not return Keycloak `error`, `error_description`, stack traces, token values, passwords, or client secrets to API callers.
+Authentication errors must use local, controlled messages. Do not return Keycloak `error`, `error_description`, stack traces, token values, passwords, email registration status, or client secrets to API callers.
 
-The API gateway and user-service both allow `/api/v1/auth/refresh` and `/api/v1/auth/logout` without an access token. This is intentional. Keycloak remains the authority for refresh token validation and logout invalidation.
+The API gateway and user-service both allow `/api/v1/auth/refresh`, `/api/v1/auth/logout`, and `/api/v1/auth/forgot-password` without an access token. This is intentional. Keycloak remains the authority for refresh token validation, logout invalidation, password reset tokens, and password update completion.

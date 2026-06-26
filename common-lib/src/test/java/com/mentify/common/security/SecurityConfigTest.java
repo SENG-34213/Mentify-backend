@@ -12,11 +12,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(
@@ -36,6 +38,16 @@ class SecurityConfigTest {
     void givenNoToken_whenCallingConfiguredPublicEndpoint_thenReturnsOk() throws Exception {
         // Arrange
         var request = get("/api/v1/auth/public-test");
+
+        // Act and Assert
+        mockMvc.perform(request)
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void givenNoToken_whenCallingForgotPasswordEndpoint_thenReturnsOk() throws Exception {
+        // Arrange
+        var request = post("/api/v1/auth/forgot-password");
 
         // Act and Assert
         mockMvc.perform(request)
@@ -68,6 +80,11 @@ class SecurityConfigTest {
 
         @GetMapping("/api/v1/auth/public-test")
         Map<String, String> publicTest() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/v1/auth/forgot-password")
+        Map<String, String> forgotPassword() {
             return Map.of("status", "success");
         }
 
