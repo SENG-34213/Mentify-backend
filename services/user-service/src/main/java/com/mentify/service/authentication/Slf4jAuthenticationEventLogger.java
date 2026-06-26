@@ -32,4 +32,33 @@ public class Slf4jAuthenticationEventLogger implements AuthenticationEventLogger
                 keycloakUserId
         );
     }
+
+    @Override
+    public void passwordResetRequested(UUID localUserId, String keycloakUserId) {
+        log.info(
+                "Authentication event timestamp={} event=PASSWORD_RESET_EMAIL_REQUESTED userId={} keycloakUserId={}",
+                Instant.now(),
+                localUserId,
+                keycloakUserId
+        );
+    }
+
+    @Override
+    public void passwordResetRequestSkipped(String reason) {
+        log.info(
+                "Authentication event timestamp={} event=PASSWORD_RESET_REQUEST_SKIPPED reason={}",
+                Instant.now(),
+                reason
+        );
+    }
+
+    @Override
+    public void passwordResetRequestFailed(UUID localUserId, String keycloakUserId) {
+        log.warn(
+                "Authentication event timestamp={} event=PASSWORD_RESET_EMAIL_FAILED userId={} keycloakUserId={}",
+                Instant.now(),
+                localUserId,
+                keycloakUserId
+        );
+    }
 }

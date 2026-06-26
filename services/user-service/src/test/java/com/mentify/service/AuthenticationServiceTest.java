@@ -1,6 +1,7 @@
 package com.mentify.service;
 
 import com.mentify.config.KeycloakProperties;
+import com.mentify.dto.ForgotPasswordRequest;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.LoginResponse;
 import com.mentify.dto.LogoutRequest;
@@ -15,6 +16,7 @@ import com.mentify.enums.Role;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.InvalidRefreshTokenException;
+import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.authentication.AuthenticationEventLogger;
@@ -45,6 +47,9 @@ class AuthenticationServiceTest {
     private KeycloakAuthenticationClient keycloakAuthenticationClient;
 
     @Mock
+    private KeycloakUserService keycloakUserService;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -59,6 +64,7 @@ class AuthenticationServiceTest {
         keycloakProperties.setIncludeRefreshTokenInLoginResponse(true);
         authenticationService = new AuthenticationService(
                 keycloakAuthenticationClient,
+                keycloakUserService,
                 userRepository,
                 keycloakProperties,
                 authenticationEventLogger
@@ -397,6 +403,109 @@ class AuthenticationServiceTest {
                 .hasMessage("invalid_grant");
 
         verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void requestPasswordReset_whenEmailBelongsToActiveUser_sendsKeycloakResetEmailAndLogsSafely() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("student@gmail.com")
+                .build();
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
+        user.setStudentProfile(new StudentProfile());
+
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
+
+        authenticationService.requestPasswordReset(request);
+
+        verify(keycloakUserService).sendPasswordResetEmail("keycloak-student-id");
+        verify(authenticationEventLogger).passwordResetRequested(user.getId(), "keycloak-student-id");
+        verify(authenticationEventLogger, never()).passwordResetRequestSkipped(any());
+    }
+
+    @Test
+    void requestPasswordReset_whenEmailIsUnknown_returnsSafelyWithoutKeycloakCall() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("missing@gmail.com")
+                .build();
+
+        when(userRepository.findByEmail("missing@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase("missing@gmail.com")).thenReturn(Optional.empty());
+
+        authenticationService.requestPasswordReset(request);
+
+        verify(keycloakUserService, never()).sendPasswordResetEmail(any());
+        verify(authenticationEventLogger).passwordResetRequestSkipped("NO_RESET_ELIGIBLE_PROFILE");
+    }
+
+    @Test
+    void requestPasswordReset_whenUserIsInvited_returnsSafelyWithoutKeycloakCall() {
+        assertPasswordResetSkippedForIneligibleUser(AccountStatus.INVITED, true);
+    }
+
+    @Test
+    void requestPasswordReset_whenUserIsSuspended_returnsSafelyWithoutKeycloakCall() {
+        assertPasswordResetSkippedForIneligibleUser(AccountStatus.SUSPENDED, true);
+    }
+
+    @Test
+    void requestPasswordReset_whenUserIsDisabled_returnsSafelyWithoutKeycloakCall() {
+        assertPasswordResetSkippedForIneligibleUser(AccountStatus.DISABLED, true);
+    }
+
+    @Test
+    void requestPasswordReset_whenUserIsLocked_returnsSafelyWithoutKeycloakCall() {
+        assertPasswordResetSkippedForIneligibleUser(AccountStatus.ACTIVE, false);
+    }
+
+    @Test
+    void requestPasswordReset_whenUserIsNotLinkedToKeycloak_returnsSafelyWithoutKeycloakCall() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("student@gmail.com")
+                .build();
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
+        user.setKeycloakUserId(null);
+
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
+
+        authenticationService.requestPasswordReset(request);
+
+        verify(keycloakUserService, never()).sendPasswordResetEmail(any());
+        verify(authenticationEventLogger).passwordResetRequestSkipped("NO_RESET_ELIGIBLE_PROFILE");
+    }
+
+    @Test
+    void requestPasswordReset_whenKeycloakFails_throwsControlledEmailActionError() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("student@gmail.com")
+                .build();
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
+        user.setStudentProfile(new StudentProfile());
+
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
+        org.mockito.Mockito.doThrow(new KeycloakEmailActionException("Failed to send password reset email through Keycloak"))
+                .when(keycloakUserService)
+                .sendPasswordResetEmail("keycloak-student-id");
+
+        assertThatThrownBy(() -> authenticationService.requestPasswordReset(request))
+                .isInstanceOf(KeycloakEmailActionException.class)
+                .hasMessage("Failed to send password reset email through Keycloak");
+
+        verify(authenticationEventLogger).passwordResetRequestFailed(user.getId(), "keycloak-student-id");
+    }
+
+    private void assertPasswordResetSkippedForIneligibleUser(AccountStatus accountStatus, boolean accountNonLocked) {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("student@gmail.com")
+                .build();
+        User user = activeUser(Role.STUDENT, accountStatus);
+        user.setAccountNonLocked(accountNonLocked);
+
+        when(userRepository.findByEmail("student@gmail.com")).thenReturn(Optional.of(user));
+
+        authenticationService.requestPasswordReset(request);
+
+        verify(keycloakUserService, never()).sendPasswordResetEmail(any());
+        verify(authenticationEventLogger).passwordResetRequestSkipped("NO_RESET_ELIGIBLE_PROFILE");
     }
 
     private void assertInactiveStatusIsRejected(AccountStatus accountStatus) {

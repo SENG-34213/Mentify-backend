@@ -26,6 +26,7 @@ import java.util.List;
 public class KeycloakUserServiceImpl implements KeycloakUserService {
 
     private static final List<String> PASSWORD_SETUP_ACTIONS = List.of("UPDATE_PASSWORD", "VERIFY_EMAIL");
+    private static final List<String> PASSWORD_RESET_ACTIONS = List.of("UPDATE_PASSWORD");
 
     private final Keycloak keycloak;
     private final KeycloakProperties keycloakProperties;
@@ -84,6 +85,17 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
                     .executeActionsEmail(PASSWORD_SETUP_ACTIONS);
         } catch (ProcessingException | WebApplicationException exception) {
             throw new KeycloakEmailActionException("Failed to send password setup email through Keycloak", exception);
+        }
+    }
+
+    @Override
+    public void sendPasswordResetEmail(String keycloakUserId) {
+        try {
+            realmUsers()
+                    .get(keycloakUserId)
+                    .executeActionsEmail(PASSWORD_RESET_ACTIONS);
+        } catch (ProcessingException | WebApplicationException exception) {
+            throw new KeycloakEmailActionException("Failed to send password reset email through Keycloak", exception);
         }
     }
 

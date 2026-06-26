@@ -1,6 +1,7 @@
 package com.mentify.service;
 
 import com.mentify.config.KeycloakProperties;
+import com.mentify.dto.ForgotPasswordRequest;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.LoginResponse;
 import com.mentify.dto.LogoutRequest;
@@ -32,8 +33,10 @@ public class AuthenticationService {
 
     private static final String ACCOUNT_NOT_ALLOWED = "Account is not allowed to access the platform";
     private static final String ACCOUNT_LOCKED = "Your account is locked";
+    private static final String NO_RESET_ELIGIBLE_PROFILE = "NO_RESET_ELIGIBLE_PROFILE";
 
     private final KeycloakAuthenticationClient keycloakAuthenticationClient;
+    private final KeycloakUserService keycloakUserService;
     private final UserRepository userRepository;
     private final KeycloakProperties keycloakProperties;
     private final AuthenticationEventLogger authenticationEventLogger;
@@ -86,6 +89,31 @@ public class AuthenticationService {
 
     public void logout(LogoutRequest request) {
         keycloakAuthenticationClient.logout(request.getRefreshToken());
+    }
+
+    public void requestPasswordReset(ForgotPasswordRequest request) {
+        Optional<User> localUser = findByEmail(request.getEmail())
+                .or(() -> findByEmailIgnoreCase(request.getEmail()));
+
+        if (localUser.isEmpty() || !isEligibleForPasswordReset(localUser.get())) {
+            authenticationEventLogger.passwordResetRequestSkipped(NO_RESET_ELIGIBLE_PROFILE);
+            return;
+        }
+
+        User user = localUser.get();
+        try {
+            keycloakUserService.sendPasswordResetEmail(user.getKeycloakUserId());
+            authenticationEventLogger.passwordResetRequested(user.getId(), user.getKeycloakUserId());
+        } catch (RuntimeException exception) {
+            authenticationEventLogger.passwordResetRequestFailed(user.getId(), user.getKeycloakUserId());
+            throw exception;
+        }
+    }
+
+    private boolean isEligibleForPasswordReset(User user) {
+        return user.isFullyActive()
+                && user.getKeycloakUserId() != null
+                && !user.getKeycloakUserId().isBlank();
     }
 
     private User loadLocalProfile(KeycloakAuthenticationResult keycloakSession) {

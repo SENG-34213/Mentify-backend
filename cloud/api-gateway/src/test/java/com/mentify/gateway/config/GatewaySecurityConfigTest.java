@@ -62,6 +62,16 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void givenNoToken_whenCallingGatewayForgotPasswordEndpoint_thenReturnsOk() {
+        // Arrange
+        var request = webTestClient.post().uri("/api/v1/auth/forgot-password");
+
+        // Act and Assert
+        request.exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
     void givenNoToken_whenCallingGatewayProtectedEndpoint_thenReturnsUnauthorized() {
         // Arrange
         var request = webTestClient.get().uri("/protected-gateway-resource");
@@ -97,6 +107,11 @@ class GatewaySecurityConfigTest {
 
         @PostMapping("/api/v1/auth/logout")
         Map<String, String> logout() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/v1/auth/forgot-password")
+        Map<String, String> forgotPassword() {
             return Map.of("status", "success");
         }
 

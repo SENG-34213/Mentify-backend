@@ -3,6 +3,7 @@ package com.mentify.controller;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.LoginResponse;
 import com.mentify.dto.LogoutRequest;
+import com.mentify.dto.ForgotPasswordRequest;
 import com.mentify.dto.TokenRefreshRequest;
 import com.mentify.dto.TokenRefreshResponse;
 import com.mentify.payload.response.ApiResponse;
@@ -20,6 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class UserLoginController {
+
+    private static final String FORGOT_PASSWORD_RESPONSE =
+            "If an account matches that email, a password reset link will be sent.";
 
     private final AuthenticationService authenticationService;
 
@@ -59,6 +63,19 @@ public class UserLoginController {
                 ApiResponse.success(
                         HttpStatus.OK.value(),
                         "Logout successful",
+                        null
+                )
+        );
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authenticationService.requestPasswordReset(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        FORGOT_PASSWORD_RESPONSE,
                         null
                 )
         );

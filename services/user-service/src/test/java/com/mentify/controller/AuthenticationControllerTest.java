@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
 import com.mentify.common.security.KeycloakRoleConverter;
 import com.mentify.common.security.SecurityConfig;
+import com.mentify.dto.ForgotPasswordRequest;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.LoginResponse;
 import com.mentify.dto.LogoutRequest;
@@ -15,6 +16,7 @@ import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakAuthenticationException;
+import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.service.AuthenticationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -277,6 +280,76 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.message").value(not("invalid_grant invalid-refresh-token")));
     }
 
+    @Test
+    void forgotPassword_whenEmailIsRegistered_returnsSafeGenericSuccessResponse() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("student@gmail.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("If an account matches that email, a password reset link will be sent."))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(authenticationService).requestPasswordReset(any(ForgotPasswordRequest.class));
+    }
+
+    @Test
+    void forgotPassword_whenEmailIsUnregistered_returnsIdenticalSafeSuccessResponse() throws Exception {
+        MvcResult registeredResult = mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("student@gmail.com"))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        MvcResult unregisteredResult = mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("missing@gmail.com"))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        org.assertj.core.api.Assertions.assertThat(unregisteredResult.getResponse().getContentAsString())
+                .isEqualTo(registeredResult.getResponse().getContentAsString());
+    }
+
+    @Test
+    void forgotPassword_whenEmailIsMissing_returnsFieldValidationErrorAndDoesNotCallService() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotPasswordRequest(""))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.fieldErrors.email").value("Email is required"));
+
+        verifyNoInteractions(authenticationService);
+    }
+
+    @Test
+    void forgotPassword_whenEmailIsMalformed_returnsFieldValidationErrorAndDoesNotCallService() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("not-an-email"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.fieldErrors.email").value("Invalid email format"));
+
+        verifyNoInteractions(authenticationService);
+    }
+
+    @Test
+    void forgotPassword_whenKeycloakFails_returnsControlledServiceError() throws Exception {
+        doThrow(new KeycloakEmailActionException("internal-keycloak-host refused connection"))
+                .when(authenticationService)
+                .requestPasswordReset(any(ForgotPasswordRequest.class));
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("student@gmail.com"))))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.statusCode").value(502))
+                .andExpect(jsonPath("$.message").value("Authentication email service is unavailable"))
+                .andExpect(jsonPath("$.message").value(not("internal-keycloak-host refused connection")));
+    }
+
     private LoginRequest loginRequest() {
         return LoginRequest.builder()
                 .identifier("student@gmail.com")
@@ -316,6 +389,12 @@ class AuthenticationControllerTest {
     private LogoutRequest logoutRequest(String refreshToken) {
         return LogoutRequest.builder()
                 .refreshToken(refreshToken)
+                .build();
+    }
+
+    private ForgotPasswordRequest forgotPasswordRequest(String email) {
+        return ForgotPasswordRequest.builder()
+                .email(email)
                 .build();
     }
 

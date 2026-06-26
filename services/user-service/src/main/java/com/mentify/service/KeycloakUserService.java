@@ -10,5 +10,7 @@ public interface KeycloakUserService {
 
     void sendPasswordSetupEmail(String keycloakUserId);
 
+    void sendPasswordResetEmail(String keycloakUserId);
+
     void deleteUser(String keycloakUserId);
 }

@@ -25,6 +25,7 @@ public class GatewaySecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
+                                "/api/v1/auth/forgot-password",
                                 "/swagger-ui.html"
                         ).permitAll()
                         .anyExchange().authenticated()
