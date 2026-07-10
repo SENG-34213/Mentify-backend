@@ -1,16 +1,21 @@
 package com.mentify.service.impl;
 
+import com.mentify.dto.PaginatedStudentsResponse;
 import com.mentify.dto.StudentRegistrationRequest;
+import com.mentify.dto.StudentSummaryResponse;
 import com.mentify.dto.UserResponse;
 import com.mentify.entity.Address;
 import com.mentify.entity.StudentProfile;
 import com.mentify.entity.User;
+import com.mentify.enums.Role;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.mapper.StudentMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.StudentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +49,27 @@ public class StudentServiceImpl implements StudentService {
                 .message("Student registered successfully")
                 .data(userResponse)
                 .status(HttpStatus.CREATED)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginatedStudentsResponse getAllStudents(Pageable pageable) {
+        Page<User> studentPage = userRepository.findByRole(Role.STUDENT, pageable);
+
+        return PaginatedStudentsResponse.builder()
+                .content(studentPage.getContent().stream()
+                        .map(student -> StudentSummaryResponse.builder()
+                                .id(student.getId())
+                                .firstName(student.getFirstName())
+                                .lastName(student.getLastName())
+                                .email(student.getEmail())
+                                .build())
+                        .toList())
+                .pageNumber(studentPage.getNumber())
+                .pageSize(studentPage.getSize())
+                .totalElements(studentPage.getTotalElements())
+                .totalPages(studentPage.getTotalPages())
                 .build();
     }
 }
