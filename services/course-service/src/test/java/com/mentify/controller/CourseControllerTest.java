@@ -26,8 +26,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -200,6 +202,32 @@ class CourseControllerTest {
         assertThat(preAuthorize.value()).contains("ADMIN");
         assertThat(preAuthorize.value()).contains("SUPER_ADMIN");
     }
+
+        @Test
+        void deleteCourse_whenCourseExists_returnsOk() throws Exception {
+                UUID courseId = UUID.randomUUID();
+                doReturn(ApiResponse.<Object>builder()
+                                .status(HttpStatus.OK)
+                                .message("Course deleted successfully")
+                                .build())
+                                .when(courseService).deleteCourse(courseId);
+
+                mockMvc.perform(delete("/api/v1/course/{courseId}", courseId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Course deleted successfully"));
+
+                verify(courseService).deleteCourse(courseId);
+        }
+
+        @Test
+        void deleteCourse_hasAdminAndSuperAdminPreAuthorize() throws NoSuchMethodException {
+                Method deleteMethod = CourseController.class.getDeclaredMethod("deleteCourse", UUID.class);
+                PreAuthorize preAuthorize = deleteMethod.getAnnotation(PreAuthorize.class);
+
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).contains("ADMIN");
+                assertThat(preAuthorize.value()).contains("SUPER_ADMIN");
+        }
 
     private CourseRequest validRequest() {
         return CourseRequest.builder()

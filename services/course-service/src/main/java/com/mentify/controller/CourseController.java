@@ -38,4 +38,11 @@ public class CourseController {
         ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, request);
         return new ResponseEntity<>(response, response.getStatus());
     }
+
+    @DeleteMapping("/{courseId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Object>> deleteCourse(@PathVariable UUID courseId) {
+        ApiResponse<Object> response = courseService.deleteCourse(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 }

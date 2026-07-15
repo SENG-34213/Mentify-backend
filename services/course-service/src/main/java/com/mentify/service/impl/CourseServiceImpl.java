@@ -113,4 +113,23 @@ public class CourseServiceImpl implements CourseService {
                 .status(HttpStatus.OK)
                 .build();
     }
+
+    @Override
+    @Transactional
+    public ApiResponse<Object> deleteCourse(UUID courseId) {
+        log.info("Deleting course with ID [{}]", courseId);
+
+        Course existingCourse = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
+
+        courseRepository.delete(existingCourse);
+
+        log.info("Course deleted successfully with ID [{}]", courseId);
+
+        return ApiResponse.builder()
+                .message("Course deleted successfully")
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
 }
