@@ -7,6 +7,7 @@ import com.mentify.enums.CourseStatus;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.CourseService;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -15,14 +16,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,6 +128,77 @@ class CourseControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void updateCourse_whenRequestIsValid_returnsUpdatedCourse() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        CourseResponse courseResponse = CourseResponse.builder()
+                .id(courseId)
+                .courseName("Advanced Mathematics")
+                .courseDescription("Updated Grade 10 mathematics")
+                .courseThumbnail("math-v2.png")
+                .courseFeeMonthly(new BigDecimal("3000.00"))
+                .gradeId(UUID.randomUUID())
+                .assignedTeacherId(UUID.randomUUID())
+                .subject("Mathematics")
+                .online(false)
+                .discountOfferPercent(new BigDecimal("10.00"))
+                .visible(true)
+                .courseStatus(CourseStatus.PUBLISHED)
+                .isPublished(true)
+                .numberOfStudents(14)
+                .build();
+        when(courseService.updateCourse(eq(courseId), any(CourseRequest.class))).thenReturn(
+                ApiResponse.<CourseResponse>builder()
+                        .status(HttpStatus.OK)
+                        .message("Course updated successfully")
+                        .data(courseResponse)
+                        .build()
+        );
+
+        CourseRequest request = validRequest();
+        request.setCourseName("Advanced Mathematics");
+        request.setCourseDescription("Updated Grade 10 mathematics");
+        request.setIsOnline(false);
+        request.setDiscountOfferPercent(new BigDecimal("10.00"));
+        request.setIsPublished(true);
+
+        mockMvc.perform(put("/api/v1/course/{courseId}", courseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Course updated successfully"))
+                .andExpect(jsonPath("$.data.courseName").value("Advanced Mathematics"))
+                .andExpect(jsonPath("$.data.courseDescription").value("Updated Grade 10 mathematics"))
+                .andExpect(jsonPath("$.data.courseStatus").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.published").value(true));
+
+        verify(courseService).updateCourse(eq(courseId), any(CourseRequest.class));
+    }
+
+    @Test
+    void updateCourse_whenSubjectIsBlank_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        CourseRequest request = validRequest();
+        request.setSubject(" ");
+
+        mockMvc.perform(put("/api/v1/course/{courseId}", courseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void updateCourse_hasAdminAndSuperAdminPreAuthorize() throws NoSuchMethodException {
+        Method updateMethod = CourseController.class.getDeclaredMethod("updateCourse", UUID.class, CourseRequest.class);
+        PreAuthorize preAuthorize = updateMethod.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).contains("ADMIN");
+        assertThat(preAuthorize.value()).contains("SUPER_ADMIN");
     }
 
     private CourseRequest validRequest() {

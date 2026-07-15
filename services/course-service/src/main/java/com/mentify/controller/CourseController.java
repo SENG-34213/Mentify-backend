@@ -27,4 +27,15 @@ public class CourseController {
 
         ApiResponse<CourseResponse> response = courseService.createCourse(request);
         return new ResponseEntity<>(response, response.getStatus());
-    }}
+    }
+
+    @PutMapping("/{courseId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<CourseResponse>> updateCourse(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CourseRequest request) {
+
+        ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, request);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+}

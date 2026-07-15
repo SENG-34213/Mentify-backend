@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface CourseService {
     ApiResponse<CourseResponse> createCourse(CourseRequest request);
+
+    ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request);
 }

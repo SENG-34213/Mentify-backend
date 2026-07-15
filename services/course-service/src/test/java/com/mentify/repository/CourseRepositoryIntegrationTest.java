@@ -57,4 +57,36 @@ class CourseRepositoryIntegrationTest {
         assertThat(foundCourse.isVisible()).isTrue();
         assertThat(foundCourse.getStatus()).isEqualTo(CourseStatus.DRAFT);
     }
+
+    @Test
+    void existsByCourseNameAndGradeIdAndIdNot_whenSameNameAndGradeOnAnotherCourse_returnsTrue() {
+        UUID gradeId = UUID.randomUUID();
+
+        Course existingCourse = Course.builder()
+                .courseName("Physics")
+                .courseDescription("Physics course")
+                .courseThumbnail("physics.png")
+                .courseFeeMonthly(new BigDecimal("1800.00"))
+                .subject("Physics")
+                .assignedTeacherId(UUID.randomUUID())
+                .gradeId(gradeId)
+                .status(CourseStatus.DRAFT)
+                .build();
+        existingCourse = courseRepository.saveAndFlush(existingCourse);
+
+        boolean existsForAnotherId = courseRepository.existsByCourseNameAndGradeIdAndIdNot(
+                "Physics",
+                gradeId,
+                UUID.randomUUID()
+        );
+
+        boolean existsForSameId = courseRepository.existsByCourseNameAndGradeIdAndIdNot(
+                "Physics",
+                gradeId,
+                existingCourse.getId()
+        );
+
+        assertThat(existsForAnotherId).isTrue();
+        assertThat(existsForSameId).isFalse();
+    }
 }
