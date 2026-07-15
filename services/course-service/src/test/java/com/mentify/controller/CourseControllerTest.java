@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -69,7 +68,7 @@ class CourseControllerTest {
                         .build()
         );
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
                 .andExpect(status().isCreated())
@@ -92,7 +91,7 @@ class CourseControllerTest {
         CourseRequest request = validRequest();
         request.setCourseName(" ");
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -105,7 +104,7 @@ class CourseControllerTest {
         CourseRequest request = validRequest();
         request.setCourseFeeMonthly(BigDecimal.ZERO);
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -118,7 +117,7 @@ class CourseControllerTest {
         CourseRequest request = validRequest();
         request.setGradeId(null);
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
