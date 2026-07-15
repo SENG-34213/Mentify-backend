@@ -24,7 +24,7 @@ spring:
         - id: course-service
           uri: lb://course-service
           predicates:
-            - Path=/api/courses/**
+            - Path=/api/v1/course/**
           filters:
             - StripPrefix=0
 

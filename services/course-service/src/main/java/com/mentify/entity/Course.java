@@ -37,6 +37,21 @@ public class Course extends BaseEntity {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal courseFeeMonthly;
 
+    @Column(length = 150)
+    private String subject;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isOnline = true;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal discountOfferPercent = new BigDecimal("20.00");
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isVisible = true;
+
     /**
      * Reference to the teacher who owns this course (resolved via user-service).
      * Stored as a plain UUID — no @ManyToOne across service boundaries.
@@ -44,6 +59,11 @@ public class Course extends BaseEntity {
     @Column(nullable = false, length = 36)
     private UUID assignedTeacherId;
 
+    /**
+     * Optional course enrollment reference used by downstream integrations.
+     */
+    @Column(length = 36)
+    private UUID courseEnrollmentId;
 
     /**
      * Reference to the Grade this course belongs to (resolved via user-service).
@@ -56,7 +76,6 @@ public class Course extends BaseEntity {
     private boolean isPublished = false;
 
     private LocalDate publishedDate;
-
 
     @Column(nullable = false)
     private int numberOfStudents = 0;

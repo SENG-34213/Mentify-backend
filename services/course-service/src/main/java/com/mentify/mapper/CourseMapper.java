@@ -7,6 +7,7 @@ import com.mentify.entity.Course;
 import com.mentify.enums.CourseStatus;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 
@@ -18,15 +19,27 @@ public class CourseMapper {
      * by the service layer from the authenticated principal.
      */
     public static Course toCourseEntity(CourseRequest request) {
+        boolean isOnline = request.getIsOnline() != null ? request.getIsOnline() : true;
+        boolean isVisible = request.getIsVisible() != null ? request.getIsVisible() : true;
+        boolean isPublished = request.getIsPublished() != null ? request.getIsPublished() : false;
+        BigDecimal discountOfferPercent = request.getDiscountOfferPercent() != null
+                ? request.getDiscountOfferPercent()
+                : new BigDecimal("20.00");
+
         return Course.builder()
                 .courseName(request.getCourseName().trim())
                 .courseDescription(request.getCourseDescription().trim())
                 .courseThumbnail(request.getCourseThumbnail())
                 .courseFeeMonthly(request.getCourseFeeMonthly())
+                .subject(request.getSubject() != null ? request.getSubject().trim() : null)
+                .isOnline(isOnline)
+                .discountOfferPercent(discountOfferPercent)
+                .isVisible(isVisible)
                 .gradeId(request.getGradeId())
-                .isPublished(false)
                 .assignedTeacherId(request.getAssignedTeacherId())
-                .status(CourseStatus.DRAFT)
+                .courseEnrollmentId(request.getCourseEnrollmentId())
+                .isPublished(isPublished)
+                .status(isPublished ? CourseStatus.PUBLISHED : CourseStatus.DRAFT)
                 .numberOfStudents(0)
                 .build();
     }
@@ -42,7 +55,12 @@ public class CourseMapper {
                 .courseThumbnail(course.getCourseThumbnail())
                 .courseFeeMonthly(course.getCourseFeeMonthly())
                 .assignedTeacherId(course.getAssignedTeacherId())
+                .courseEnrollmentId(course.getCourseEnrollmentId())
                 .gradeId(course.getGradeId())
+                .subject(course.getSubject())
+                .online(course.isOnline())
+                .discountOfferPercent(course.getDiscountOfferPercent())
+                .visible(course.isVisible())
                 .isPublished(course.isPublished())
                 .courseStatus(course.getStatus())
                 .publishedDate(course.getPublishedDate())

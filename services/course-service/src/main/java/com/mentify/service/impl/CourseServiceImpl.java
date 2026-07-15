@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
@@ -38,6 +39,11 @@ public class CourseServiceImpl implements CourseService {
 
 
         Course course = CourseMapper.toCourseEntity(request);
+        if (course.isPublished()) {
+            course.setPublishedDate(LocalDate.now());
+        } else {
+            course.setPublishedDate(null);
+        }
 
         Course savedCourse = courseRepository.save(course);
 
@@ -47,6 +53,7 @@ public class CourseServiceImpl implements CourseService {
         return ApiResponse.<CourseResponse>builder()
                 .message("Course created successfully")
                 .data(courseResponse)
+                .statusCode(HttpStatus.CREATED.value())
                 .status(HttpStatus.CREATED)
                 .build();
     }

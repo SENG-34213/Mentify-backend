@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -53,6 +52,10 @@ class CourseControllerTest {
                 .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
+                .subject("Mathematics")
+                .online(true)
+                .discountOfferPercent(new BigDecimal("20.00"))
+                .visible(true)
                 .courseStatus(CourseStatus.DRAFT)
                 .isPublished(false)
                 .numberOfStudents(0)
@@ -65,7 +68,7 @@ class CourseControllerTest {
                         .build()
         );
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
                 .andExpect(status().isCreated())
@@ -74,7 +77,11 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.data.courseDescription").value("Grade 10 mathematics"))
                 .andExpect(jsonPath("$.data.courseStatus").value("DRAFT"))
                 .andExpect(jsonPath("$.data.published").value(false))
-                .andExpect(jsonPath("$.data.numberOfStudents").value(0));
+                .andExpect(jsonPath("$.data.numberOfStudents").value(0))
+                .andExpect(jsonPath("$.data.subject").value("Mathematics"))
+                .andExpect(jsonPath("$.data.online").value(true))
+                .andExpect(jsonPath("$.data.discountOfferPercent").value(20.0))
+                .andExpect(jsonPath("$.data.visible").value(true));
 
         verify(courseService).createCourse(any(CourseRequest.class));
     }
@@ -84,7 +91,7 @@ class CourseControllerTest {
         CourseRequest request = validRequest();
         request.setCourseName(" ");
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -97,7 +104,7 @@ class CourseControllerTest {
         CourseRequest request = validRequest();
         request.setCourseFeeMonthly(BigDecimal.ZERO);
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -110,7 +117,7 @@ class CourseControllerTest {
         CourseRequest request = validRequest();
         request.setGradeId(null);
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/course")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -126,6 +133,10 @@ class CourseControllerTest {
                 .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
+                .subject("Mathematics")
+                .isOnline(true)
+                .discountOfferPercent(new BigDecimal("20.00"))
+                .isVisible(true)
                 .build();
     }
 }

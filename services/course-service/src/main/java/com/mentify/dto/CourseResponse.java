@@ -23,7 +23,12 @@ public class CourseResponse {
     private String courseThumbnail;
     private BigDecimal courseFeeMonthly;
     private UUID assignedTeacherId;
+    private UUID courseEnrollmentId;
     private UUID gradeId;
+    private String subject;
+    private boolean online;
+    private BigDecimal discountOfferPercent;
+    private boolean visible;
     private boolean isPublished;
     private CourseStatus courseStatus;
     private LocalDate publishedDate;
