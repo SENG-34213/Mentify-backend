@@ -39,4 +39,19 @@ public class CourseRequest {
     @NotNull(message = "Assigned teacher ID is required.")
     private UUID assignedTeacherId;
 
+    @NotBlank(message = "Subject is required")
+    @Size(max = 100, message = "Subject must not exceed 100 characters")
+    private String subject;
+
+    private Boolean isOnline;
+
+    @DecimalMin(value = "0.0", inclusive = true, message = "Discount offer percent must not be negative")
+    private BigDecimal discountOfferPercent;
+
+    private Boolean isVisible;
+
+    private Boolean isPublished;
+
+    private UUID courseEnrollmentId;
+
 }

@@ -9,9 +9,9 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
 
   datasource:
-    url: jdbc:postgresql://${USER_DB_HOST:localhost}:${USER_DB_PORT:5432}/${USER_DB_NAME:user_db}
+    url: jdbc:postgresql://${USER_DB_HOST:localhost}:${USER_DB_PORT:5434}/${USER_DB_NAME:user_db}
     username: ${USER_DB_USERNAME:postgres}
-    password: ${USER_DB_PASSWORD:root}
+    password: ${USER_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -27,10 +27,14 @@ spring:
           batch_size: 20
         order_inserts: true
         order_updates: true
+
 mentify:
   security:
     enabled: true
     principal-claim: preferred_username
+
+
+
 logging:
   level:
     root: INFO

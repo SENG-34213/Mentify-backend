@@ -53,6 +53,10 @@ class CourseControllerTest {
                 .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
+                .subject("Mathematics")
+                .online(true)
+                .discountOfferPercent(new BigDecimal("20.00"))
+                .visible(true)
                 .courseStatus(CourseStatus.DRAFT)
                 .isPublished(false)
                 .numberOfStudents(0)
@@ -74,7 +78,11 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.data.courseDescription").value("Grade 10 mathematics"))
                 .andExpect(jsonPath("$.data.courseStatus").value("DRAFT"))
                 .andExpect(jsonPath("$.data.published").value(false))
-                .andExpect(jsonPath("$.data.numberOfStudents").value(0));
+                .andExpect(jsonPath("$.data.numberOfStudents").value(0))
+                .andExpect(jsonPath("$.data.subject").value("Mathematics"))
+                .andExpect(jsonPath("$.data.online").value(true))
+                .andExpect(jsonPath("$.data.discountOfferPercent").value(20.0))
+                .andExpect(jsonPath("$.data.visible").value(true));
 
         verify(courseService).createCourse(any(CourseRequest.class));
     }
@@ -126,6 +134,10 @@ class CourseControllerTest {
                 .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
+                .subject("Mathematics")
+                .isOnline(true)
+                .discountOfferPercent(new BigDecimal("20.00"))
+                .isVisible(true)
                 .build();
     }
 }

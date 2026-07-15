@@ -63,6 +63,10 @@ class CourseServiceImplTest {
         assertThat(response.getData().getCourseStatus()).isEqualTo(CourseStatus.DRAFT);
         assertThat(response.getData().isPublished()).isFalse();
         assertThat(response.getData().getNumberOfStudents()).isZero();
+        assertThat(response.getData().getSubject()).isEqualTo("Mathematics");
+        assertThat(response.getData().isOnline()).isTrue();
+        assertThat(response.getData().getDiscountOfferPercent()).isEqualByComparingTo("20.00");
+        assertThat(response.getData().isVisible()).isTrue();
 
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
         verify(courseRepository).save(courseCaptor.capture());
@@ -76,6 +80,10 @@ class CourseServiceImplTest {
         assertThat(savedCourse.getStatus()).isEqualTo(CourseStatus.DRAFT);
         assertThat(savedCourse.isPublished()).isFalse();
         assertThat(savedCourse.getNumberOfStudents()).isZero();
+        assertThat(savedCourse.getSubject()).isEqualTo("Mathematics");
+        assertThat(savedCourse.isOnline()).isTrue();
+        assertThat(savedCourse.getDiscountOfferPercent()).isEqualByComparingTo("20.00");
+        assertThat(savedCourse.isVisible()).isTrue();
     }
 
     @Test
@@ -101,6 +109,11 @@ class CourseServiceImplTest {
                 .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
+                .subject("Mathematics")
+                .isOnline(true)
+                .discountOfferPercent(new BigDecimal("20.00"))
+                .isVisible(true)
+                .isPublished(false)
                 .build();
     }
 }

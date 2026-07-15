@@ -1,43 +1,41 @@
+server:
+  port: ${COURSE_SERVICE_PORT:8082}
 
-  server:
-    port: ${COURSE_SERVICE_PORT:8082}
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
 
-  spring:
-    security:
-      oauth2:
-        resourceserver:
-          jwt:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+  datasource:
+    url: jdbc:postgresql://${COURSE_DB_HOST:localhost}:${COURSE_DB_PORT:5434}/${COURSE_DB_NAME:course_db}
+    username: ${COURSE_DB_USERNAME:postgres}
+    password: ${COURSE_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
 
-    datasource:
-      url: jdbc:postgresql://${COURSE_DB_HOST:localhost}:${COURSE_DB_PORT:5432}/${COURSE_DB_NAME:course_db}
-      username: ${COURSE_DB_USERNAME:postgres}
-      password: ${COURSE_DB_PASSWORD:root}
-      driver-class-name: org.postgresql.Driver
-
-    jpa:
-      database-platform: org.hibernate.dialect.PostgreSQLDialect
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:true}
+    properties:
       hibernate:
-        ddl-auto: ${HIBERNATE_DDL_AUTO:update}
-      show-sql: ${SHOW_SQL:true}
-      properties:
-        hibernate:
-          format_sql: true
-          use_sql_comments: true
-          jdbc:
-            batch_size: 20
-          order_inserts: true
-          order_updates: true
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
 
-  mentify:
-    security:
-      enabled: true
-      principal-claim: preferred_username
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
 
-  logging:
-    level:
-      root: INFO
-      com.mentify: DEBUG
-      org.hibernate.SQL: DEBUG
-      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-
+logging:
+  level:
+    root: INFO
+    com.mentify: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
