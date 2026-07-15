@@ -207,6 +207,33 @@ class CourseServiceImplTest {
         verify(courseRepository, never()).save(any());
     }
 
+    @Test
+    void deleteCourse_whenCourseExists_deletesCourseAndReturnsOkResponse() {
+        UUID courseId = UUID.randomUUID();
+        Course existingCourse = CourseMapperStub.existingCourse(courseId, UUID.randomUUID(), UUID.randomUUID());
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
+
+        ApiResponse<Object> response = courseService.deleteCourse(courseId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Course deleted successfully");
+        verify(courseRepository).delete(existingCourse);
+    }
+
+    @Test
+    void deleteCourse_whenCourseDoesNotExist_throwsResourceNotFoundException() {
+        UUID courseId = UUID.randomUUID();
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> courseService.deleteCourse(courseId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Course not found with id: '" + courseId + "'");
+
+        verify(courseRepository, never()).delete(any());
+    }
+
     private static final class CourseMapperStub {
         private static Course existingCourse(UUID courseId, UUID gradeId, UUID teacherId) {
             Course course = Course.builder()
