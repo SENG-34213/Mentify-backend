@@ -12,4 +12,6 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     boolean existsByCourseNameAndGradeId(String courseName, UUID gradeId);
 
+    boolean existsByCourseNameAndGradeIdAndIdNot(String courseName, UUID gradeId, UUID id);
+
 }
