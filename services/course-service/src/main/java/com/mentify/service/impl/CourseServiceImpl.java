@@ -116,6 +116,24 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    public ApiResponse<CourseResponse> getCourseById(UUID courseId) {
+        log.info("Fetching course with ID [{}]", courseId);
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
+
+        CourseResponse courseResponse = CourseMapper.toCourseResponse(course);
+
+        return ApiResponse.<CourseResponse>builder()
+                .message("Course fetched successfully")
+                .data(courseResponse)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<Object> deleteCourse(UUID courseId) {
         log.info("Deleting course with ID [{}]", courseId);
 

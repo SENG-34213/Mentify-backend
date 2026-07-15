@@ -39,6 +39,13 @@ public class CourseController {
         return new ResponseEntity<>(response, response.getStatus());
     }
 
+    @GetMapping("/{courseId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(@PathVariable UUID courseId) {
+        ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @DeleteMapping("/{courseId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Object>> deleteCourse(@PathVariable UUID courseId) {

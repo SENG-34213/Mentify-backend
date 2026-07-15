@@ -11,5 +11,7 @@ public interface CourseService {
 
     ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request);
 
+    ApiResponse<CourseResponse> getCourseById(UUID courseId);
+
     ApiResponse<Object> deleteCourse(UUID courseId);
 }
