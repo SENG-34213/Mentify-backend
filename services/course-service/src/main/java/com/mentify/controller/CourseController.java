@@ -1,5 +1,6 @@
 package com.mentify.controller;
 
+import com.mentify.dto.CourseBulkLookupRequest;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.payload.response.ApiResponse;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -43,6 +45,15 @@ public class CourseController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(@PathVariable UUID courseId) {
         ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping("/bulk")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<CourseResponse>>> getCoursesByIds(
+            @Valid @RequestBody CourseBulkLookupRequest request
+    ) {
+        ApiResponse<List<CourseResponse>> response = courseService.getCoursesByIds(request.getIds());
         return new ResponseEntity<>(response, response.getStatus());
     }
 

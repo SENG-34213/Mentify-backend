@@ -1,6 +1,8 @@
 package com.mentify.service.impl;
 
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.dto.CourseBulkLookupRequest;
+import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.entity.Entrollment;
@@ -69,14 +71,30 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     }
 
     private void validateCoursesExist(Set<UUID> courseIds, String authorizationHeader) {
-        for (UUID courseId : courseIds) {
-            try {
-                courseServiceClient.getCourseById(courseId, authorizationHeader);
-            } catch (FeignException.NotFound ex) {
-                throw new ResourceNotFoundException("Course", "id", courseId);
-            } catch (FeignException ex) {
-                throw new IllegalStateException("Failed to validate course with ID: " + courseId, ex);
+        try {
+            ApiResponse<List<CourseLookupResponse>> response = courseServiceClient.getCoursesByIds(
+                    CourseBulkLookupRequest.builder().ids(courseIds).build(),
+                    authorizationHeader
+            );
+
+            List<CourseLookupResponse> courses = response.getData() != null ? response.getData() : List.of();
+
+            Set<UUID> foundCourseIds = courses.stream()
+                    .map(CourseLookupResponse::getId)
+                    .filter(id -> id != null)
+                    .collect(Collectors.toSet());
+
+            Set<UUID> missingCourseIds = courseIds.stream()
+                    .filter(id -> !foundCourseIds.contains(id))
+                    .collect(Collectors.toSet());
+
+            if (!missingCourseIds.isEmpty()) {
+                throw new ResourceNotFoundException("Course", "id", missingCourseIds.iterator().next());
             }
+        } catch (FeignException.NotFound ex) {
+            throw new ResourceNotFoundException("Course", "ids", courseIds);
+        } catch (FeignException ex) {
+            throw new IllegalStateException("Failed to validate courses", ex);
         }
     }
 

@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -127,6 +130,23 @@ public class CourseServiceImpl implements CourseService {
         return ApiResponse.<CourseResponse>builder()
                 .message("Course fetched successfully")
                 .data(courseResponse)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids) {
+        log.info("Fetching {} courses in bulk", ids.size());
+
+        List<CourseResponse> courses = courseRepository.findAllById(ids).stream()
+                .map(CourseMapper::toCourseResponse)
+                .collect(Collectors.toList());
+
+        return ApiResponse.<List<CourseResponse>>builder()
+                .message("Courses fetched successfully")
+                .data(courses)
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
