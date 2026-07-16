@@ -28,6 +28,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: entrollment-service
+          uri: lb://entrollment-service
+          predicates:
+            - Path=/api/v1/enrollments/**
+          filters:
+            - StripPrefix=0
+
 logging:
   level:
     root: INFO

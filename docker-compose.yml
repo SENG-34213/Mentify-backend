@@ -11,6 +11,7 @@ services:
       POSTGRES_DB: ${APP_DB_NAME:-mentify}
       USER_DB_NAME: ${USER_DB_NAME:-user_db}
       COURSE_DB_NAME: ${COURSE_DB_NAME:-course_db}
+      ENTROLLMENT_DB_NAME: ${ENTROLLMENT_DB_NAME:-entrollment_db}
     volumes:
       - postgres:/data/postgres
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -36,6 +37,23 @@ services:
     networks:
       - backend
     restart: unless-stopped
+
+#  mentify-entrollment-db:
+#    image: postgres:16
+#    container_name: mentify-entrollment-db
+#    profiles:
+#      - app-db
+#    environment:
+#      POSTGRES_DB: ${ENTROLLMENT_DB_NAME:-entrollment_db}
+#      POSTGRES_USER: ${ENTROLLMENT_DB_USERNAME:-postgres}
+#      POSTGRES_PASSWORD: ${ENTROLLMENT_DB_PASSWORD:-root}
+#    ports:
+#      - "${ENTROLLMENT_DB_PORT:-5435}:5432"
+#    volumes:
+#      - entrollment_postgres_data:/var/lib/postgresql/data
+#    networks:
+#      - backend
+#    restart: unless-stopped
 
   mentify-keycloak-db:
     image: postgres:16
@@ -82,3 +100,4 @@ volumes:
   postgres:
   pgadmin:
   mentify_keycloak_db_data:
+  entrollment_postgres_data:
