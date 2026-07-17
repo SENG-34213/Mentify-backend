@@ -5,6 +5,7 @@ import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
+import com.mentify.dto.EntrollmentUpdateRequest;
 import com.mentify.entity.Entrollment;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -58,13 +60,45 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .build();
     }
 
-    private Set<UUID> sanitizeAndValidateCourseIds(List<UUID> courseIds) {
-        Set<UUID> sanitized = courseIds.stream()
-                .filter(id -> id != null)
-                .collect(Collectors.toCollection(HashSet::new));
+    @Override
+    @Transactional
+    public ApiResponse<EntrollmentResponse> updateEntrollment(
+            UUID enrollmentId,
+            EntrollmentUpdateRequest request,
+            String authorizationHeader
+    ) {
+        log.info("Updating enrollment [{}]", enrollmentId);
 
-        if (sanitized.isEmpty()) {
-            throw new IllegalArgumentException("At least one valid course ID is required");
+        Entrollment existingEnrollment = entrollmentRepository.findByIdAndIsActiveTrue(enrollmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment", "id", enrollmentId));
+
+        Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
+        validateCoursesExist(requestedCourseIds, authorizationHeader);
+
+        existingEnrollment.setCourseIds(requestedCourseIds);
+        Entrollment savedEnrollment = entrollmentRepository.save(existingEnrollment);
+
+        return ApiResponse.<EntrollmentResponse>builder()
+                .message("Enrollment updated successfully")
+                .data(toResponse(savedEnrollment))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    private Set<UUID> sanitizeAndValidateCourseIds(List<UUID> courseIds) {
+        if (courseIds == null || courseIds.isEmpty()) {
+            throw new IllegalArgumentException("At least one course ID is required");
+        }
+
+        if (courseIds.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Course IDs cannot contain null values");
+        }
+
+        Set<UUID> sanitized = new HashSet<>(courseIds);
+
+        if (sanitized.size() != courseIds.size()) {
+            throw new IllegalArgumentException("Duplicate course IDs are not allowed");
         }
 
         return sanitized;
@@ -81,7 +115,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
             Set<UUID> foundCourseIds = courses.stream()
                     .map(CourseLookupResponse::getId)
-                    .filter(id -> id != null)
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
             Set<UUID> missingCourseIds = courseIds.stream()
