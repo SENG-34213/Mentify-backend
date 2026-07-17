@@ -1,6 +1,7 @@
 package com.mentify.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mentify.dto.CourseBulkLookupRequest;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.enums.CourseStatus;
@@ -18,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -191,6 +194,36 @@ class CourseControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void getCoursesByIds_whenRequestIsValid_returnsCourseList() throws Exception {
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+
+        CourseResponse firstCourse = CourseResponse.builder().id(firstId).courseName("Math").build();
+        CourseResponse secondCourse = CourseResponse.builder().id(secondId).courseName("Science").build();
+
+        when(courseService.getCoursesByIds(Set.of(firstId, secondId))).thenReturn(
+                ApiResponse.<List<CourseResponse>>builder()
+                        .status(HttpStatus.OK)
+                        .message("Courses fetched successfully")
+                        .data(List.of(firstCourse, secondCourse))
+                        .build()
+        );
+
+        CourseBulkLookupRequest request = CourseBulkLookupRequest.builder()
+                .ids(Set.of(firstId, secondId))
+                .build();
+
+        mockMvc.perform(post("/api/v1/course/bulk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Courses fetched successfully"))
+                .andExpect(jsonPath("$.data.length()").value(2));
+
+        verify(courseService).getCoursesByIds(Set.of(firstId, secondId));
     }
 
     @Test

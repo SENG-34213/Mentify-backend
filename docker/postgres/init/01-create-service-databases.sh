@@ -14,3 +14,4 @@ create_database_if_missing() {
 
 create_database_if_missing "${USER_DB_NAME:-user_db}"
 create_database_if_missing "${COURSE_DB_NAME:-course_db}"
+create_database_if_missing "${ENTROLLMENT_DB_NAME:-entrollment_db}"

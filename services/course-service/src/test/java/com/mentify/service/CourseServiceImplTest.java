@@ -19,7 +19,9 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -232,6 +234,26 @@ class CourseServiceImplTest {
                 .hasMessage("Course not found with id: '" + courseId + "'");
 
         verify(courseRepository, never()).delete(any());
+    }
+
+    @Test
+    void getCoursesByIds_whenIdsExist_returnsMappedCourseList() {
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+
+        Course firstCourse = CourseMapperStub.existingCourse(firstId, UUID.randomUUID(), UUID.randomUUID());
+        Course secondCourse = CourseMapperStub.existingCourse(secondId, UUID.randomUUID(), UUID.randomUUID());
+        secondCourse.setCourseName("Science");
+
+        when(courseRepository.findAllById(Set.of(firstId, secondId)))
+                .thenReturn(List.of(firstCourse, secondCourse));
+
+        ApiResponse<List<CourseResponse>> response = courseService.getCoursesByIds(Set.of(firstId, secondId));
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Courses fetched successfully");
+        assertThat(response.getData()).hasSize(2);
+        assertThat(response.getData()).extracting(CourseResponse::getId).containsExactlyInAnyOrder(firstId, secondId);
     }
 
     private static final class CourseMapperStub {
