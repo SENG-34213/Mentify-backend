@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -76,6 +77,46 @@ public class LessonServiceImpl implements LessonService {
         return ApiResponse.<LessonResponse>builder()
                 .message("Lesson updated successfully")
                 .data(toResponse(savedLesson))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<LessonResponse> getLesson(UUID courseId, UUID moduleId, UUID lessonId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        Lesson lesson = lessonRepository.findByIdAndModule_Id(lessonId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", lessonId));
+
+        return ApiResponse.<LessonResponse>builder()
+                .message("Lesson fetched successfully")
+                .data(toResponse(lesson))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<LessonResponse>> getLessons(UUID courseId, UUID moduleId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        List<LessonResponse> lessons = lessonRepository.findAllByModule_Id(moduleId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ApiResponse.<List<LessonResponse>>builder()
+                .message("Lessons fetched successfully")
+                .data(lessons)
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();

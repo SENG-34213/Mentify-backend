@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -166,6 +167,42 @@ class ModuleServiceImplTest {
         assertThatThrownBy(() -> moduleService.deleteModule(courseId, moduleId))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Module not found with id: '" + moduleId + "'");
+    }
+
+    @Test
+    void getModule_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        Course course = baseCourse(courseId);
+        Module module = Module.builder().title("Algebra").sequenceOrder(1).course(course).isVisible(true).build();
+        module.setId(moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+
+        ApiResponse<ModuleResponse> response = moduleService.getModule(courseId, moduleId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Module fetched successfully");
+        assertThat(response.getData().getId()).isEqualTo(moduleId);
+        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
+    }
+
+    @Test
+    void getModules_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        Course course = baseCourse(courseId);
+        Module module = Module.builder().title("Algebra").sequenceOrder(1).course(course).isVisible(true).build();
+        module.setId(UUID.randomUUID());
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+        when(moduleRepository.findAllByCourse_Id(courseId)).thenReturn(List.of(module));
+
+        ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Modules fetched successfully");
+        assertThat(response.getData()).hasSize(1);
+        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
     }
 
     private Course baseCourse(UUID courseId) {

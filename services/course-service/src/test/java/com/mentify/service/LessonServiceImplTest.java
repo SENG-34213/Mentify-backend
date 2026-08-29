@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -179,6 +180,43 @@ class LessonServiceImplTest {
         assertThatThrownBy(() -> lessonService.deleteLesson(courseId, moduleId, lessonId))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Lesson not found with id: '" + lessonId + "'");
+    }
+
+    @Test
+    void getLesson_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+        Lesson lesson = Lesson.builder().title("Lesson 1").module(module).isVisible(true).build();
+        lesson.setId(lessonId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.of(lesson));
+
+        ApiResponse<LessonResponse> response = lessonService.getLesson(courseId, moduleId, lessonId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Lesson fetched successfully");
+        assertThat(response.getData().getId()).isEqualTo(lessonId);
+    }
+
+    @Test
+    void getLessons_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+        Lesson lesson = Lesson.builder().title("Lesson 1").module(module).isVisible(true).build();
+        lesson.setId(UUID.randomUUID());
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(lessonRepository.findAllByModule_Id(moduleId)).thenReturn(List.of(lesson));
+
+        ApiResponse<List<LessonResponse>> response = lessonService.getLessons(courseId, moduleId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Lessons fetched successfully");
+        assertThat(response.getData()).hasSize(1);
     }
 
     private Module baseModule(UUID courseId, UUID moduleId) {

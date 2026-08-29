@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -237,6 +238,55 @@ class LearningMaterialServiceImplTest {
                 assertThatThrownBy(() -> learningMaterialService.deleteLearningMaterial(courseId, moduleId, materialId))
                                 .isInstanceOf(ResourceNotFoundException.class)
                                 .hasMessage("LearningMaterial not found with id: '" + materialId + "'");
+        }
+
+        @Test
+        void getLearningMaterial_whenValidRequest_returnsOk() {
+                UUID courseId = UUID.randomUUID();
+                UUID moduleId = UUID.randomUUID();
+                UUID materialId = UUID.randomUUID();
+                Module module = baseModule(courseId, moduleId);
+
+                LearningMaterial material = LearningMaterial.builder()
+                                .title("Doc")
+                                .type(MaterialType.PDF)
+                                .fileUrl("https://cdn.example.com/doc.pdf")
+                                .module(module)
+                                .build();
+                material.setId(materialId);
+
+                when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+                when(learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)).thenReturn(Optional.of(material));
+
+                ApiResponse<LearningMaterialResponse> response = learningMaterialService.getLearningMaterial(courseId, moduleId, materialId);
+
+                assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+                assertThat(response.getMessage()).isEqualTo("Learning material fetched successfully");
+                assertThat(response.getData().getId()).isEqualTo(materialId);
+        }
+
+        @Test
+        void getLearningMaterials_whenValidRequest_returnsOk() {
+                UUID courseId = UUID.randomUUID();
+                UUID moduleId = UUID.randomUUID();
+                Module module = baseModule(courseId, moduleId);
+
+                LearningMaterial material = LearningMaterial.builder()
+                                .title("Doc")
+                                .type(MaterialType.PDF)
+                                .fileUrl("https://cdn.example.com/doc.pdf")
+                                .module(module)
+                                .build();
+                material.setId(UUID.randomUUID());
+
+                when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+                when(learningMaterialRepository.findAllByModule_Id(moduleId)).thenReturn(List.of(material));
+
+                ApiResponse<List<LearningMaterialResponse>> response = learningMaterialService.getLearningMaterials(courseId, moduleId);
+
+                assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+                assertThat(response.getMessage()).isEqualTo("Learning materials fetched successfully");
+                assertThat(response.getData()).hasSize(1);
         }
 
     private Module baseModule(UUID courseId, UUID moduleId) {

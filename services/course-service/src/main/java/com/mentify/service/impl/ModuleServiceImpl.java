@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -72,6 +73,43 @@ public class ModuleServiceImpl implements ModuleService {
         return ApiResponse.<ModuleResponse>builder()
                 .message("Module updated successfully")
                 .data(toResponse(savedModule))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<ModuleResponse> getModule(UUID courseId, UUID moduleId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        return ApiResponse.<ModuleResponse>builder()
+                .message("Module fetched successfully")
+                .data(toResponse(module))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<ModuleResponse>> getModules(UUID courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(course);
+
+        List<ModuleResponse> modules = moduleRepository.findAllByCourse_Id(courseId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ApiResponse.<List<ModuleResponse>>builder()
+                .message("Modules fetched successfully")
+                .data(modules)
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();

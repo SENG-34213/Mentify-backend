@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -95,6 +96,46 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
         return ApiResponse.<LearningMaterialResponse>builder()
                 .message("Learning material updated successfully")
                 .data(toResponse(savedMaterial))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<LearningMaterialResponse> getLearningMaterial(UUID courseId, UUID moduleId, UUID materialId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        LearningMaterial material = learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("LearningMaterial", "id", materialId));
+
+        return ApiResponse.<LearningMaterialResponse>builder()
+                .message("Learning material fetched successfully")
+                .data(toResponse(material))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<LearningMaterialResponse>> getLearningMaterials(UUID courseId, UUID moduleId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        List<LearningMaterialResponse> materials = learningMaterialRepository.findAllByModule_Id(moduleId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ApiResponse.<List<LearningMaterialResponse>>builder()
+                .message("Learning materials fetched successfully")
+                .data(materials)
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
