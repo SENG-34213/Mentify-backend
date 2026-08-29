@@ -81,6 +81,26 @@ public class LessonServiceImpl implements LessonService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<Object> deleteLesson(UUID courseId, UUID moduleId, UUID lessonId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        Lesson lesson = lessonRepository.findByIdAndModule_Id(lessonId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", lessonId));
+
+        lessonRepository.delete(lesson);
+
+        return ApiResponse.builder()
+                .message("Lesson deleted successfully")
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private LessonResponse toResponse(Lesson lesson) {
         return LessonResponse.builder()
                 .id(lesson.getId())

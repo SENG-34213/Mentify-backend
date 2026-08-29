@@ -100,6 +100,26 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<Object> deleteLearningMaterial(UUID courseId, UUID moduleId, UUID materialId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        LearningMaterial material = learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("LearningMaterial", "id", materialId));
+
+        learningMaterialRepository.delete(material);
+
+        return ApiResponse.builder()
+                .message("Learning material deleted successfully")
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private LearningMaterialResponse toResponse(LearningMaterial material) {
         return LearningMaterialResponse.builder()
                 .id(material.getId())

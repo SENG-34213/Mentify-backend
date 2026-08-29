@@ -77,6 +77,22 @@ public class ModuleServiceImpl implements ModuleService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<Object> deleteModule(UUID courseId, UUID moduleId) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        moduleRepository.delete(module);
+
+        return ApiResponse.builder()
+                .message("Module deleted successfully")
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private ModuleResponse toResponse(Module module) {
         return ModuleResponse.builder()
                 .id(module.getId())

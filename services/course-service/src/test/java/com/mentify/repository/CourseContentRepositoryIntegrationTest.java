@@ -128,6 +128,48 @@ class CourseContentRepositoryIntegrationTest {
                 assertThat(materialByWrongModule).isEmpty();
     }
 
+    @Test
+    void repositoryDelete_operationsRemoveEntities() {
+        Course course = courseRepository.saveAndFlush(baseCourse(UUID.randomUUID()));
+
+        Module module = Module.builder()
+                .title("Calculus")
+                .sequenceOrder(3)
+                .isVisible(true)
+                .course(course)
+                .build();
+        module = moduleRepository.saveAndFlush(module);
+
+        Lesson lesson = Lesson.builder()
+                .title("Limits")
+                .isVisible(true)
+                .module(module)
+                .build();
+        lesson = lessonRepository.saveAndFlush(lesson);
+
+        LearningMaterial material = LearningMaterial.builder()
+                .title("Limits Notes")
+                .type(MaterialType.PDF)
+                .fileUrl("https://cdn.example.com/limits.pdf")
+                .module(module)
+                .lesson(lesson)
+                .build();
+        material = learningMaterialRepository.saveAndFlush(material);
+
+        learningMaterialRepository.delete(material);
+        learningMaterialRepository.flush();
+
+        lessonRepository.delete(lesson);
+        lessonRepository.flush();
+
+        moduleRepository.delete(module);
+        moduleRepository.flush();
+
+        assertThat(learningMaterialRepository.findById(material.getId())).isEmpty();
+        assertThat(lessonRepository.findById(lesson.getId())).isEmpty();
+        assertThat(moduleRepository.findById(module.getId())).isEmpty();
+    }
+
     private Course baseCourse(UUID teacherId) {
         return Course.builder()
                 .courseName("Mathematics")

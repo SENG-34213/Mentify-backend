@@ -198,6 +198,47 @@ class LearningMaterialServiceImplTest {
                 .hasMessage("LearningMaterial not found with id: '" + materialId + "'");
     }
 
+        @Test
+        void deleteLearningMaterial_whenValidRequest_returnsOk() {
+                UUID courseId = UUID.randomUUID();
+                UUID moduleId = UUID.randomUUID();
+                UUID materialId = UUID.randomUUID();
+                Module module = baseModule(courseId, moduleId);
+
+                LearningMaterial material = LearningMaterial.builder()
+                                .title("Material")
+                                .type(MaterialType.VIDEO)
+                                .fileUrl("https://cdn.example.com/video.mp4")
+                                .module(module)
+                                .build();
+                material.setId(materialId);
+
+                when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+                when(learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)).thenReturn(Optional.of(material));
+
+                ApiResponse<Object> response = learningMaterialService.deleteLearningMaterial(courseId, moduleId, materialId);
+
+                assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+                assertThat(response.getMessage()).isEqualTo("Learning material deleted successfully");
+                verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());
+                verify(learningMaterialRepository).delete(material);
+        }
+
+        @Test
+        void deleteLearningMaterial_whenMaterialNotFound_throwsNotFound() {
+                UUID courseId = UUID.randomUUID();
+                UUID moduleId = UUID.randomUUID();
+                UUID materialId = UUID.randomUUID();
+                Module module = baseModule(courseId, moduleId);
+
+                when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+                when(learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)).thenReturn(Optional.empty());
+
+                assertThatThrownBy(() -> learningMaterialService.deleteLearningMaterial(courseId, moduleId, materialId))
+                                .isInstanceOf(ResourceNotFoundException.class)
+                                .hasMessage("LearningMaterial not found with id: '" + materialId + "'");
+        }
+
     private Module baseModule(UUID courseId, UUID moduleId) {
         Course course = Course.builder()
                 .courseName("Mathematics")

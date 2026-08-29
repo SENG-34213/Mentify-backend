@@ -14,10 +14,12 @@ public interface LearningMaterialService {
             LearningMaterialCreateRequest request
     );
 
-        ApiResponse<LearningMaterialResponse> updateLearningMaterial(
+    ApiResponse<LearningMaterialResponse> updateLearningMaterial(
             UUID courseId,
             UUID moduleId,
             UUID materialId,
             LearningMaterialCreateRequest request
-        );
+    );
+
+    ApiResponse<Object> deleteLearningMaterial(UUID courseId, UUID moduleId, UUID materialId);
 }
