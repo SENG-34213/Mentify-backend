@@ -143,6 +143,44 @@ class LessonServiceImplTest {
                 .hasMessage("Lesson not found with id: '" + lessonId + "'");
             }
 
+    @Test
+    void deleteLesson_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+        Lesson lesson = Lesson.builder()
+                .title("Lesson")
+                .module(module)
+                .build();
+        lesson.setId(lessonId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.of(lesson));
+
+        ApiResponse<Object> response = lessonService.deleteLesson(courseId, moduleId, lessonId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Lesson deleted successfully");
+        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());
+        verify(lessonRepository).delete(lesson);
+    }
+
+    @Test
+    void deleteLesson_whenLessonNotFound_throwsNotFound() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> lessonService.deleteLesson(courseId, moduleId, lessonId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Lesson not found with id: '" + lessonId + "'");
+    }
+
     private Module baseModule(UUID courseId, UUID moduleId) {
         Course course = Course.builder()
                 .courseName("Mathematics")

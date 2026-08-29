@@ -134,6 +134,40 @@ class ModuleServiceImplTest {
                 .hasMessage("Module not found with id: '" + moduleId + "'");
             }
 
+    @Test
+    void deleteModule_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        Course course = baseCourse(courseId);
+        Module module = Module.builder()
+                .title("Module")
+                .sequenceOrder(1)
+                .course(course)
+                .build();
+        module.setId(moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+
+        ApiResponse<Object> response = moduleService.deleteModule(courseId, moduleId);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Module deleted successfully");
+        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
+        verify(moduleRepository).delete(module);
+    }
+
+    @Test
+    void deleteModule_whenModuleNotFound_throwsNotFound() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> moduleService.deleteModule(courseId, moduleId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Module not found with id: '" + moduleId + "'");
+    }
+
     private Course baseCourse(UUID courseId) {
         Course course = Course.builder()
                 .courseName("Mathematics")

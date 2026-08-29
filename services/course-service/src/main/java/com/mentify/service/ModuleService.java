@@ -11,4 +11,6 @@ public interface ModuleService {
     ApiResponse<ModuleResponse> createModule(UUID courseId, ModuleCreateRequest request);
 
     ApiResponse<ModuleResponse> updateModule(UUID courseId, UUID moduleId, ModuleCreateRequest request);
+
+    ApiResponse<Object> deleteModule(UUID courseId, UUID moduleId);
 }

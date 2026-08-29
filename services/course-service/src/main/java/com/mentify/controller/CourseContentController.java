@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -53,6 +54,16 @@ public class CourseContentController {
         return new ResponseEntity<>(response, response.getStatus());
     }
 
+    @DeleteMapping("/{moduleId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<Object>> deleteModule(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId
+    ) {
+        ApiResponse<Object> response = moduleService.deleteModule(courseId, moduleId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @PostMapping("/{moduleId}/lessons")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<ApiResponse<LessonResponse>> createLesson(
@@ -73,6 +84,17 @@ public class CourseContentController {
             @Valid @RequestBody LessonCreateRequest request
     ) {
         ApiResponse<LessonResponse> response = lessonService.updateLesson(courseId, moduleId, lessonId, request);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @DeleteMapping("/{moduleId}/lessons/{lessonId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<Object>> deleteLesson(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID lessonId
+    ) {
+        ApiResponse<Object> response = lessonService.deleteLesson(courseId, moduleId, lessonId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -98,6 +120,17 @@ public class CourseContentController {
     ) {
         ApiResponse<LearningMaterialResponse> response =
                 learningMaterialService.updateLearningMaterial(courseId, moduleId, materialId, request);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @DeleteMapping("/{moduleId}/learning-materials/{materialId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<Object>> deleteLearningMaterial(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID materialId
+    ) {
+        ApiResponse<Object> response = learningMaterialService.deleteLearningMaterial(courseId, moduleId, materialId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 }

@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -278,6 +279,65 @@ class CourseContentControllerTest {
     }
 
     @Test
+    void deleteModule_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        when(moduleService.deleteModule(courseId, moduleId)).thenReturn(
+                ApiResponse.builder()
+                        .status(HttpStatus.OK)
+                        .message("Module deleted successfully")
+                        .build()
+        );
+
+        mockMvc.perform(delete("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Module deleted successfully"));
+
+        verify(moduleService).deleteModule(courseId, moduleId);
+    }
+
+    @Test
+    void deleteLesson_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+
+        when(lessonService.deleteLesson(courseId, moduleId, lessonId)).thenReturn(
+                ApiResponse.builder()
+                        .status(HttpStatus.OK)
+                        .message("Lesson deleted successfully")
+                        .build()
+        );
+
+        mockMvc.perform(delete("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Lesson deleted successfully"));
+
+        verify(lessonService).deleteLesson(courseId, moduleId, lessonId);
+    }
+
+    @Test
+    void deleteLearningMaterial_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+
+        when(learningMaterialService.deleteLearningMaterial(courseId, moduleId, materialId)).thenReturn(
+                ApiResponse.builder()
+                        .status(HttpStatus.OK)
+                        .message("Learning material deleted successfully")
+                        .build()
+        );
+
+        mockMvc.perform(delete("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}", courseId, moduleId, materialId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Learning material deleted successfully"));
+
+        verify(learningMaterialService).deleteLearningMaterial(courseId, moduleId, materialId);
+    }
+
+    @Test
     void createModule_whenTitleIsBlank_returnsBadRequest() throws Exception {
         UUID courseId = UUID.randomUUID();
         ModuleCreateRequest request = ModuleCreateRequest.builder()
@@ -383,4 +443,48 @@ class CourseContentControllerTest {
                 assertThat(preAuthorize).isNotNull();
                 assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
         }
+
+    @Test
+    void deleteModule_hasTeacherPreAuthorize() throws NoSuchMethodException {
+        Method method = CourseContentController.class.getDeclaredMethod(
+                "deleteModule",
+                UUID.class,
+                UUID.class
+        );
+
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+    }
+
+    @Test
+    void deleteLesson_hasTeacherPreAuthorize() throws NoSuchMethodException {
+        Method method = CourseContentController.class.getDeclaredMethod(
+                "deleteLesson",
+                UUID.class,
+                UUID.class,
+                UUID.class
+        );
+
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+    }
+
+    @Test
+    void deleteLearningMaterial_hasTeacherPreAuthorize() throws NoSuchMethodException {
+        Method method = CourseContentController.class.getDeclaredMethod(
+                "deleteLearningMaterial",
+                UUID.class,
+                UUID.class,
+                UUID.class
+        );
+
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+    }
 }
