@@ -1,5 +1,6 @@
 package com.mentify.service;
 
+import com.mentify.client.UserServiceClient;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.entity.Course;
@@ -37,11 +38,14 @@ class CourseServiceImplTest {
     @Mock
     private CourseRepository courseRepository;
 
+    @Mock
+    private UserServiceClient userServiceClient;
+
     private CourseServiceImpl courseService;
 
     @BeforeEach
     void setUp() {
-        courseService = new CourseServiceImpl(courseRepository);
+        courseService = new CourseServiceImpl(courseRepository, userServiceClient);
     }
 
     @Test
@@ -51,6 +55,7 @@ class CourseServiceImplTest {
 
         when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
                 .thenReturn(false);
+        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId())).thenReturn(true);
         when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> {
             Course course = invocation.getArgument(0);
             course.setId(courseId);
@@ -107,6 +112,21 @@ class CourseServiceImplTest {
     }
 
     @Test
+    void createCourse_whenAssignedTeacherDoesNotExist_throwsResourceNotFoundException() {
+        CourseRequest request = validRequest();
+
+        when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
+                .thenReturn(false);
+        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId())).thenReturn(false);
+
+        assertThatThrownBy(() -> courseService.createCourse(request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Teacher not found with id: '" + request.getAssignedTeacherId() + "'");
+
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
     void updateCourse_whenRequestIsValid_updatesCourseAndReturnsOkResponse() {
         UUID courseId = UUID.randomUUID();
         UUID gradeId = UUID.randomUUID();
@@ -146,6 +166,7 @@ class CourseServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
         when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(updateRequest.getCourseName(), updateRequest.getGradeId(), courseId))
                 .thenReturn(false);
+        when(userServiceClient.isTeacherExists(updateRequest.getAssignedTeacherId())).thenReturn(true);
         when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, updateRequest);
@@ -205,6 +226,24 @@ class CourseServiceImplTest {
         assertThatThrownBy(() -> courseService.updateCourse(courseId, request))
                 .isInstanceOf(ResourceAlreadyExistsException.class)
                 .hasMessage("Course already exists with courseName: '" + request.getCourseName() + "'");
+
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCourse_whenAssignedTeacherDoesNotExist_throwsResourceNotFoundException() {
+        UUID courseId = UUID.randomUUID();
+        CourseRequest request = validRequest();
+        Course existingCourse = CourseMapperStub.existingCourse(courseId, request.getGradeId(), request.getAssignedTeacherId());
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
+        when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId))
+                .thenReturn(false);
+        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId())).thenReturn(false);
+
+        assertThatThrownBy(() -> courseService.updateCourse(courseId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Teacher not found with id: '" + request.getAssignedTeacherId() + "'");
 
         verify(courseRepository, never()).save(any());
     }
