@@ -31,10 +31,10 @@ All successful responses must use the same envelope shape:
 }
 ```
 
-Single retrieval (`GET /{entity}/{id}`):
+Single retrieval (`GET /api/v1/{entity}/{id}`):
 - `data` is a single DTO object for the requested entity.
 
-List retrieval (`GET /{entity}`):
+List retrieval (`GET /api/v1/{entity}`):
 - `data` contains an items list and pagination metadata:
 
 ```json
