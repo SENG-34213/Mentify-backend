@@ -86,6 +86,63 @@ class LessonServiceImplTest {
                 .hasMessage("Module not found with id: '" + moduleId + "'");
     }
 
+            @Test
+            void updateLesson_whenValidRequest_returnsOk() {
+            UUID courseId = UUID.randomUUID();
+            UUID moduleId = UUID.randomUUID();
+            UUID lessonId = UUID.randomUUID();
+            Module module = baseModule(courseId, moduleId);
+            Lesson lesson = Lesson.builder()
+                .title("Old Lesson")
+                .isVisible(true)
+                .module(module)
+                .build();
+            lesson.setId(lessonId);
+
+            when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+            when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.of(lesson));
+            when(lessonRepository.save(any(Lesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            ApiResponse<LessonResponse> response = lessonService.updateLesson(
+                courseId,
+                moduleId,
+                lessonId,
+                LessonCreateRequest.builder()
+                    .title("  Updated Lesson  ")
+                    .description("  Updated Description  ")
+                    .isVisible(false)
+                    .build()
+            );
+
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getMessage()).isEqualTo("Lesson updated successfully");
+            assertThat(response.getData()).isNotNull();
+            assertThat(response.getData().getTitle()).isEqualTo("Updated Lesson");
+            assertThat(response.getData().isVisible()).isFalse();
+
+            verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());
+            }
+
+            @Test
+            void updateLesson_whenLessonNotFound_throwsNotFound() {
+            UUID courseId = UUID.randomUUID();
+            UUID moduleId = UUID.randomUUID();
+            UUID lessonId = UUID.randomUUID();
+            Module module = baseModule(courseId, moduleId);
+
+            when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+            when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> lessonService.updateLesson(
+                courseId,
+                moduleId,
+                lessonId,
+                LessonCreateRequest.builder().title("Updated Lesson").build()
+            ))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Lesson not found with id: '" + lessonId + "'");
+            }
+
     private Module baseModule(UUID courseId, UUID moduleId) {
         Course course = Course.builder()
                 .courseName("Mathematics")

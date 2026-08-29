@@ -13,4 +13,11 @@ public interface LearningMaterialService {
             UUID moduleId,
             LearningMaterialCreateRequest request
     );
+
+        ApiResponse<LearningMaterialResponse> updateLearningMaterial(
+            UUID courseId,
+            UUID moduleId,
+            UUID materialId,
+            LearningMaterialCreateRequest request
+        );
 }

@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface LessonService {
 
     ApiResponse<LessonResponse> createLesson(UUID courseId, UUID moduleId, LessonCreateRequest request);
+
+    ApiResponse<LessonResponse> updateLesson(UUID courseId, UUID moduleId, UUID lessonId, LessonCreateRequest request);
 }

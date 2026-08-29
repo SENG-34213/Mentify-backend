@@ -63,6 +63,43 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<LearningMaterialResponse> updateLearningMaterial(
+            UUID courseId,
+            UUID moduleId,
+            UUID materialId,
+            LearningMaterialCreateRequest request
+    ) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        LearningMaterial material = learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("LearningMaterial", "id", materialId));
+
+        Lesson lesson = null;
+        if (request.getLessonId() != null) {
+            lesson = lessonRepository.findByIdAndModule_Id(request.getLessonId(), moduleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", request.getLessonId()));
+        }
+
+        material.setTitle(request.getTitle().trim());
+        material.setType(request.getType());
+        material.setFileUrl(request.getFileUrl().trim());
+        material.setLesson(lesson);
+
+        LearningMaterial savedMaterial = learningMaterialRepository.save(material);
+
+        return ApiResponse.<LearningMaterialResponse>builder()
+                .message("Learning material updated successfully")
+                .data(toResponse(savedMaterial))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private LearningMaterialResponse toResponse(LearningMaterial material) {
         return LearningMaterialResponse.builder()
                 .id(material.getId())

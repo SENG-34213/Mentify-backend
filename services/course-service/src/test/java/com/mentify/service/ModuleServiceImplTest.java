@@ -86,6 +86,54 @@ class ModuleServiceImplTest {
                 .hasMessage("Course not found with id: '" + courseId + "'");
     }
 
+            @Test
+            void updateModule_whenValidRequest_returnsOk() {
+            UUID courseId = UUID.randomUUID();
+            UUID moduleId = UUID.randomUUID();
+            Course course = baseCourse(courseId);
+            Module module = Module.builder()
+                .title("Old Algebra")
+                .sequenceOrder(1)
+                .isVisible(true)
+                .course(course)
+                .build();
+            module.setId(moduleId);
+
+            when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+            when(moduleRepository.save(any(Module.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            ApiResponse<ModuleResponse> response = moduleService.updateModule(courseId, moduleId, ModuleCreateRequest.builder()
+                .title("  Updated Algebra  ")
+                .description("  Updated basics  ")
+                .sequenceOrder(2)
+                .isVisible(false)
+                .build());
+
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getMessage()).isEqualTo("Module updated successfully");
+            assertThat(response.getData()).isNotNull();
+            assertThat(response.getData().getTitle()).isEqualTo("Updated Algebra");
+            assertThat(response.getData().getSequenceOrder()).isEqualTo(2);
+            assertThat(response.getData().isVisible()).isFalse();
+
+            verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
+            }
+
+            @Test
+            void updateModule_whenModuleNotFound_throwsNotFound() {
+            UUID courseId = UUID.randomUUID();
+            UUID moduleId = UUID.randomUUID();
+
+            when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> moduleService.updateModule(courseId, moduleId, ModuleCreateRequest.builder()
+                .title("Updated Algebra")
+                .sequenceOrder(1)
+                .build()))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Module not found with id: '" + moduleId + "'");
+            }
+
     private Course baseCourse(UUID courseId) {
         Course course = Course.builder()
                 .courseName("Mathematics")
