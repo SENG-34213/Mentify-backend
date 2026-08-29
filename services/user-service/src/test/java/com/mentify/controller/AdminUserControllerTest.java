@@ -12,6 +12,7 @@ import com.mentify.enums.AccountStatus;
 import com.mentify.enums.AttendanceMode;
 import com.mentify.enums.Role;
 import com.mentify.service.AdminRegistrationService;
+import com.mentify.repository.UserRepository;
 import com.mentify.service.UserRegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,9 @@ class AdminUserControllerTest {
 
     @MockBean
     private AdminRegistrationService adminRegistrationService;
+
+        @MockBean
+        private UserRepository userRepository;
 
     @Test
     void registerUser_whenUnauthenticated_returnsUnauthorized() throws Exception {
