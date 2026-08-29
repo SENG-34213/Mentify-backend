@@ -164,6 +164,41 @@ class CourseContentControllerTest {
     }
 
     @Test
+    void updateModule_whenTitleIsBlank_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        ModuleCreateRequest request = ModuleCreateRequest.builder()
+                .title(" ")
+                .sequenceOrder(1)
+                .build();
+
+        mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Module title is required"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+    }
+
+    @Test
+    void updateModule_whenModuleIdIsInvalidUuid_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        ModuleCreateRequest request = ModuleCreateRequest.builder()
+                .title("Updated Algebra")
+                .sequenceOrder(2)
+                .build();
+
+        mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}", courseId, "not-a-uuid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid UUID format for parameter 'moduleId'"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+    }
+
+    @Test
     void updateLesson_whenValidRequest_returnsOk() throws Exception {
         UUID courseId = UUID.randomUUID();
         UUID moduleId = UUID.randomUUID();
@@ -195,6 +230,41 @@ class CourseContentControllerTest {
                 .andExpect(jsonPath("$.data.title").value("Updated Linear Equations"));
 
         verify(lessonService).updateLesson(eq(courseId), eq(moduleId), eq(lessonId), any(LessonCreateRequest.class));
+    }
+
+    @Test
+    void updateLesson_whenTitleIsBlank_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        LessonCreateRequest request = LessonCreateRequest.builder()
+                .title(" ")
+                .build();
+
+        mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Lesson title is required"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+    }
+
+    @Test
+    void updateLesson_whenLessonIdIsInvalidUuid_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        LessonCreateRequest request = LessonCreateRequest.builder()
+                .title("Updated Linear Equations")
+                .build();
+
+        mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, "not-a-uuid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid UUID format for parameter 'lessonId'"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
     }
 
     @Test
@@ -277,6 +347,54 @@ class CourseContentControllerTest {
                 eq(materialId),
                 any(LearningMaterialCreateRequest.class)
         );
+    }
+
+    @Test
+    void updateLearningMaterial_whenTypeIsMissing_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        LearningMaterialCreateRequest request = LearningMaterialCreateRequest.builder()
+                .title("Updated Intro Video")
+                .fileUrl("https://cdn.example.com/algebra-v2.mp4")
+                .build();
+
+        mockMvc.perform(put(
+                        "/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}",
+                        courseId,
+                        moduleId,
+                        materialId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Learning material type is required"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+    }
+
+    @Test
+    void updateLearningMaterial_whenMaterialIdIsInvalidUuid_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        LearningMaterialCreateRequest request = LearningMaterialCreateRequest.builder()
+                .title("Updated Intro Video")
+                .type(MaterialType.VIDEO)
+                .fileUrl("https://cdn.example.com/algebra-v2.mp4")
+                .build();
+
+        mockMvc.perform(put(
+                        "/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}",
+                        courseId,
+                        moduleId,
+                        "not-a-uuid"
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid UUID format for parameter 'materialId'"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
     }
 
     @Test

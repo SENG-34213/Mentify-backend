@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.context.request.WebRequest;
 
 import java.util.UUID;
@@ -47,5 +48,21 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("Malformed JSON request", response.getBody().getMessage());
     }
-}
 
+    @Test
+    void shouldReturnFriendlyMessageForInvalidUuidParameter() {
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "not-a-uuid",
+                UUID.class,
+                "moduleId",
+                null,
+                new IllegalArgumentException("Invalid UUID string")
+        );
+
+        ResponseEntity<ApiResponse<Object>> response =
+                handler.handleMethodArgumentTypeMismatchException(ex, mock(WebRequest.class));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Invalid UUID format for parameter 'moduleId'", response.getBody().getMessage());
+    }
+}
