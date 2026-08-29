@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -279,6 +280,135 @@ class CourseContentControllerTest {
     }
 
     @Test
+    void getModules_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        ModuleResponse moduleResponse = ModuleResponse.builder()
+                .id(UUID.randomUUID())
+                .title("Algebra")
+                .courseId(courseId)
+                .build();
+
+        when(moduleService.getModules(courseId)).thenReturn(ApiResponse.<java.util.List<ModuleResponse>>builder()
+                .status(HttpStatus.OK)
+                .message("Modules fetched successfully")
+                .data(java.util.List.of(moduleResponse))
+                .build());
+
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules", courseId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Modules fetched successfully"))
+                .andExpect(jsonPath("$.data[0].title").value("Algebra"));
+
+        verify(moduleService).getModules(courseId);
+    }
+
+    @Test
+    void getModule_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        when(moduleService.getModule(courseId, moduleId)).thenReturn(ApiResponse.<ModuleResponse>builder()
+                .status(HttpStatus.OK)
+                .message("Module fetched successfully")
+                .data(ModuleResponse.builder().id(moduleId).title("Algebra").courseId(courseId).build())
+                .build());
+
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Module fetched successfully"));
+
+        verify(moduleService).getModule(courseId, moduleId);
+    }
+
+    @Test
+    void getLessons_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        when(lessonService.getLessons(courseId, moduleId)).thenReturn(ApiResponse.<java.util.List<LessonResponse>>builder()
+                .status(HttpStatus.OK)
+                .message("Lessons fetched successfully")
+                .data(java.util.List.of(LessonResponse.builder().id(UUID.randomUUID()).title("L1").moduleId(moduleId).build()))
+                .build());
+
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/lessons", courseId, moduleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Lessons fetched successfully"));
+
+        verify(lessonService).getLessons(courseId, moduleId);
+    }
+
+    @Test
+    void getLesson_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+
+        when(lessonService.getLesson(courseId, moduleId, lessonId)).thenReturn(ApiResponse.<LessonResponse>builder()
+                .status(HttpStatus.OK)
+                .message("Lesson fetched successfully")
+                .data(LessonResponse.builder().id(lessonId).title("L1").moduleId(moduleId).build())
+                .build());
+
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Lesson fetched successfully"));
+
+        verify(lessonService).getLesson(courseId, moduleId, lessonId);
+    }
+
+    @Test
+    void getLearningMaterials_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+
+        when(learningMaterialService.getLearningMaterials(courseId, moduleId))
+                .thenReturn(ApiResponse.<java.util.List<LearningMaterialResponse>>builder()
+                        .status(HttpStatus.OK)
+                        .message("Learning materials fetched successfully")
+                        .data(java.util.List.of(LearningMaterialResponse.builder()
+                                .id(UUID.randomUUID())
+                                .title("Doc")
+                                .type(MaterialType.PDF)
+                                .moduleId(moduleId)
+                                .fileUrl("https://cdn.example.com/doc.pdf")
+                                .build()))
+                        .build());
+
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials", courseId, moduleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Learning materials fetched successfully"));
+
+        verify(learningMaterialService).getLearningMaterials(courseId, moduleId);
+    }
+
+    @Test
+    void getLearningMaterial_whenValidRequest_returnsOk() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+
+        when(learningMaterialService.getLearningMaterial(courseId, moduleId, materialId))
+                .thenReturn(ApiResponse.<LearningMaterialResponse>builder()
+                        .status(HttpStatus.OK)
+                        .message("Learning material fetched successfully")
+                        .data(LearningMaterialResponse.builder()
+                                .id(materialId)
+                                .title("Doc")
+                                .type(MaterialType.PDF)
+                                .moduleId(moduleId)
+                                .fileUrl("https://cdn.example.com/doc.pdf")
+                                .build())
+                        .build());
+
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}", courseId, moduleId, materialId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Learning material fetched successfully"));
+
+        verify(learningMaterialService).getLearningMaterial(courseId, moduleId, materialId);
+    }
+
+    @Test
     void deleteModule_whenValidRequest_returnsOk() throws Exception {
         UUID courseId = UUID.randomUUID();
         UUID moduleId = UUID.randomUUID();
@@ -487,4 +617,52 @@ class CourseContentControllerTest {
         assertThat(preAuthorize).isNotNull();
         assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
     }
+
+        @Test
+        void getModules_hasTeacherPreAuthorize() throws NoSuchMethodException {
+                Method method = CourseContentController.class.getDeclaredMethod("getModules", UUID.class);
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        }
+
+        @Test
+        void getModule_hasTeacherPreAuthorize() throws NoSuchMethodException {
+                Method method = CourseContentController.class.getDeclaredMethod("getModule", UUID.class, UUID.class);
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        }
+
+        @Test
+        void getLessons_hasTeacherPreAuthorize() throws NoSuchMethodException {
+                Method method = CourseContentController.class.getDeclaredMethod("getLessons", UUID.class, UUID.class);
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        }
+
+        @Test
+        void getLesson_hasTeacherPreAuthorize() throws NoSuchMethodException {
+                Method method = CourseContentController.class.getDeclaredMethod("getLesson", UUID.class, UUID.class, UUID.class);
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        }
+
+        @Test
+        void getLearningMaterials_hasTeacherPreAuthorize() throws NoSuchMethodException {
+                Method method = CourseContentController.class.getDeclaredMethod("getLearningMaterials", UUID.class, UUID.class);
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        }
+
+        @Test
+        void getLearningMaterial_hasTeacherPreAuthorize() throws NoSuchMethodException {
+                Method method = CourseContentController.class.getDeclaredMethod("getLearningMaterial", UUID.class, UUID.class, UUID.class);
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                assertThat(preAuthorize).isNotNull();
+                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        }
 }

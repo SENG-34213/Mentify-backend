@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -51,6 +53,23 @@ public class CourseContentController {
             @Valid @RequestBody ModuleCreateRequest request
     ) {
         ApiResponse<ModuleResponse> response = moduleService.updateModule(courseId, moduleId, request);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<List<ModuleResponse>>> getModules(@PathVariable UUID courseId) {
+        ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/{moduleId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<ModuleResponse>> getModule(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId
+    ) {
+        ApiResponse<ModuleResponse> response = moduleService.getModule(courseId, moduleId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -84,6 +103,27 @@ public class CourseContentController {
             @Valid @RequestBody LessonCreateRequest request
     ) {
         ApiResponse<LessonResponse> response = lessonService.updateLesson(courseId, moduleId, lessonId, request);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/{moduleId}/lessons")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<List<LessonResponse>>> getLessons(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId
+    ) {
+        ApiResponse<List<LessonResponse>> response = lessonService.getLessons(courseId, moduleId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/{moduleId}/lessons/{lessonId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<LessonResponse>> getLesson(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID lessonId
+    ) {
+        ApiResponse<LessonResponse> response = lessonService.getLesson(courseId, moduleId, lessonId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -122,6 +162,29 @@ public class CourseContentController {
                 learningMaterialService.updateLearningMaterial(courseId, moduleId, materialId, request);
         return new ResponseEntity<>(response, response.getStatus());
     }
+
+        @GetMapping("/{moduleId}/learning-materials")
+        @PreAuthorize("hasRole('TEACHER')")
+        public ResponseEntity<ApiResponse<List<LearningMaterialResponse>>> getLearningMaterials(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId
+        ) {
+        ApiResponse<List<LearningMaterialResponse>> response =
+            learningMaterialService.getLearningMaterials(courseId, moduleId);
+        return new ResponseEntity<>(response, response.getStatus());
+        }
+
+        @GetMapping("/{moduleId}/learning-materials/{materialId}")
+        @PreAuthorize("hasRole('TEACHER')")
+        public ResponseEntity<ApiResponse<LearningMaterialResponse>> getLearningMaterial(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID materialId
+        ) {
+        ApiResponse<LearningMaterialResponse> response =
+            learningMaterialService.getLearningMaterial(courseId, moduleId, materialId);
+        return new ResponseEntity<>(response, response.getStatus());
+        }
 
     @DeleteMapping("/{moduleId}/learning-materials/{materialId}")
     @PreAuthorize("hasRole('TEACHER')")

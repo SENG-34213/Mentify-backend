@@ -4,6 +4,7 @@ import com.mentify.entity.Module;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,4 +12,6 @@ import java.util.UUID;
 public interface ModuleRepository extends JpaRepository<Module, UUID> {
 
     Optional<Module> findByIdAndCourse_Id(UUID id, UUID courseId);
+
+    List<Module> findAllByCourse_Id(UUID courseId);
 }

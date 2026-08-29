@@ -13,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -120,12 +121,19 @@ class CourseContentRepositoryIntegrationTest {
         Optional<LearningMaterial> materialByWrongModule =
                 learningMaterialRepository.findByIdAndModule_Id(material.getId(), UUID.randomUUID());
 
+        List<Module> modulesByCourse = moduleRepository.findAllByCourse_Id(course.getId());
+        List<Lesson> lessonsByModule = lessonRepository.findAllByModule_Id(module.getId());
+        List<LearningMaterial> materialsByModule = learningMaterialRepository.findAllByModule_Id(module.getId());
+
         assertThat(moduleByCourse).isPresent();
         assertThat(moduleByWrongCourse).isEmpty();
         assertThat(lessonByModule).isPresent();
         assertThat(lessonByWrongModule).isEmpty();
                 assertThat(materialByModule).isPresent();
                 assertThat(materialByWrongModule).isEmpty();
+        assertThat(modulesByCourse).hasSize(1);
+        assertThat(lessonsByModule).hasSize(1);
+        assertThat(materialsByModule).hasSize(1);
     }
 
     @Test
