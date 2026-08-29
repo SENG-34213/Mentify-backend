@@ -3,7 +3,9 @@ package com.mentify.controller;
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.SuperAdminRegisterAdminRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
+import com.mentify.repository.UserRepository;
 import com.mentify.service.AdminRegistrationService;
 import com.mentify.service.UserRegistrationService;
 import jakarta.validation.Valid;
@@ -11,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +29,7 @@ public class UserRegistration {
 
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;
+    private final UserRepository userRepository;
 
     @PostMapping("/register")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -71,5 +75,11 @@ public class UserRegistration {
                         null
                 )
         );
+    }
+
+    @GetMapping("/teachers/{teacherId}/exists")
+    public ResponseEntity<Boolean> teacherExists(@PathVariable UUID teacherId) {
+        boolean exists = userRepository.existsByIdAndRole(teacherId, Role.TEACHER);
+        return ResponseEntity.ok(exists);
     }
 }

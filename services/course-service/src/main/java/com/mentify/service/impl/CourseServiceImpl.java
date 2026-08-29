@@ -1,5 +1,6 @@
 package com.mentify.service.impl;
 
+import com.mentify.client.UserServiceClient;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.entity.Course;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
+    private final UserServiceClient userServiceClient;
 
     @Override
     @Transactional
@@ -40,8 +42,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
-        // Verify the assigned Teacher exists in the local user-service DB
-
+        validateTeacherExists(request.getAssignedTeacherId());
 
         Course course = CourseMapper.toCourseEntity(request);
         if (course.isPublished()) {
@@ -75,6 +76,8 @@ public class CourseServiceImpl implements CourseService {
             log.warn("Duplicate course title attempted on update: '{}'", request.getCourseName());
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
+
+        validateTeacherExists(request.getAssignedTeacherId());
 
         existingCourse.setCourseName(request.getCourseName().trim());
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
@@ -115,6 +118,12 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    private void validateTeacherExists(UUID teacherId) {
+        if (teacherId == null || !userServiceClient.isTeacherExists(teacherId)) {
+            throw new ResourceNotFoundException("Teacher", "id", teacherId);
+        }
     }
 
     @Override
