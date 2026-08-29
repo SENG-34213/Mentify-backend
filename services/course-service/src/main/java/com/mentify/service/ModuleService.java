@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface ModuleService {
 
     ApiResponse<ModuleResponse> createModule(UUID courseId, ModuleCreateRequest request);
+
+    ApiResponse<ModuleResponse> updateModule(UUID courseId, UUID moduleId, ModuleCreateRequest request);
 }

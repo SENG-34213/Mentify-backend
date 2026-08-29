@@ -100,16 +100,32 @@ class CourseContentRepositoryIntegrationTest {
                 .build();
         lesson = lessonRepository.saveAndFlush(lesson);
 
+        LearningMaterial material = LearningMaterial.builder()
+                .title("Triangles PDF")
+                .type(MaterialType.PDF)
+                .fileUrl("https://cdn.example.com/triangles.pdf")
+                .module(module)
+                .lesson(lesson)
+                .build();
+        material = learningMaterialRepository.saveAndFlush(material);
+
         Optional<Module> moduleByCourse = moduleRepository.findByIdAndCourse_Id(module.getId(), course.getId());
         Optional<Module> moduleByWrongCourse = moduleRepository.findByIdAndCourse_Id(module.getId(), UUID.randomUUID());
 
         Optional<Lesson> lessonByModule = lessonRepository.findByIdAndModule_Id(lesson.getId(), module.getId());
         Optional<Lesson> lessonByWrongModule = lessonRepository.findByIdAndModule_Id(lesson.getId(), UUID.randomUUID());
 
+        Optional<LearningMaterial> materialByModule =
+                learningMaterialRepository.findByIdAndModule_Id(material.getId(), module.getId());
+        Optional<LearningMaterial> materialByWrongModule =
+                learningMaterialRepository.findByIdAndModule_Id(material.getId(), UUID.randomUUID());
+
         assertThat(moduleByCourse).isPresent();
         assertThat(moduleByWrongCourse).isEmpty();
         assertThat(lessonByModule).isPresent();
         assertThat(lessonByWrongModule).isEmpty();
+                assertThat(materialByModule).isPresent();
+                assertThat(materialByWrongModule).isEmpty();
     }
 
     private Course baseCourse(UUID teacherId) {

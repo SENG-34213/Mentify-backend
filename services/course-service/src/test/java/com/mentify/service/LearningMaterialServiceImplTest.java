@@ -124,6 +124,80 @@ class LearningMaterialServiceImplTest {
                 .hasMessage("Lesson not found with id: '" + lessonId + "'");
     }
 
+    @Test
+    void updateLearningMaterial_whenValidRequest_returnsOk() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+
+        Lesson lesson = Lesson.builder()
+                .title("Lesson 1")
+                .isVisible(true)
+                .module(module)
+                .build();
+        lesson.setId(lessonId);
+
+        LearningMaterial material = LearningMaterial.builder()
+                .title("Old Video")
+                .type(MaterialType.VIDEO)
+                .fileUrl("https://cdn.example.com/old.mp4")
+                .module(module)
+                .build();
+        material.setId(materialId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)).thenReturn(Optional.of(material));
+        when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.of(lesson));
+        when(learningMaterialRepository.save(any(LearningMaterial.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.updateLearningMaterial(
+                courseId,
+                moduleId,
+                materialId,
+                LearningMaterialCreateRequest.builder()
+                        .title("  Updated Video  ")
+                        .type(MaterialType.PDF)
+                        .fileUrl("  https://cdn.example.com/new.pdf  ")
+                        .lessonId(lessonId)
+                        .build()
+        );
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getMessage()).isEqualTo("Learning material updated successfully");
+        assertThat(response.getData()).isNotNull();
+        assertThat(response.getData().getTitle()).isEqualTo("Updated Video");
+        assertThat(response.getData().getType()).isEqualTo(MaterialType.PDF);
+        assertThat(response.getData().getLessonId()).isEqualTo(lessonId);
+
+        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());
+    }
+
+    @Test
+    void updateLearningMaterial_whenMaterialNotFound_throwsNotFound() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> learningMaterialService.updateLearningMaterial(
+                courseId,
+                moduleId,
+                materialId,
+                LearningMaterialCreateRequest.builder()
+                        .title("Updated Video")
+                        .type(MaterialType.VIDEO)
+                        .fileUrl("https://cdn.example.com/video.mp4")
+                        .build()
+        ))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("LearningMaterial not found with id: '" + materialId + "'");
+    }
+
     private Module baseModule(UUID courseId, UUID moduleId) {
         Course course = Course.builder()
                 .courseName("Mathematics")

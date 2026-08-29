@@ -52,6 +52,31 @@ public class ModuleServiceImpl implements ModuleService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<ModuleResponse> updateModule(UUID courseId, UUID moduleId, ModuleCreateRequest request) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        module.setTitle(request.getTitle().trim());
+        module.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+        module.setModuleImage(request.getModuleImage());
+        module.setSequenceOrder(request.getSequenceOrder());
+        module.setDateDuration(request.getDateDuration());
+        module.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
+
+        Module savedModule = moduleRepository.save(module);
+
+        return ApiResponse.<ModuleResponse>builder()
+                .message("Module updated successfully")
+                .data(toResponse(savedModule))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private ModuleResponse toResponse(Module module) {
         return ModuleResponse.builder()
                 .id(module.getId())

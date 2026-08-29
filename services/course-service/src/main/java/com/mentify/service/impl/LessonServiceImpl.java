@@ -50,6 +50,37 @@ public class LessonServiceImpl implements LessonService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<LessonResponse> updateLesson(
+            UUID courseId,
+            UUID moduleId,
+            UUID lessonId,
+            LessonCreateRequest request
+    ) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+
+        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        Lesson lesson = lessonRepository.findByIdAndModule_Id(lessonId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", lessonId));
+
+        lesson.setTitle(request.getTitle().trim());
+        lesson.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+        lesson.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
+        lesson.setReleaseDate(request.getReleaseDate());
+
+        Lesson savedLesson = lessonRepository.save(lesson);
+
+        return ApiResponse.<LessonResponse>builder()
+                .message("Lesson updated successfully")
+                .data(toResponse(savedLesson))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private LessonResponse toResponse(Lesson lesson) {
         return LessonResponse.builder()
                 .id(lesson.getId())
