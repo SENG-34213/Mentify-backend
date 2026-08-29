@@ -7,6 +7,8 @@ import com.mentify.entity.Module;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
+import com.mentify.repository.LearningMaterialRepository;
+import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.ModuleService;
 import jakarta.transaction.Transactional;
@@ -23,6 +25,8 @@ public class ModuleServiceImpl implements ModuleService {
 
     private final CourseRepository courseRepository;
     private final ModuleRepository moduleRepository;
+    private final LessonRepository lessonRepository;
+    private final LearningMaterialRepository learningMaterialRepository;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
 
     @Override
@@ -122,6 +126,11 @@ public class ModuleServiceImpl implements ModuleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
         teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+
+        if (lessonRepository.existsByModule_Id(moduleId) || learningMaterialRepository.existsByModule_Id(moduleId)) {
+            throw new IllegalArgumentException("Cannot delete module with existing lessons or learning materials");
+        }
+
         moduleRepository.delete(module);
 
         return ApiResponse.builder()

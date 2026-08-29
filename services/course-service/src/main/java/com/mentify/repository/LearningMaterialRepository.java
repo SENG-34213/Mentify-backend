@@ -14,4 +14,8 @@ public interface LearningMaterialRepository extends JpaRepository<LearningMateri
 	Optional<LearningMaterial> findByIdAndModule_Id(UUID id, UUID moduleId);
 
 	List<LearningMaterial> findAllByModule_Id(UUID moduleId);
+
+	boolean existsByModule_Id(UUID moduleId);
+
+	boolean existsByLesson_Id(UUID lessonId);
 }
