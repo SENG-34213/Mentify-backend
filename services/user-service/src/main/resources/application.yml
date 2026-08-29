@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: user-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+  realm: ${KEYCLOAK_REALM:mentify}
+  admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
+  admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
+  auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
+  auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
+  include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
+  bootstrap-super-admin:
+    enabled: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_ENABLED:true}
+    email: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_EMAIL:superadmin@gmail.com}
+    password: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_PASSWORD:SuperAdmin@123}
+    first-name: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_FIRST_NAME:Super}
+    last-name: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_LAST_NAME:Admin}
+    reset-password-on-startup: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RESET_PASSWORD:true}
+    retry-attempts: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RETRY_ATTEMPTS:10}
+    retry-delay-millis: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RETRY_DELAY_MILLIS:2000}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    register-with-eureka: true
+    fetch-registry: true
