@@ -35,6 +35,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CourseServiceImplTest {
 
+        private static final String AUTH_HEADER = "Bearer test-token";
+
     @Mock
     private CourseRepository courseRepository;
 
@@ -55,14 +57,14 @@ class CourseServiceImplTest {
 
         when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
                 .thenReturn(false);
-        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId())).thenReturn(true);
+        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(true);
         when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> {
             Course course = invocation.getArgument(0);
             course.setId(courseId);
             return course;
         });
 
-        ApiResponse<CourseResponse> response = courseService.createCourse(request);
+        ApiResponse<CourseResponse> response = courseService.createCourse(request, AUTH_HEADER);
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getMessage()).isEqualTo("Course created successfully");
@@ -94,6 +96,7 @@ class CourseServiceImplTest {
         assertThat(savedCourse.isOnline()).isTrue();
         assertThat(savedCourse.getDiscountOfferPercent()).isEqualByComparingTo("20.00");
         assertThat(savedCourse.isVisible()).isTrue();
+        verify(userServiceClient).isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER);
     }
 
     @Test
@@ -104,7 +107,7 @@ class CourseServiceImplTest {
         when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> courseService.createCourse(request))
+        assertThatThrownBy(() -> courseService.createCourse(request, AUTH_HEADER))
                 .isInstanceOf(ResourceAlreadyExistsException.class)
                 .hasMessage("Course already exists with courseName: 'Mathematics'");
 
@@ -117,9 +120,9 @@ class CourseServiceImplTest {
 
         when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
                 .thenReturn(false);
-        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId())).thenReturn(false);
+        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(false);
 
-        assertThatThrownBy(() -> courseService.createCourse(request))
+        assertThatThrownBy(() -> courseService.createCourse(request, AUTH_HEADER))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Teacher not found with id: '" + request.getAssignedTeacherId() + "'");
 
@@ -166,10 +169,10 @@ class CourseServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
         when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(updateRequest.getCourseName(), updateRequest.getGradeId(), courseId))
                 .thenReturn(false);
-        when(userServiceClient.isTeacherExists(updateRequest.getAssignedTeacherId())).thenReturn(true);
+        when(userServiceClient.isTeacherExists(updateRequest.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(true);
         when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, updateRequest);
+        ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, updateRequest, AUTH_HEADER);
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         assertThat(response.getMessage()).isEqualTo("Course updated successfully");
@@ -197,6 +200,7 @@ class CourseServiceImplTest {
         assertThat(savedCourse.getStatus()).isEqualTo(CourseStatus.PUBLISHED);
         assertThat(savedCourse.getPublishedDate()).isEqualTo(LocalDate.now());
         assertThat(savedCourse.getNumberOfStudents()).isEqualTo(28);
+        verify(userServiceClient).isTeacherExists(updateRequest.getAssignedTeacherId().toString(), AUTH_HEADER);
     }
 
     @Test
@@ -206,7 +210,7 @@ class CourseServiceImplTest {
 
         when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> courseService.updateCourse(courseId, request))
+        assertThatThrownBy(() -> courseService.updateCourse(courseId, request, AUTH_HEADER))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Course not found with id: '" + courseId + "'");
 
@@ -223,7 +227,7 @@ class CourseServiceImplTest {
         when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> courseService.updateCourse(courseId, request))
+        assertThatThrownBy(() -> courseService.updateCourse(courseId, request, AUTH_HEADER))
                 .isInstanceOf(ResourceAlreadyExistsException.class)
                 .hasMessage("Course already exists with courseName: '" + request.getCourseName() + "'");
 
@@ -239,9 +243,9 @@ class CourseServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
         when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId))
                 .thenReturn(false);
-        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId())).thenReturn(false);
+        when(userServiceClient.isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(false);
 
-        assertThatThrownBy(() -> courseService.updateCourse(courseId, request))
+        assertThatThrownBy(() -> courseService.updateCourse(courseId, request, AUTH_HEADER))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Teacher not found with id: '" + request.getAssignedTeacherId() + "'");
 
