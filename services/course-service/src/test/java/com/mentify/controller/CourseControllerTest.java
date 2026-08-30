@@ -43,6 +43,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 class CourseControllerTest {
 
+        private static final String AUTH_HEADER = "Bearer test-token";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -70,7 +72,7 @@ class CourseControllerTest {
                 .isPublished(false)
                 .numberOfStudents(0)
                 .build();
-        when(courseService.createCourse(any(CourseRequest.class))).thenReturn(
+        when(courseService.createCourse(any(CourseRequest.class), eq(AUTH_HEADER))).thenReturn(
                 ApiResponse.<CourseResponse>builder()
                         .status(HttpStatus.CREATED)
                         .message("Course created successfully")
@@ -79,6 +81,7 @@ class CourseControllerTest {
         );
 
         mockMvc.perform(post("/api/v1/course")
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
                 .andExpect(status().isCreated())
@@ -93,7 +96,7 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.data.discountOfferPercent").value(20.0))
                 .andExpect(jsonPath("$.data.visible").value(true));
 
-        verify(courseService).createCourse(any(CourseRequest.class));
+        verify(courseService).createCourse(any(CourseRequest.class), eq(AUTH_HEADER));
     }
 
     @Test
@@ -102,6 +105,7 @@ class CourseControllerTest {
         request.setCourseName(" ");
 
         mockMvc.perform(post("/api/v1/course")
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -115,6 +119,7 @@ class CourseControllerTest {
         request.setCourseFeeMonthly(BigDecimal.ZERO);
 
         mockMvc.perform(post("/api/v1/course")
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -128,6 +133,7 @@ class CourseControllerTest {
         request.setGradeId(null);
 
         mockMvc.perform(post("/api/v1/course")
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -154,7 +160,7 @@ class CourseControllerTest {
                 .isPublished(true)
                 .numberOfStudents(14)
                 .build();
-        when(courseService.updateCourse(eq(courseId), any(CourseRequest.class))).thenReturn(
+        when(courseService.updateCourse(eq(courseId), any(CourseRequest.class), eq(AUTH_HEADER))).thenReturn(
                 ApiResponse.<CourseResponse>builder()
                         .status(HttpStatus.OK)
                         .message("Course updated successfully")
@@ -170,6 +176,7 @@ class CourseControllerTest {
         request.setIsPublished(true);
 
         mockMvc.perform(put("/api/v1/course/{courseId}", courseId)
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -179,7 +186,7 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.data.courseStatus").value("PUBLISHED"))
                 .andExpect(jsonPath("$.data.published").value(true));
 
-        verify(courseService).updateCourse(eq(courseId), any(CourseRequest.class));
+        verify(courseService).updateCourse(eq(courseId), any(CourseRequest.class), eq(AUTH_HEADER));
     }
 
     @Test
@@ -189,6 +196,7 @@ class CourseControllerTest {
         request.setSubject(" ");
 
         mockMvc.perform(put("/api/v1/course/{courseId}", courseId)
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -228,7 +236,7 @@ class CourseControllerTest {
 
     @Test
     void updateCourse_hasAdminAndSuperAdminPreAuthorize() throws NoSuchMethodException {
-        Method updateMethod = CourseController.class.getDeclaredMethod("updateCourse", UUID.class, CourseRequest.class);
+        Method updateMethod = CourseController.class.getDeclaredMethod("updateCourse", UUID.class, CourseRequest.class, String.class);
         PreAuthorize preAuthorize = updateMethod.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
