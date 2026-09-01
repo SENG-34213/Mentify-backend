@@ -50,6 +50,13 @@ public class CourseController {
         return new ResponseEntity<>(response, response.getStatus());
     }
 
+    @GetMapping("/{courseId}/lookup")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<CourseResponse>> lookupCourseById(@PathVariable UUID courseId) {
+        ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @PostMapping("/bulk")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<CourseResponse>>> getCoursesByIds(

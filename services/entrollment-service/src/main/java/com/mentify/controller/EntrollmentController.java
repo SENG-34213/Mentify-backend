@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,5 +49,13 @@ public class EntrollmentController {
                 entrollmentService.updateEntrollment(enrollmentId, request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
-}
 
+    @GetMapping("/students/{studentId}/courses/{courseId}/exists")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Boolean> isStudentEnrolledInCourse(
+            @PathVariable UUID studentId,
+            @PathVariable UUID courseId
+    ) {
+        return ResponseEntity.ok(entrollmentService.isStudentEnrolledInCourse(studentId, courseId));
+    }
+}

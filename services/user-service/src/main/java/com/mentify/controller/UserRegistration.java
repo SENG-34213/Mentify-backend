@@ -82,4 +82,10 @@ public class UserRegistration {
                 boolean exists = userRepository.existsByKeycloakUserIdAndRole(teacherId, Role.TEACHER);
         return ResponseEntity.ok(exists);
     }
+
+    @GetMapping("/students/{studentId}/exists")
+    public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
+        boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
+        return ResponseEntity.ok(exists);
+    }
 }
