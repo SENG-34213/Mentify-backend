@@ -17,5 +17,6 @@
         <module>course-service</module>
         <module>user-service</module>
         <module>entrollment-service</module>
+        <module>assignment-service</module>
     </modules>
 </project>
