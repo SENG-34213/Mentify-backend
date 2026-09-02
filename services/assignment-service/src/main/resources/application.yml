@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: assignment-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    register-with-eureka: true
+    fetch-registry: true

@@ -35,6 +35,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: assignment-service
+          uri: lb://assignment-service
+          predicates:
+            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes
+          filters:
+            - StripPrefix=0
+
 logging:
   level:
     root: INFO

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS assignments (
+    id UUID PRIMARY KEY,
+    course_id UUID NOT NULL,
+    module_id UUID,
+    lesson_id UUID,
+    teacher_id UUID NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    description TEXT,
+    instructions TEXT,
+    start_date TIMESTAMP,
+    due_date TIMESTAMP NOT NULL,
+    max_marks NUMERIC(10, 2) NOT NULL,
+    allowed_attempts INTEGER NOT NULL,
+    late_submission_allowed BOOLEAN NOT NULL DEFAULT FALSE,
+    late_penalty_percentage NUMERIC(5, 2),
+    status VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    created_by UUID,
+    updated_by UUID,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
