@@ -64,8 +64,8 @@
               path: services/course-service
             - service: assignment-service
               path: services/assignment-service
-            - service: enrollment-service
-              path: services/enrollment-service
+            - service: entrollment-service
+              path: services/entrollment-service
 
       steps:
         - name: Checkout code
@@ -104,8 +104,8 @@
               path: services/course-service
             - service: assignment-service
               path: services/assignment-service
-            - service: enrollment-service
-              path: services/enrollment-service
+            - service: entrollment-service
+              path: services/entrollment-service
 
       steps:
         - name: Checkout code
@@ -150,8 +150,8 @@
               path: services/course-service
             - service: assignment-service
               path: services/assignment-service
-            - service: enrollment-service
-              path: services/enrollment-service
+            - service: entrollment-service
+              path: services/entrollment-service
 
       steps:
         - name: Checkout code
