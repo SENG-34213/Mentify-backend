@@ -62,6 +62,10 @@
               path: services/user-service
             - service: course-service
               path: services/course-service
+            - service: assignment-service
+              path: services/assignment-service
+            - service: enrollment-service
+              path: services/enrollment-service
 
       steps:
         - name: Checkout code
@@ -98,6 +102,10 @@
               path: services/user-service
             - service: course-service
               path: services/course-service
+            - service: assignment-service
+              path: services/assignment-service
+            - service: enrollment-service
+              path: services/enrollment-service
 
       steps:
         - name: Checkout code
@@ -140,6 +148,10 @@
               path: services/user-service
             - service: course-service
               path: services/course-service
+            - service: assignment-service
+              path: services/assignment-service
+            - service: enrollment-service
+              path: services/enrollment-service
 
       steps:
         - name: Checkout code
@@ -213,6 +225,12 @@
             - service: api-gateway
               path: cloud/api-gateway
               server_port: "8080"
+            - service: assignment-service
+              path: services/assignment-service
+              server_port: "8084"
+            - service: enrollment-service
+              path: services/enrollment-service
+              server_port: "8083"
 
       services:
         postgres-user:
