@@ -228,8 +228,8 @@
             - service: assignment-service
               path: services/assignment-service
               server_port: "8084"
-            - service: enrollment-service
-              path: services/enrollment-service
+            - service: entrollment-service
+              path: services/entrollment-service
               server_port: "8083"
 
       services:
