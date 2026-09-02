@@ -33,7 +33,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
-    public ApiResponse<CourseResponse> createCourse(CourseRequest request) {
+    public ApiResponse<CourseResponse> createCourse(CourseRequest request, String authorizationHeader) {
 
         log.info("Creating course with title '{}'", request.getCourseName());
 
@@ -42,7 +42,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
-        validateTeacherExists(request.getAssignedTeacherId());
+        validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
         if (course.isPublished()) {
@@ -66,7 +66,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
-    public ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request) {
+    public ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request, String authorizationHeader) {
         log.info("Updating course with ID [{}]", courseId);
 
         Course existingCourse = courseRepository.findById(courseId)
@@ -77,7 +77,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
-        validateTeacherExists(request.getAssignedTeacherId());
+        validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         existingCourse.setCourseName(request.getCourseName().trim());
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
@@ -120,8 +120,8 @@ public class CourseServiceImpl implements CourseService {
                 .build();
     }
 
-    private void validateTeacherExists(UUID teacherId) {
-        if (teacherId == null || !userServiceClient.isTeacherExists(teacherId)) {
+    private void validateTeacherExists(UUID teacherId, String authorizationHeader) {
+        if (teacherId == null || !userServiceClient.isTeacherExists(teacherId.toString(), authorizationHeader)) {
             throw new ResourceNotFoundException("Teacher", "id", teacherId);
         }
     }

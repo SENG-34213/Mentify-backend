@@ -25,9 +25,10 @@ public class CourseController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
-            @Valid @RequestBody CourseRequest request) {
+            @Valid @RequestBody CourseRequest request,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
-        ApiResponse<CourseResponse> response = courseService.createCourse(request);
+        ApiResponse<CourseResponse> response = courseService.createCourse(request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -35,15 +36,23 @@ public class CourseController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> updateCourse(
             @PathVariable UUID courseId,
-            @Valid @RequestBody CourseRequest request) {
+            @Valid @RequestBody CourseRequest request,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
-        ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, request);
+        ApiResponse<CourseResponse> response = courseService.updateCourse(courseId, request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
     @GetMapping("/{courseId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(@PathVariable UUID courseId) {
+        ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/{courseId}/lookup")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<CourseResponse>> lookupCourseById(@PathVariable UUID courseId) {
         ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
         return new ResponseEntity<>(response, response.getStatus());
     }

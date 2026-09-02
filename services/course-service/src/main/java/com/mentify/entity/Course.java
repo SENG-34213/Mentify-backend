@@ -53,8 +53,8 @@ public class Course extends BaseEntity {
     private boolean isVisible = true;
 
     /**
-     * Reference to the teacher who owns this course (resolved via user-service).
-     * Stored as a plain UUID — no @ManyToOne across service boundaries.
+        * Reference to the teacher who owns this course.
+        * Stores the Keycloak user UUID (token sub) as a plain UUID value.
      */
     @Column(nullable = false, length = 36)
     private UUID assignedTeacherId;

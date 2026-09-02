@@ -77,9 +77,15 @@ public class UserRegistration {
         );
     }
 
-    @GetMapping("/teachers/{teacherId}/exists")
-    public ResponseEntity<Boolean> teacherExists(@PathVariable UUID teacherId) {
-        boolean exists = userRepository.existsByIdAndRole(teacherId, Role.TEACHER);
+        @GetMapping("/teachers/{teacherId}/exists")
+        public ResponseEntity<Boolean> teacherExists(@PathVariable String teacherId) {
+                boolean exists = userRepository.existsByKeycloakUserIdAndRole(teacherId, Role.TEACHER);
+        return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/students/{studentId}/exists")
+    public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
+        boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
         return ResponseEntity.ok(exists);
     }
 }

@@ -12,5 +12,6 @@ public interface EntrollmentService {
     ApiResponse<EntrollmentResponse> createEntrollment(EntrollmentCreateRequest request, String authorizationHeader);
 
     ApiResponse<EntrollmentResponse> updateEntrollment(UUID enrollmentId, EntrollmentUpdateRequest request, String authorizationHeader);
-}
 
+    boolean isStudentEnrolledInCourse(UUID studentId, UUID courseId);
+}

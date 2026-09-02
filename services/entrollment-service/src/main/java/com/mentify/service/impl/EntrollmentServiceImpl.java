@@ -86,6 +86,11 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .build();
     }
 
+    @Override
+    public boolean isStudentEnrolledInCourse(UUID studentId, UUID courseId) {
+        return entrollmentRepository.existsActiveEnrollmentForStudentAndCourse(studentId, courseId);
+    }
+
     private Set<UUID> sanitizeAndValidateCourseIds(List<UUID> courseIds) {
         if (courseIds == null || courseIds.isEmpty()) {
             throw new IllegalArgumentException("At least one course ID is required");
@@ -163,4 +168,3 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .build();
     }
 }
-
