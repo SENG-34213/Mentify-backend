@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+// TODO: Replace the current local file-url handling with S3 bucket storage later when the cloud setup is ready.
+// Cloud push command for later: aws s3 cp ./uploads/course-materials s3://<your-bucket-name>/course-materials --recursive
+// This is kept local for now; same TODO was added in the assignment service storage class.
 @RequiredArgsConstructor
 public class LearningMaterialServiceImpl implements LearningMaterialService {
 
