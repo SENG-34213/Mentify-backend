@@ -27,4 +27,13 @@ public interface EntrollmentRepository extends JpaRepository<Entrollment, UUID> 
             @Param("studentId") UUID studentId,
             @Param("courseId") UUID courseId
     );
+
+    @Query("""
+            select distinct e.studentId
+            from Entrollment e
+            join e.courseIds courseId
+            where courseId = :courseId
+              and e.isActive = true
+            """)
+    List<UUID> findActiveStudentIdsByCourseId(@Param("courseId") UUID courseId);
 }

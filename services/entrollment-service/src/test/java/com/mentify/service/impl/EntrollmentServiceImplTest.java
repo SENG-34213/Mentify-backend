@@ -148,6 +148,21 @@ class EntrollmentServiceImplTest {
         verify(courseServiceClient, times(0)).getCoursesByIds(any(CourseBulkLookupRequest.class), any());
     }
 
+    @Test
+    void getEnrolledStudentIdsByCourseReturnsActiveStudents() {
+        UUID courseId = UUID.randomUUID();
+        UUID firstStudentId = UUID.randomUUID();
+        UUID secondStudentId = UUID.randomUUID();
+
+        when(entrollmentRepository.findActiveStudentIdsByCourseId(courseId))
+                .thenReturn(List.of(firstStudentId, secondStudentId));
+
+        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId);
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertEquals(List.of(firstStudentId, secondStudentId), response.getData());
+    }
+
     private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds) {
         List<CourseLookupResponse> responses = courseIds.stream().map(id -> {
             CourseLookupResponse response = new CourseLookupResponse();
@@ -163,4 +178,3 @@ class EntrollmentServiceImplTest {
                 .build();
     }
 }
-

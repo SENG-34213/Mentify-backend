@@ -18,5 +18,6 @@
         <module>user-service</module>
         <module>entrollment-service</module>
         <module>assignment-service</module>
+        <module>communication-service</module>
     </modules>
 </project>

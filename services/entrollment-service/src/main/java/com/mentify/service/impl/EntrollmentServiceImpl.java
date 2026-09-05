@@ -91,6 +91,18 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         return entrollmentRepository.existsActiveEnrollmentForStudentAndCourse(studentId, courseId);
     }
 
+    @Override
+    public ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId) {
+        List<UUID> studentIds = entrollmentRepository.findActiveStudentIdsByCourseId(courseId);
+
+        return ApiResponse.<List<UUID>>builder()
+                .message("Enrolled students fetched successfully")
+                .data(studentIds)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
     private Set<UUID> sanitizeAndValidateCourseIds(List<UUID> courseIds) {
         if (courseIds == null || courseIds.isEmpty()) {
             throw new IllegalArgumentException("At least one course ID is required");
