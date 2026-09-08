@@ -1,4 +1,9 @@
 spring:
+  data:
+    web:
+      pageable:
+        max-page-size: 50
+        default-page-size: 20
   application:
     name: user-service
   config:
