@@ -36,6 +36,14 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidMessageException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidMessageException(
+            InvalidMessageException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthenticationException(
             AuthenticationException ex,
@@ -84,7 +92,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             DuplicateCommunicationGroupException.class,
-            DuplicateGroupMemberException.class
+            DuplicateGroupMemberException.class,
+            GroupArchivedException.class
     })
     public ResponseEntity<ErrorResponse> handleCommunicationConflictException(
             RuntimeException ex,
