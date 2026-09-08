@@ -45,26 +45,32 @@ public class MessageServiceImpl implements MessageService {
     @Transactional
     public MessageResponse sendMessage(UUID groupId, SendMessageRequest request) {
         UUID userId = authenticatedUserService.getCurrentUserId();
+        return sendMessage(groupId, request, userId);
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse sendMessage(UUID groupId, SendMessageRequest request, UUID senderId) {
         CommunicationGroup group = getGroup(groupId);
 
         if (!GroupStatus.ACTIVE.equals(group.getStatus())) {
             throw new GroupArchivedException(groupId);
         }
 
-        groupMemberService.validateActiveMembership(groupId, userId);
+        groupMemberService.validateActiveMembership(groupId, senderId);
 
         String content = normalizeContent(request);
         Message message = Message.builder()
                 .group(group)
-                .senderId(userId)
+                .senderId(senderId)
                 .content(content)
                 .type(MessageType.TEXT)
                 .status(MessageStatus.ACTIVE)
                 .sentAt(LocalDateTime.now())
                 .build();
         message.setActive(true);
-        message.setCreatedBy(userId);
-        message.setUpdatedBy(userId);
+        message.setCreatedBy(senderId);
+        message.setUpdatedBy(senderId);
 
         return MessageMapper.toResponse(messageRepository.save(message));
     }

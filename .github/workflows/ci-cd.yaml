@@ -66,6 +66,8 @@
               path: services/assignment-service
             - service: entrollment-service
               path: services/entrollment-service
+            - service: communication-service
+              path: services/communication-service
 
       steps:
         - name: Checkout code
@@ -106,6 +108,8 @@
               path: services/assignment-service
             - service: entrollment-service
               path: services/entrollment-service
+            - service: communication-service
+              path: services/communication-service
 
       steps:
         - name: Checkout code
@@ -152,6 +156,8 @@
               path: services/assignment-service
             - service: entrollment-service
               path: services/entrollment-service
+            - service: communication-service
+              path: services/communication-service
 
       steps:
         - name: Checkout code
@@ -231,6 +237,9 @@
             - service: entrollment-service
               path: services/entrollment-service
               server_port: "8083"
+            - service: communication-service
+              path: services/communication-service
+              server_port: "8086"
 
       services:
         postgres-user:
@@ -255,6 +264,48 @@
             POSTGRES_PASSWORD: ${{ secrets.CI_COURSE_DB_PASSWORD }}
           ports:
             - ${{ vars.HOST_PORT_COURSE_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+
+        postgres-enrollment:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.ENTROLLMENT_DB_NAME }}
+            POSTGRES_USER: ${{ vars.ENTROLLMENT_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_ENROLLMENT_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_ENROLLMENT_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+
+        postgres-assignment:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.ASSIGNMENT_DB_NAME }}
+            POSTGRES_USER: ${{ vars.ASSIGNMENT_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_ASSIGNMENT_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_ASSIGNMENT_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+
+        postgres-communication:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.COMMUNICATION_DB_NAME }}
+            POSTGRES_USER: ${{ vars.COMMUNICATION_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_COMMUNICATION_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_COMMUNICATION_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
@@ -313,6 +364,24 @@
             COURSE_SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${{ vars.HOST_PORT_COURSE_DB }}/${{ vars.COURSE_DB_NAME }}
             COURSE_SPRING_DATASOURCE_USERNAME: ${{ vars.COURSE_DB_USERNAME }}
             COURSE_SPRING_DATASOURCE_PASSWORD: ${{ secrets.CI_COURSE_DB_PASSWORD }}
+
+            ASSIGNMENT_DB_HOST: localhost
+            ASSIGNMENT_DB_PORT: ${{ vars.HOST_PORT_ASSIGNMENT_DB }}
+            ASSIGNMENT_DB_NAME: ${{ vars.ASSIGNMENT_DB_NAME }}
+            ASSIGNMENT_DB_USERNAME: ${{ vars.ASSIGNMENT_DB_USERNAME }}
+            ASSIGNMENT_DB_PASSWORD: ${{ secrets.CI_ASSIGNMENT_DB_PASSWORD }}
+
+            ENROLLMENT_DB_HOST: localhost
+            ENROLLMENT_DB_PORT: ${{ vars.HOST_PORT_ENROLLMENT_DB }}
+            ENROLLMENT_DB_NAME: ${{ vars.ENTROLLMENT_DB_NAME }}
+            ENROLLMENT_DB_USERNAME: ${{ vars.ENTROLLMENT_DB_USERNAME }}
+            ENROLLMENT_DB_PASSWORD: ${{ secrets.CI_ENROLLMENT_DB_PASSWORD }}
+
+            COMMUNICATION_DB_HOST: localhost
+            COMMUNICATION_DB_PORT: ${{ vars.HOST_PORT_COMMUNICATION_DB }}
+            COMMUNICATION_DB_NAME: ${{ vars.COMMUNICATION_DB_NAME }}
+            COMMUNICATION_DB_USERNAME: ${{ vars.COMMUNICATION_DB_USERNAME }}
+            COMMUNICATION_DB_PASSWORD: ${{ secrets.CI_COMMUNICATION_DB_PASSWORD }}
 
             SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
 

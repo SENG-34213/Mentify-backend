@@ -10,5 +10,7 @@ public interface MessageService {
 
     MessageResponse sendMessage(UUID groupId, SendMessageRequest request);
 
+    MessageResponse sendMessage(UUID groupId, SendMessageRequest request, UUID senderId);
+
     PageResponse<MessageResponse> getMessageHistory(UUID groupId, int page, int size);
 }
