@@ -249,7 +249,7 @@
             POSTGRES_USER: ${{ vars.USER_DB_USERNAME }}
             POSTGRES_PASSWORD: ${{ secrets.CI_USER_DB_PASSWORD }}
           ports:
-            - ${{ vars.HOST_PORT_USER_DB }}:5434
+            - ${{ vars.HOST_PORT_USER_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
@@ -277,7 +277,7 @@
             POSTGRES_USER: ${{ vars.ENTROLLMENT_DB_USERNAME }}
             POSTGRES_PASSWORD: ${{ secrets.CI_ENROLLMENT_DB_PASSWORD }}
           ports:
-            - ${{ vars.HOST_PORT_ENROLLMENT_DB }}:5434
+            - ${{ vars.HOST_PORT_ENROLLMENT_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
@@ -291,7 +291,7 @@
             POSTGRES_USER: ${{ vars.ASSIGNMENT_DB_USERNAME }}
             POSTGRES_PASSWORD: ${{ secrets.CI_ASSIGNMENT_DB_PASSWORD }}
           ports:
-            - ${{ vars.HOST_PORT_ASSIGNMENT_DB }}:5434
+            - ${{ vars.HOST_PORT_ASSIGNMENT_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
@@ -305,7 +305,7 @@
             POSTGRES_USER: ${{ vars.COMMUNICATION_DB_USERNAME }}
             POSTGRES_PASSWORD: ${{ secrets.CI_COMMUNICATION_DB_PASSWORD }}
           ports:
-            - ${{ vars.HOST_PORT_COMMUNICATION_DB }}:5434
+            - ${{ vars.HOST_PORT_COMMUNICATION_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
@@ -319,7 +319,7 @@
             POSTGRES_USER: ${{ vars.KEYCLOAK_DB_USERNAME }}
             POSTGRES_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
           ports:
-            - ${{ vars.HOST_PORT_KEYCLOAK_DB }}:5434
+            - ${{ vars.HOST_PORT_KEYCLOAK_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
