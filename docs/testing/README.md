@@ -85,13 +85,16 @@ user-service: 100.00% lines, 100.00% branches
 api-gateway: 100.00% lines, 100.00% branches
 ```
 
-## Test Registers
+## Testing Documents
 
-Current registers:
+Current documents:
 
 ```txt
 docs/testing/TEST_REGISTER_KEYCLOAK_AUTH.md
 docs/testing/ADMIN_USER_REGISTRATION_FLOW.md
+docs/testing/ASSIGNMENT_POSTMAN_TESTS.md
+docs/testing/QUIZ_POSTMAN_TESTS.md
+docs/testing/COMMUNICATION_POSTMAN_TESTS.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:

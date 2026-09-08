@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/enrollments")
@@ -57,5 +58,12 @@ public class EntrollmentController {
             @PathVariable UUID courseId
     ) {
         return ResponseEntity.ok(entrollmentService.isStudentEnrolledInCourse(studentId, courseId));
+    }
+
+    @GetMapping("/courses/{courseId}/students")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UUID>>> getEnrolledStudentIdsByCourse(@PathVariable UUID courseId) {
+        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
     }
 }
