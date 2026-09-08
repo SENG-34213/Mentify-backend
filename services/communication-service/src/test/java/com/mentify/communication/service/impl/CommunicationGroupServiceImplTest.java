@@ -5,6 +5,7 @@ import com.mentify.communication.client.EntrollmentServiceClient;
 import com.mentify.communication.client.dto.CourseLookupResponse;
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
+import com.mentify.communication.dto.response.GroupMemberResponse;
 import com.mentify.communication.entity.CommunicationGroup;
 import com.mentify.communication.entity.GroupMember;
 import com.mentify.communication.enums.GroupMemberRole;
@@ -206,6 +207,91 @@ class CommunicationGroupServiceImplTest {
 
         assertEquals(groupId, response.getId());
         verify(groupMemberService).validateActiveMembership(groupId, userId);
+    }
+
+    @Test
+    void adminCanAddStudentToGroup() {
+        UUID adminId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        GroupMember createdMember = member(group, studentId, GroupMemberRole.STUDENT);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_ADMIN"));
+        when(communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ACTIVE)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.findByGroup_IdAndUserIdAndIsActiveTrue(groupId, studentId)).thenReturn(Optional.empty());
+        when(groupMemberService.addGroupMembers(group, List.of(studentId), GroupMemberRole.STUDENT))
+                .thenReturn(List.of(createdMember));
+
+        GroupMemberResponse response = communicationGroupService.addStudentToGroup(groupId, studentId);
+
+        assertEquals(studentId, response.getUserId());
+        assertEquals(GroupMemberRole.STUDENT, response.getRole());
+    }
+
+    @Test
+    void existingStudentMemberIsReturnedWhenAddingToGroupAgain() {
+        UUID adminId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        GroupMember existingMember = member(group, studentId, GroupMemberRole.STUDENT);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_ADMIN"));
+        when(communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ACTIVE)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.findByGroup_IdAndUserIdAndIsActiveTrue(groupId, studentId))
+                .thenReturn(Optional.of(existingMember));
+
+        GroupMemberResponse response = communicationGroupService.addStudentToGroup(groupId, studentId);
+
+        assertEquals(studentId, response.getUserId());
+        verify(groupMemberService, never()).addGroupMembers(any(), any(), any());
+    }
+
+    @Test
+    void teacherMemberCanAddStudentToCourseGroup() {
+        UUID teacherId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        CommunicationGroup group = group(UUID.randomUUID(), GroupStatus.ACTIVE);
+        group.setCourseId(courseId);
+        GroupMember teacherMember = member(group, teacherId, GroupMemberRole.TEACHER);
+        GroupMember createdMember = member(group, studentId, GroupMemberRole.STUDENT);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_TEACHER"));
+        when(communicationGroupRepository.findByCourseIdAndStatus(courseId, GroupStatus.ACTIVE)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(group.getId(), teacherId)).thenReturn(teacherMember);
+        when(groupMemberRepository.findByGroup_IdAndUserIdAndIsActiveTrue(group.getId(), studentId)).thenReturn(Optional.empty());
+        when(groupMemberService.addGroupMembers(group, List.of(studentId), GroupMemberRole.STUDENT))
+                .thenReturn(List.of(createdMember));
+
+        GroupMemberResponse response = communicationGroupService.addStudentToCourseGroup(courseId, studentId);
+
+        assertEquals(studentId, response.getUserId());
+        assertEquals(GroupMemberRole.STUDENT, response.getRole());
+    }
+
+    @Test
+    void nonTeacherMemberCannotAddStudent() {
+        UUID userId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        GroupMember studentMember = member(group, userId, GroupMemberRole.STUDENT);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_TEACHER"));
+        when(communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ACTIVE)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, userId)).thenReturn(studentMember);
+
+        assertThrows(
+                UnauthorizedGroupAccessException.class,
+                () -> communicationGroupService.addStudentToGroup(groupId, studentId)
+        );
+        verify(groupMemberService, never()).addGroupMembers(any(), any(), any());
     }
 
     @Test

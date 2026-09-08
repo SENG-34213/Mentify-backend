@@ -12,4 +12,6 @@ public interface CommunicationGroupRepository extends JpaRepository<Communicatio
     boolean existsByCourseId(UUID courseId);
 
     Optional<CommunicationGroup> findByIdAndStatus(UUID id, GroupStatus status);
+
+    Optional<CommunicationGroup> findByCourseIdAndStatus(UUID courseId, GroupStatus status);
 }

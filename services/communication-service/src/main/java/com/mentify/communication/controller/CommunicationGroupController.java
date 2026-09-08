@@ -1,6 +1,7 @@
 package com.mentify.communication.controller;
 
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
+import com.mentify.communication.dto.request.AddStudentToGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
 import com.mentify.communication.dto.response.GroupMemberResponse;
 import com.mentify.communication.security.AuthenticatedUserService;
@@ -66,6 +67,28 @@ public class CommunicationGroupController {
         );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Group members fetched successfully", response));
+    }
+
+    @PostMapping("/{groupId}/students")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<GroupMemberResponse>> addStudentToGroup(
+            @PathVariable UUID groupId,
+            @Valid @RequestBody AddStudentToGroupRequest request
+    ) {
+        GroupMemberResponse response = communicationGroupService.addStudentToGroup(groupId, request.getStudentId());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Student added to communication group successfully", response));
+    }
+
+    @PostMapping("/courses/{courseId}/students")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<GroupMemberResponse>> addStudentToCourseGroup(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody AddStudentToGroupRequest request
+    ) {
+        GroupMemberResponse response = communicationGroupService.addStudentToCourseGroup(courseId, request.getStudentId());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Student added to course communication group successfully", response));
     }
 
     @PostMapping("/{groupId}/archive")

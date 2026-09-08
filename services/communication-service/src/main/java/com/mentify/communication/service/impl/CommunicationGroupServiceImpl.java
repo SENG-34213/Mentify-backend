@@ -5,6 +5,7 @@ import com.mentify.communication.client.EntrollmentServiceClient;
 import com.mentify.communication.client.dto.CourseLookupResponse;
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
+import com.mentify.communication.dto.response.GroupMemberResponse;
 import com.mentify.communication.entity.CommunicationGroup;
 import com.mentify.communication.entity.GroupMember;
 import com.mentify.communication.enums.GroupMemberRole;
@@ -112,6 +113,33 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
 
     @Override
     @Transactional
+    public GroupMemberResponse addStudentToGroup(UUID groupId, UUID studentId) {
+        CommunicationGroup group = findActiveGroup(groupId);
+        validateCanManageGroupMembers(group);
+
+        GroupMember member = addStudentMemberIfAbsent(group, studentId);
+
+        log.info("Student [{}] added to communication group [{}]", studentId, groupId);
+
+        return CommunicationGroupMapper.toMemberResponse(member);
+    }
+
+    @Override
+    @Transactional
+    public GroupMemberResponse addStudentToCourseGroup(UUID courseId, UUID studentId) {
+        CommunicationGroup group = communicationGroupRepository.findByCourseIdAndStatus(courseId, GroupStatus.ACTIVE)
+                .orElseThrow(() -> new CommunicationGroupNotFoundException("course id", courseId));
+        validateCanManageGroupMembers(group);
+
+        GroupMember member = addStudentMemberIfAbsent(group, studentId);
+
+        log.info("Student [{}] added to communication group [{}] for course [{}]", studentId, group.getId(), courseId);
+
+        return CommunicationGroupMapper.toMemberResponse(member);
+    }
+
+    @Override
+    @Transactional
     public CommunicationGroupResponse archiveGroup(UUID groupId) {
         UUID currentUserId = authenticatedUserService.getCurrentUserId();
         Set<String> roles = authenticatedUserService.getCurrentUserRoles();
@@ -134,6 +162,42 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
         if (!isAdmin(roles) && !isTeacher(roles)) {
             throw new UnauthorizedGroupAccessException("Only admins and teachers can create communication groups");
         }
+    }
+
+    private void validateCanManageGroupMembers(CommunicationGroup group) {
+        UUID currentUserId = authenticatedUserService.getCurrentUserId();
+        Set<String> roles = authenticatedUserService.getCurrentUserRoles();
+
+        if (isAdmin(roles)) {
+            return;
+        }
+
+        if (isTeacher(roles)) {
+            GroupMember member = groupMemberService.validateActiveMembership(group.getId(), currentUserId);
+            if (GroupMemberRole.TEACHER.equals(member.getRole())) {
+                return;
+            }
+        }
+
+        throw new UnauthorizedGroupAccessException("Only admins and authorized teachers can add students to communication groups");
+    }
+
+    private GroupMember addStudentMemberIfAbsent(CommunicationGroup group, UUID studentId) {
+        return groupMemberRepository.findByGroup_IdAndUserIdAndIsActiveTrue(group.getId(), studentId)
+                .orElseGet(() -> {
+                    List<GroupMember> createdMembers = groupMemberService.addGroupMembers(
+                            group,
+                            List.of(studentId),
+                            GroupMemberRole.STUDENT
+                    );
+
+                    if (!createdMembers.isEmpty()) {
+                        return createdMembers.get(0);
+                    }
+
+                    return groupMemberRepository.findByGroup_IdAndUserIdAndIsActiveTrue(group.getId(), studentId)
+                            .orElseThrow(() -> new IllegalStateException("Failed to add student to communication group"));
+                });
     }
 
     private CourseLookupResponse lookupCourse(UUID courseId, String authorizationHeader) {

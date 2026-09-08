@@ -1,8 +1,11 @@
 package com.mentify.service.impl;
 
+import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
 import com.mentify.entity.Entrollment;
@@ -41,8 +44,37 @@ class EntrollmentServiceImplTest {
     @Mock
     private CourseServiceClient courseServiceClient;
 
+    @Mock
+    private CommunicationServiceClient communicationServiceClient;
+
     @InjectMocks
     private EntrollmentServiceImpl entrollmentService;
+
+    @Test
+    void createEnrollmentSyncsStudentToAllCourseCommunicationGroups() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseOne = UUID.randomUUID();
+        UUID courseTwo = UUID.randomUUID();
+        UUID courseThree = UUID.randomUUID();
+
+        EntrollmentCreateRequest request = EntrollmentCreateRequest.builder()
+                .studentId(studentId)
+                .courseIds(List.of(courseOne, courseTwo, courseThree))
+                .build();
+
+        when(courseServiceClient.getCoursesByIds(any(CourseBulkLookupRequest.class), eq("Bearer token")))
+                .thenReturn(successCourseLookupResponse(List.of(courseOne, courseTwo, courseThree)));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(entrollmentRepository.save(any(Entrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiResponse<EntrollmentResponse> response = entrollmentService.createEntrollment(request, "Bearer token");
+
+        assertEquals(HttpStatus.CREATED, response.getStatus());
+        assertEquals(Set.of(courseOne, courseTwo, courseThree), response.getData().getCourseIds());
+        verify(communicationServiceClient).addStudentToCourseGroup(eq(courseOne), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+        verify(communicationServiceClient).addStudentToCourseGroup(eq(courseTwo), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+        verify(communicationServiceClient).addStudentToCourseGroup(eq(courseThree), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+    }
 
     @Test
     void updateEnrollmentSucceedsForValidRequest() {
@@ -77,6 +109,37 @@ class EntrollmentServiceImplTest {
         ArgumentCaptor<Entrollment> captor = ArgumentCaptor.forClass(Entrollment.class);
         verify(entrollmentRepository, times(1)).save(captor.capture());
         assertEquals(Set.of(courseOne, courseTwo), captor.getValue().getCourseIds());
+        verify(communicationServiceClient).addStudentToCourseGroup(eq(courseOne), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+        verify(communicationServiceClient).addStudentToCourseGroup(eq(courseTwo), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+    }
+
+    @Test
+    void updateEnrollmentSyncsOnlyNewCourses() {
+        UUID enrollmentId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID existingCourse = UUID.randomUUID();
+        UUID newCourse = UUID.randomUUID();
+
+        Entrollment existing = Entrollment.builder()
+                .studentId(studentId)
+                .courseIds(Set.of(existingCourse))
+                .enrolledOn(LocalDate.now())
+                .build();
+        existing.setId(enrollmentId);
+
+        EntrollmentUpdateRequest request = EntrollmentUpdateRequest.builder()
+                .courseIds(List.of(existingCourse, newCourse))
+                .build();
+
+        when(entrollmentRepository.findByIdAndIsActiveTrue(enrollmentId)).thenReturn(Optional.of(existing));
+        when(courseServiceClient.getCoursesByIds(any(CourseBulkLookupRequest.class), eq("Bearer token")))
+                .thenReturn(successCourseLookupResponse(List.of(existingCourse, newCourse)));
+        when(entrollmentRepository.save(any(Entrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        entrollmentService.updateEntrollment(enrollmentId, request, "Bearer token");
+
+        verify(communicationServiceClient).addStudentToCourseGroup(eq(newCourse), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+        verify(communicationServiceClient, times(0)).addStudentToCourseGroup(eq(existingCourse), any(AddStudentToGroupRequest.class), any());
     }
 
     @Test

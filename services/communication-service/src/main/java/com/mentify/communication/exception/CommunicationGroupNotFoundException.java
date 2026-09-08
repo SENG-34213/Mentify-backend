@@ -7,4 +7,8 @@ public class CommunicationGroupNotFoundException extends RuntimeException {
     public CommunicationGroupNotFoundException(UUID groupId) {
         super("Communication group not found with id: '" + groupId + "'");
     }
+
+    public CommunicationGroupNotFoundException(String fieldName, UUID value) {
+        super("Communication group not found with " + fieldName + ": '" + value + "'");
+    }
 }

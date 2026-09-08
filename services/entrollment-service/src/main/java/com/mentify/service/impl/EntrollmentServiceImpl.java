@@ -1,6 +1,8 @@
 package com.mentify.service.impl;
 
+import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
@@ -34,6 +36,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
     private final EntrollmentRepository entrollmentRepository;
     private final CourseServiceClient courseServiceClient;
+    private final CommunicationServiceClient communicationServiceClient;
 
     @Override
     @Transactional
@@ -51,6 +54,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .build();
 
         Entrollment savedEntrollment = entrollmentRepository.save(entrollment);
+        syncStudentToCommunicationGroups(savedEntrollment.getStudentId(), savedEntrollment.getCourseIds(), authorizationHeader);
 
         return ApiResponse.<EntrollmentResponse>builder()
                 .message("Enrollment created successfully")
@@ -72,11 +76,16 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         Entrollment existingEnrollment = entrollmentRepository.findByIdAndIsActiveTrue(enrollmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment", "id", enrollmentId));
 
+        Set<UUID> existingCourseIds = new HashSet<>(existingEnrollment.getCourseIds());
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
         validateCoursesExist(requestedCourseIds, authorizationHeader);
 
         existingEnrollment.setCourseIds(requestedCourseIds);
         Entrollment savedEnrollment = entrollmentRepository.save(existingEnrollment);
+        Set<UUID> newlyAddedCourseIds = requestedCourseIds.stream()
+                .filter(courseId -> !existingCourseIds.contains(courseId))
+                .collect(Collectors.toSet());
+        syncStudentToCommunicationGroups(savedEnrollment.getStudentId(), newlyAddedCourseIds, authorizationHeader);
 
         return ApiResponse.<EntrollmentResponse>builder()
                 .message("Enrollment updated successfully")
@@ -164,6 +173,24 @@ public class EntrollmentServiceImpl implements EntrollmentService {
             throw new ResourceAlreadyExistsException(
                     "Enrollment already exists for student " + studentId + " in courses: " + duplicates
             );
+        }
+    }
+
+    private void syncStudentToCommunicationGroups(UUID studentId, Set<UUID> courseIds, String authorizationHeader) {
+        for (UUID courseId : courseIds) {
+            try {
+                communicationServiceClient.addStudentToCourseGroup(
+                        courseId,
+                        AddStudentToGroupRequest.builder()
+                                .studentId(studentId)
+                                .build(),
+                        authorizationHeader
+                );
+            } catch (FeignException.NotFound ex) {
+                log.info("No active communication group found for course [{}]; student [{}] will be synced when the group is created", courseId, studentId);
+            } catch (FeignException ex) {
+                throw new IllegalStateException("Failed to add student to communication group for course " + courseId, ex);
+            }
         }
     }
 

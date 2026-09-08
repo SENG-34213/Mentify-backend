@@ -1,6 +1,7 @@
 package com.mentify.communication.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mentify.communication.dto.request.AddStudentToGroupRequest;
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
 import com.mentify.communication.dto.response.GroupMemberResponse;
@@ -124,15 +125,85 @@ class CommunicationGroupControllerTest {
     }
 
     @Test
-    void createAndArchiveEndpointsAreRoleRestricted() throws NoSuchMethodException {
+    void addStudentToGroupReturnsMember() throws Exception {
+        UUID groupId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+
+        when(communicationGroupService.addStudentToGroup(groupId, studentId))
+                .thenReturn(GroupMemberResponse.builder()
+                        .userId(studentId)
+                        .role(GroupMemberRole.STUDENT)
+                        .build());
+
+        mockMvc.perform(post("/api/communication/groups/{groupId}/students", groupId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(AddStudentToGroupRequest.builder()
+                                .studentId(studentId)
+                                .build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Student added to communication group successfully"))
+                .andExpect(jsonPath("$.data.userId").value(studentId.toString()))
+                .andExpect(jsonPath("$.data.role").value("STUDENT"));
+
+        verify(communicationGroupService).addStudentToGroup(groupId, studentId);
+    }
+
+    @Test
+    void addStudentToCourseGroupReturnsMember() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+
+        when(communicationGroupService.addStudentToCourseGroup(courseId, studentId))
+                .thenReturn(GroupMemberResponse.builder()
+                        .userId(studentId)
+                        .role(GroupMemberRole.STUDENT)
+                        .build());
+
+        mockMvc.perform(post("/api/communication/groups/courses/{courseId}/students", courseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(AddStudentToGroupRequest.builder()
+                                .studentId(studentId)
+                                .build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Student added to course communication group successfully"))
+                .andExpect(jsonPath("$.data.userId").value(studentId.toString()))
+                .andExpect(jsonPath("$.data.role").value("STUDENT"));
+
+        verify(communicationGroupService).addStudentToCourseGroup(courseId, studentId);
+    }
+
+    @Test
+    void addStudentRejectsInvalidRequest() throws Exception {
+        mockMvc.perform(post("/api/communication/groups/{groupId}/students", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(AddStudentToGroupRequest.builder().build())))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(communicationGroupService);
+    }
+
+    @Test
+    void mutatingEndpointsAreRoleRestricted() throws NoSuchMethodException {
         Method create = CommunicationGroupController.class.getDeclaredMethod(
                 "createGroup",
                 CreateCommunicationGroupRequest.class,
                 String.class
         );
+        Method addStudent = CommunicationGroupController.class.getDeclaredMethod(
+                "addStudentToGroup",
+                UUID.class,
+                AddStudentToGroupRequest.class
+        );
+        Method addStudentByCourse = CommunicationGroupController.class.getDeclaredMethod(
+                "addStudentToCourseGroup",
+                UUID.class,
+                AddStudentToGroupRequest.class
+        );
         Method archive = CommunicationGroupController.class.getDeclaredMethod("archiveGroup", UUID.class);
 
         assertThat(create.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
+        assertThat(addStudent.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
+        assertThat(addStudentByCourse.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
         assertThat(archive.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
     }
 
