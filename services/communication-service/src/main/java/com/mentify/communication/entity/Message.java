@@ -60,4 +60,10 @@ public class Message extends BaseEntity {
 
     @Column(name = "edited_at")
     private LocalDateTime editedAt;
+
+        @Column(name = "deleted_at")
+        private LocalDateTime deletedAt;
+
+        @Column(name = "deleted_by", columnDefinition = "uuid")
+        private UUID deletedBy;
 }

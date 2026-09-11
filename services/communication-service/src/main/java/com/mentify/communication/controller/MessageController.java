@@ -1,15 +1,19 @@
 package com.mentify.communication.controller;
 
 import com.mentify.communication.dto.request.SendMessageRequest;
+import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
+import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.service.MessageService;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,5 +50,31 @@ public class MessageController {
         PageResponse<MessageResponse> response = messageService.getMessageHistory(groupId, page, size);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Messages fetched successfully", response));
+    }
+
+    @PatchMapping("/{messageId}")
+    public ResponseEntity<ApiResponse<MessageResponse>> updateMessage(
+            @PathVariable UUID groupId,
+            @PathVariable UUID messageId,
+            @Valid @RequestBody UpdateMessageRequest request
+    ) {
+        MessageResponse response = messageService.updateMessage(groupId, messageId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Message updated successfully", response));
+    }
+
+    @DeleteMapping("/{messageId}")
+    public ResponseEntity<ApiResponse<Void>> deleteMessage(
+            @PathVariable UUID groupId,
+            @PathVariable UUID messageId,
+            @RequestParam(defaultValue = "ME") MessageDeleteScope scope
+    ) {
+        messageService.deleteMessage(groupId, messageId, scope);
+
+        String message = MessageDeleteScope.EVERYONE.equals(scope)
+                ? "Message deleted for everyone successfully"
+                : "Message deleted for you successfully";
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), message, null));
     }
 }

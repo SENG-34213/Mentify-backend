@@ -1,18 +1,24 @@
 package com.mentify.communication.service.impl;
 
 import com.mentify.communication.dto.request.SendMessageRequest;
+import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
 import com.mentify.communication.entity.CommunicationGroup;
 import com.mentify.communication.entity.Message;
+import com.mentify.communication.entity.MessageHiddenForUser;
+import com.mentify.communication.enums.GroupMemberRole;
 import com.mentify.communication.enums.GroupStatus;
+import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.enums.MessageStatus;
 import com.mentify.communication.enums.MessageType;
 import com.mentify.communication.exception.CommunicationGroupNotFoundException;
 import com.mentify.communication.exception.GroupArchivedException;
 import com.mentify.communication.exception.InvalidMessageException;
+import com.mentify.communication.exception.UnauthorizedMessageActionException;
 import com.mentify.communication.exception.UnauthorizedGroupAccessException;
 import com.mentify.communication.repository.CommunicationGroupRepository;
+import com.mentify.communication.repository.MessageHiddenForUserRepository;
 import com.mentify.communication.repository.MessageRepository;
 import com.mentify.communication.security.AuthenticatedUserService;
 import com.mentify.communication.service.GroupMemberService;
@@ -27,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,6 +56,9 @@ class MessageServiceImplTest {
 
     @Mock
     private CommunicationGroupRepository communicationGroupRepository;
+
+    @Mock
+    private MessageHiddenForUserRepository messageHiddenForUserRepository;
 
     @Mock
     private GroupMemberService groupMemberService;
@@ -222,7 +232,7 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group(groupId, GroupStatus.ACTIVE)));
-        when(messageRepository.findByGroup_IdAndStatus(eq(groupId), eq(MessageStatus.ACTIVE), any(Pageable.class)))
+        when(messageRepository.findVisibleMessagesByGroupAndStatuses(eq(groupId), any(), eq(userId), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(message)));
 
         PageResponse<MessageResponse> response = messageService.getMessageHistory(groupId, 0, 30);
@@ -246,7 +256,7 @@ class MessageServiceImplTest {
                 UnauthorizedGroupAccessException.class,
                 () -> messageService.getMessageHistory(groupId, 0, 30)
         );
-        verify(messageRepository, never()).findByGroup_IdAndStatus(any(), any(), any());
+        verify(messageRepository, never()).findVisibleMessagesByGroupAndStatuses(any(), any(), any(), any());
     }
 
     @Test
@@ -260,7 +270,7 @@ class MessageServiceImplTest {
                 CommunicationGroupNotFoundException.class,
                 () -> messageService.getMessageHistory(groupId, 0, 30)
         );
-        verify(messageRepository, never()).findByGroup_IdAndStatus(any(), any(), any());
+        verify(messageRepository, never()).findVisibleMessagesByGroupAndStatuses(any(), any(), any(), any());
     }
 
     @Test
@@ -271,7 +281,7 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group(groupId, GroupStatus.ACTIVE)));
-        when(messageRepository.findByGroup_IdAndStatus(eq(groupId), eq(MessageStatus.ACTIVE), pageableCaptor.capture()))
+        when(messageRepository.findVisibleMessagesByGroupAndStatuses(eq(groupId), any(), eq(userId), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
 
         messageService.getMessageHistory(groupId, 2, 500);
@@ -304,13 +314,137 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group(groupId, GroupStatus.ARCHIVED)));
-        when(messageRepository.findByGroup_IdAndStatus(eq(groupId), eq(MessageStatus.ACTIVE), any(Pageable.class)))
+        when(messageRepository.findVisibleMessagesByGroupAndStatuses(eq(groupId), any(), eq(userId), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         PageResponse<MessageResponse> response = messageService.getMessageHistory(groupId, 0, 30);
 
         assertEquals(0, response.getContent().size());
         verify(groupMemberService).validateActiveMembership(groupId, userId);
+    }
+
+    @Test
+    void senderCanUpdateMessage() {
+        UUID groupId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        Message message = message(group, senderId, "Old", LocalDateTime.now());
+        message.setId(messageId);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(messageRepository.findByIdAndGroup_Id(messageId, groupId)).thenReturn(Optional.of(message));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MessageResponse response = messageService.updateMessage(
+                groupId,
+                messageId,
+                UpdateMessageRequest.builder().content(" Updated content ").build()
+        );
+
+        assertEquals("Updated content", response.getContent());
+        assertNotNull(response.getEditedAt());
+    }
+
+    @Test
+    void nonSenderCannotUpdateMessage() {
+        UUID groupId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        Message message = message(group, senderId, "Old", LocalDateTime.now());
+        message.setId(messageId);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(currentUserId);
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(messageRepository.findByIdAndGroup_Id(messageId, groupId)).thenReturn(Optional.of(message));
+
+        assertThrows(
+                UnauthorizedMessageActionException.class,
+                () -> messageService.updateMessage(groupId, messageId, UpdateMessageRequest.builder().content("Edit").build())
+        );
+    }
+
+    @Test
+    void memberCanDeleteForMe() {
+        UUID groupId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        Message message = message(group, UUID.randomUUID(), "Hello", LocalDateTime.now());
+        message.setId(messageId);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(messageRepository.findByIdAndGroup_Id(messageId, groupId)).thenReturn(Optional.of(message));
+        when(messageHiddenForUserRepository.findByMessage_IdAndUserId(messageId, userId)).thenReturn(Optional.empty());
+
+        messageService.deleteMessage(groupId, messageId, MessageDeleteScope.ME);
+
+        verify(messageHiddenForUserRepository).save(any(MessageHiddenForUser.class));
+        verify(messageRepository, never()).save(any(Message.class));
+    }
+
+    @Test
+    void senderCanDeleteForEveryone() {
+        UUID groupId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        Message message = message(group, userId, "Hello", LocalDateTime.now());
+        message.setId(messageId);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(messageRepository.findByIdAndGroup_Id(messageId, groupId)).thenReturn(Optional.of(message));
+
+        messageService.deleteMessage(groupId, messageId, MessageDeleteScope.EVERYONE);
+
+        assertEquals(MessageStatus.DELETED, message.getStatus());
+        assertEquals("This message was deleted", message.getContent());
+        verify(messageRepository).save(message);
+    }
+
+    @Test
+    void teacherRoleCanDeleteOthersMessageForEveryone() {
+        UUID groupId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        Message message = message(group, UUID.randomUUID(), "Hello", LocalDateTime.now());
+        message.setId(messageId);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_TEACHER"));
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(messageRepository.findByIdAndGroup_Id(messageId, groupId)).thenReturn(Optional.of(message));
+
+        messageService.deleteMessage(groupId, messageId, MessageDeleteScope.EVERYONE);
+
+        verify(messageRepository).save(message);
+    }
+
+    @Test
+    void studentCannotDeleteOthersMessageForEveryone() {
+        UUID groupId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+        Message message = message(group, UUID.randomUUID(), "Hello", LocalDateTime.now());
+        message.setId(messageId);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_STUDENT"));
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(messageRepository.findByIdAndGroup_Id(messageId, groupId)).thenReturn(Optional.of(message));
+        when(groupMemberService.validateActiveMembership(groupId, userId)).thenReturn(member(group, userId, GroupMemberRole.STUDENT));
+
+        assertThrows(
+                UnauthorizedMessageActionException.class,
+                () -> messageService.deleteMessage(groupId, messageId, MessageDeleteScope.EVERYONE)
+        );
     }
 
     private void assertInvalidContent(String content) {
@@ -355,5 +489,16 @@ class MessageServiceImplTest {
                 .build();
         message.setId(UUID.randomUUID());
         return message;
+    }
+
+    private com.mentify.communication.entity.GroupMember member(CommunicationGroup group, UUID userId, GroupMemberRole role) {
+        com.mentify.communication.entity.GroupMember member = com.mentify.communication.entity.GroupMember.builder()
+                .group(group)
+                .userId(userId)
+                .role(role)
+                .joinedAt(LocalDateTime.now())
+                .build();
+        member.setActive(true);
+        return member;
     }
 }

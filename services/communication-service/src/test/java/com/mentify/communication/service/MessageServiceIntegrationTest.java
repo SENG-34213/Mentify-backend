@@ -4,6 +4,7 @@ import com.mentify.communication.TestJwtDecoderConfig;
 import com.mentify.communication.client.CourseServiceClient;
 import com.mentify.communication.client.EntrollmentServiceClient;
 import com.mentify.communication.dto.request.SendMessageRequest;
+import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
 import com.mentify.communication.entity.CommunicationGroup;
@@ -11,6 +12,7 @@ import com.mentify.communication.entity.GroupMember;
 import com.mentify.communication.entity.Message;
 import com.mentify.communication.enums.GroupMemberRole;
 import com.mentify.communication.enums.GroupStatus;
+import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.enums.MessageStatus;
 import com.mentify.communication.enums.MessageType;
 import com.mentify.communication.exception.CommunicationGroupNotFoundException;
@@ -165,6 +167,64 @@ class MessageServiceIntegrationTest {
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getContent()).isEqualTo("Archived history");
+    }
+
+    @Test
+    void senderCanUpdateMessage() {
+        UUID senderId = UUID.randomUUID();
+        CommunicationGroup group = communicationGroupRepository.save(group(GroupStatus.ACTIVE));
+        groupMemberRepository.save(member(group, senderId, GroupMemberRole.STUDENT));
+        Message message = messageRepository.save(message(group, senderId, "Old message", LocalDateTime.now()));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
+
+        MessageResponse response = messageService.updateMessage(
+                group.getId(),
+                message.getId(),
+                UpdateMessageRequest.builder().content("Updated message").build()
+        );
+
+        assertThat(response.getContent()).isEqualTo("Updated message");
+        assertThat(response.isEdited()).isTrue();
+        assertThat(response.getEditedAt()).isNotNull();
+    }
+
+    @Test
+    void deleteForMeHidesMessageOnlyForThatUser() {
+        UUID senderId = UUID.randomUUID();
+        UUID secondUserId = UUID.randomUUID();
+        CommunicationGroup group = communicationGroupRepository.save(group(GroupStatus.ACTIVE));
+        groupMemberRepository.save(member(group, senderId, GroupMemberRole.STUDENT));
+        groupMemberRepository.save(member(group, secondUserId, GroupMemberRole.STUDENT));
+        Message message = messageRepository.save(message(group, senderId, "Delete only for me", LocalDateTime.now()));
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
+        messageService.deleteMessage(group.getId(), message.getId(), MessageDeleteScope.ME);
+        PageResponse<MessageResponse> senderHistory = messageService.getMessageHistory(group.getId(), 0, 30);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(secondUserId);
+        PageResponse<MessageResponse> secondUserHistory = messageService.getMessageHistory(group.getId(), 0, 30);
+
+        assertThat(senderHistory.getContent()).isEmpty();
+        assertThat(secondUserHistory.getContent()).hasSize(1);
+    }
+
+    @Test
+    void teacherCanDeleteStudentMessageForEveryone() {
+        UUID studentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        CommunicationGroup group = communicationGroupRepository.save(group(GroupStatus.ACTIVE));
+        groupMemberRepository.save(member(group, studentId, GroupMemberRole.STUDENT));
+        groupMemberRepository.save(member(group, teacherId, GroupMemberRole.TEACHER));
+        Message message = messageRepository.save(message(group, studentId, "Delete for everyone", LocalDateTime.now()));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(java.util.Set.of("ROLE_TEACHER"));
+
+        messageService.deleteMessage(group.getId(), message.getId(), MessageDeleteScope.EVERYONE);
+        PageResponse<MessageResponse> history = messageService.getMessageHistory(group.getId(), 0, 30);
+
+        assertThat(history.getContent()).hasSize(1);
+        assertThat(history.getContent().get(0).isDeletedForEveryone()).isTrue();
+        assertThat(history.getContent().get(0).getContent()).isEqualTo("This message was deleted");
     }
 
     private CommunicationGroup group(GroupStatus status) {
