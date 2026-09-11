@@ -2,8 +2,10 @@ package com.mentify.communication.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.communication.dto.request.SendMessageRequest;
+import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
+import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.enums.MessageType;
 import com.mentify.communication.service.MessageService;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -122,6 +126,61 @@ class MessageControllerTest {
 
         verify(messageService).getMessageHistory(groupId, 0, 30);
     }
+
+        @Test
+        void updateMessageReturnsUpdatedResponse() throws Exception {
+                UUID groupId = UUID.randomUUID();
+                UUID messageId = UUID.randomUUID();
+                UUID senderId = UUID.randomUUID();
+                LocalDateTime sentAt = LocalDateTime.of(2026, 9, 6, 10, 30);
+                LocalDateTime editedAt = LocalDateTime.of(2026, 9, 6, 10, 35);
+
+                when(messageService.updateMessage(eq(groupId), eq(messageId), any(UpdateMessageRequest.class)))
+                                .thenReturn(MessageResponse.builder()
+                                                .id(messageId)
+                                                .groupId(groupId)
+                                                .senderId(senderId)
+                                                .content("Updated text")
+                                                .type(MessageType.TEXT)
+                                                .sentAt(sentAt)
+                                                .editedAt(editedAt)
+                                                .edited(true)
+                                                .deletedForEveryone(false)
+                                                .build());
+
+                mockMvc.perform(patch("/api/communication/groups/{groupId}/messages/{messageId}", groupId, messageId)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsString(UpdateMessageRequest.builder().content("Updated text").build())))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Message updated successfully"))
+                                .andExpect(jsonPath("$.data.edited").value(true));
+
+                verify(messageService).updateMessage(eq(groupId), eq(messageId), any(UpdateMessageRequest.class));
+        }
+
+        @Test
+        void deleteMessageForMeReturnsSuccess() throws Exception {
+                UUID groupId = UUID.randomUUID();
+                UUID messageId = UUID.randomUUID();
+
+                mockMvc.perform(delete("/api/communication/groups/{groupId}/messages/{messageId}?scope=ME", groupId, messageId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Message deleted for you successfully"));
+
+                verify(messageService).deleteMessage(groupId, messageId, MessageDeleteScope.ME);
+        }
+
+        @Test
+        void deleteMessageForEveryoneReturnsSuccess() throws Exception {
+                UUID groupId = UUID.randomUUID();
+                UUID messageId = UUID.randomUUID();
+
+                mockMvc.perform(delete("/api/communication/groups/{groupId}/messages/{messageId}?scope=EVERYONE", groupId, messageId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Message deleted for everyone successfully"));
+
+                verify(messageService).deleteMessage(groupId, messageId, MessageDeleteScope.EVERYONE);
+        }
 
     private MessageResponse messageResponse(
             UUID messageId,

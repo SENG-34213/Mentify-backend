@@ -21,4 +21,7 @@ public class MessageResponse {
     private String content;
     private MessageType type;
     private LocalDateTime sentAt;
+    private LocalDateTime editedAt;
+    private boolean edited;
+    private boolean deletedForEveryone;
 }

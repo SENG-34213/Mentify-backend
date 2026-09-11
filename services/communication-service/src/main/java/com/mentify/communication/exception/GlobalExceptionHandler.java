@@ -70,7 +70,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             CommunicationGroupNotFoundException.class,
-            CourseNotFoundException.class
+            CourseNotFoundException.class,
+            MessageNotFoundException.class
     })
     public ResponseEntity<ErrorResponse> handleCommunicationNotFoundException(
             RuntimeException ex,
@@ -81,7 +82,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             UnauthorizedGroupAccessException.class,
-            TeacherNotAssignedToCourseException.class
+            TeacherNotAssignedToCourseException.class,
+            UnauthorizedMessageActionException.class
     })
     public ResponseEntity<ErrorResponse> handleCommunicationForbiddenException(
             RuntimeException ex,

@@ -2,6 +2,7 @@ package com.mentify.communication.mapper;
 
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.entity.Message;
+import com.mentify.communication.enums.MessageStatus;
 
 public final class MessageMapper {
 
@@ -16,6 +17,9 @@ public final class MessageMapper {
                 .content(message.getContent())
                 .type(message.getType())
                 .sentAt(message.getSentAt())
+                .editedAt(message.getEditedAt())
+                .edited(message.getEditedAt() != null)
+                .deletedForEveryone(MessageStatus.DELETED.equals(message.getStatus()))
                 .build();
     }
 }

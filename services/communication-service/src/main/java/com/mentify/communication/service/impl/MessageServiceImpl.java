@@ -1,18 +1,25 @@
 package com.mentify.communication.service.impl;
 
 import com.mentify.communication.dto.request.SendMessageRequest;
+import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
 import com.mentify.communication.entity.CommunicationGroup;
 import com.mentify.communication.entity.Message;
+import com.mentify.communication.entity.MessageHiddenForUser;
+import com.mentify.communication.enums.GroupMemberRole;
 import com.mentify.communication.enums.GroupStatus;
+import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.enums.MessageStatus;
 import com.mentify.communication.enums.MessageType;
 import com.mentify.communication.exception.CommunicationGroupNotFoundException;
 import com.mentify.communication.exception.GroupArchivedException;
 import com.mentify.communication.exception.InvalidMessageException;
+import com.mentify.communication.exception.MessageNotFoundException;
+import com.mentify.communication.exception.UnauthorizedMessageActionException;
 import com.mentify.communication.mapper.MessageMapper;
 import com.mentify.communication.repository.CommunicationGroupRepository;
+import com.mentify.communication.repository.MessageHiddenForUserRepository;
 import com.mentify.communication.repository.MessageRepository;
 import com.mentify.communication.security.AuthenticatedUserService;
 import com.mentify.communication.service.GroupMemberService;
@@ -26,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -37,6 +46,7 @@ public class MessageServiceImpl implements MessageService {
     public static final int MAX_MESSAGE_LENGTH = 5000;
 
     private final MessageRepository messageRepository;
+    private final MessageHiddenForUserRepository messageHiddenForUserRepository;
     private final CommunicationGroupRepository communicationGroupRepository;
     private final GroupMemberService groupMemberService;
     private final AuthenticatedUserService authenticatedUserService;
@@ -88,7 +98,12 @@ public class MessageServiceImpl implements MessageService {
                 normalizeSize(size),
                 Sort.by(Sort.Order.desc("sentAt"), Sort.Order.desc("id"))
         );
-        Page<Message> messages = messageRepository.findByGroup_IdAndStatus(groupId, MessageStatus.ACTIVE, pageable);
+        Page<Message> messages = messageRepository.findVisibleMessagesByGroupAndStatuses(
+            groupId,
+            EnumSet.of(MessageStatus.ACTIVE, MessageStatus.DELETED),
+            userId,
+            pageable
+        );
 
         return PageResponse.<MessageResponse>builder()
                 .content(messages.map(MessageMapper::toResponse).getContent())
@@ -99,9 +114,97 @@ public class MessageServiceImpl implements MessageService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public MessageResponse updateMessage(UUID groupId, UUID messageId, UpdateMessageRequest request) {
+        UUID userId = authenticatedUserService.getCurrentUserId();
+        Message message = getMessageAndValidateMember(groupId, messageId, userId);
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new UnauthorizedMessageActionException("Only the sender can edit this message");
+        }
+
+        if (MessageStatus.DELETED.equals(message.getStatus())) {
+            throw new InvalidMessageException("Deleted message cannot be edited");
+        }
+
+        message.setContent(normalizeContent(request == null ? null : SendMessageRequest.builder()
+                .content(request.getContent())
+                .build()));
+        message.setEditedAt(LocalDateTime.now());
+        message.setUpdatedBy(userId);
+
+        return MessageMapper.toResponse(messageRepository.save(message));
+    }
+
+    @Override
+    @Transactional
+    public void deleteMessage(UUID groupId, UUID messageId, MessageDeleteScope scope) {
+        UUID userId = authenticatedUserService.getCurrentUserId();
+        Message message = getMessageAndValidateMember(groupId, messageId, userId);
+
+        MessageDeleteScope effectiveScope = scope == null ? MessageDeleteScope.ME : scope;
+        if (MessageDeleteScope.ME.equals(effectiveScope)) {
+            hideMessageForUser(message, userId);
+            return;
+        }
+
+        if (!canDeleteForEveryone(userId, message)) {
+            throw new UnauthorizedMessageActionException("You are not allowed to delete this message for everyone");
+        }
+
+        if (!MessageStatus.DELETED.equals(message.getStatus())) {
+            message.setStatus(MessageStatus.DELETED);
+            message.setContent("This message was deleted");
+            message.setDeletedAt(LocalDateTime.now());
+            message.setDeletedBy(userId);
+            message.setEditedAt(null);
+            message.setUpdatedBy(userId);
+            messageRepository.save(message);
+        }
+    }
+
     private CommunicationGroup getGroup(UUID groupId) {
         return communicationGroupRepository.findById(groupId)
                 .orElseThrow(() -> new CommunicationGroupNotFoundException(groupId));
+    }
+
+    private Message getMessageAndValidateMember(UUID groupId, UUID messageId, UUID userId) {
+        getGroup(groupId);
+        groupMemberService.validateActiveMembership(groupId, userId);
+
+        return messageRepository.findByIdAndGroup_Id(messageId, groupId)
+                .orElseThrow(() -> new MessageNotFoundException(messageId));
+    }
+
+    private void hideMessageForUser(Message message, UUID userId) {
+        MessageHiddenForUser hidden = messageHiddenForUserRepository.findByMessage_IdAndUserId(message.getId(), userId)
+                .orElseGet(() -> MessageHiddenForUser.builder()
+                        .message(message)
+                        .userId(userId)
+                        .hiddenAt(LocalDateTime.now())
+                        .build());
+        hidden.setActive(true);
+        hidden.setHiddenAt(LocalDateTime.now());
+        hidden.setUpdatedBy(userId);
+        if (hidden.getCreatedBy() == null) {
+            hidden.setCreatedBy(userId);
+        }
+        messageHiddenForUserRepository.save(hidden);
+    }
+
+    private boolean canDeleteForEveryone(UUID userId, Message message) {
+        if (message.getSenderId().equals(userId)) {
+            return true;
+        }
+
+        Set<String> roles = authenticatedUserService.getCurrentUserRoles();
+        if (roles.contains("ROLE_SUPER_ADMIN") || roles.contains("ROLE_ADMIN") || roles.contains("ROLE_TEACHER")) {
+            return true;
+        }
+
+        GroupMemberRole memberRole = groupMemberService.validateActiveMembership(message.getGroup().getId(), userId).getRole();
+        return GroupMemberRole.ADMIN.equals(memberRole) || GroupMemberRole.TEACHER.equals(memberRole);
     }
 
     private String normalizeContent(SendMessageRequest request) {
