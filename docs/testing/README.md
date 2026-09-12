@@ -95,6 +95,7 @@ docs/testing/ADMIN_USER_REGISTRATION_FLOW.md
 docs/testing/ASSIGNMENT_POSTMAN_TESTS.md
 docs/testing/QUIZ_POSTMAN_TESTS.md
 docs/testing/COMMUNICATION_POSTMAN_TESTS.md
+docs/testing/ATTENDANCE_POSTMAN_TESTS.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:

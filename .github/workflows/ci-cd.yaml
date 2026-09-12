@@ -68,6 +68,8 @@
               path: services/entrollment-service
             - service: communication-service
               path: services/communication-service
+            - service: attendance-service
+              path: services/attendance-service
 
       steps:
         - name: Checkout code
@@ -110,6 +112,8 @@
               path: services/entrollment-service
             - service: communication-service
               path: services/communication-service
+            - service: attendance-service
+              path: services/attendance-service
 
       steps:
         - name: Checkout code
@@ -158,6 +162,8 @@
               path: services/entrollment-service
             - service: communication-service
               path: services/communication-service
+            - service: attendance-service
+              path: services/attendance-service
 
       steps:
         - name: Checkout code
@@ -240,6 +246,9 @@
             - service: communication-service
               path: services/communication-service
               server_port: "8086"
+            - service: attendance-service
+              path: services/attendance-service
+              server_port: "8087"
 
       services:
         postgres-user:
@@ -306,6 +315,20 @@
             POSTGRES_PASSWORD: ${{ secrets.CI_COMMUNICATION_DB_PASSWORD }}
           ports:
             - ${{ vars.HOST_PORT_COMMUNICATION_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+
+        postgres-attendance:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.ATTENDANCE_DB_NAME }}
+            POSTGRES_USER: ${{ vars.ATTENDANCE_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_ATTENDANCE_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_ATTENDANCE_DB }}:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
@@ -382,6 +405,12 @@
             COMMUNICATION_DB_NAME: ${{ vars.COMMUNICATION_DB_NAME }}
             COMMUNICATION_DB_USERNAME: ${{ vars.COMMUNICATION_DB_USERNAME }}
             COMMUNICATION_DB_PASSWORD: ${{ secrets.CI_COMMUNICATION_DB_PASSWORD }}
+
+            ATTENDANCE_DB_HOST: localhost
+            ATTENDANCE_DB_PORT: ${{ vars.HOST_PORT_ATTENDANCE_DB }}
+            ATTENDANCE_DB_NAME: ${{ vars.ATTENDANCE_DB_NAME }}
+            ATTENDANCE_DB_USERNAME: ${{ vars.ATTENDANCE_DB_USERNAME }}
+            ATTENDANCE_DB_PASSWORD: ${{ secrets.CI_ATTENDANCE_DB_PASSWORD }}
 
             SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
 
