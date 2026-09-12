@@ -49,6 +49,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: attendance-service
+          uri: lb://attendance-service
+          predicates:
+            - Path=/api/v1/attendance/**
+          filters:
+            - StripPrefix=0
+
 logging:
   level:
     root: INFO
