@@ -20,5 +20,6 @@
         <module>assignment-service</module>
         <module>communication-service</module>
         <module>attendance-service</module>
+        <module>ai-service</module>
     </modules>
 </project>

@@ -1,0 +1,46 @@
+server:
+  port: ${AI_SERVICE_PORT:8087}
+ 
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+ 
+  datasource:
+    url: jdbc:postgresql://${AI_DB_HOST:localhost}:${AI_DB_PORT:5434}/${AI_DB_NAME:ai_db}
+    username: ${AI_DB_USERNAME:postgres}
+    password: ${AI_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+ 
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: true
+ 
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+ 
+ai:
+  provider:
+    name: ${AI_PROVIDER:gemini}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:gemini-3-flash-preview}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3-flash-preview}
+  openai:
+    api-key: ${OPENAI_API_KEY:${AI_API_KEY:}}
+    model: ${OPENAI_MODEL:${AI_MODEL:gpt-4o}}
+ 
+logging:
+  level:
+    root: INFO
+    com.mentify.ai: DEBUG
