@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 
 @Data
 @Configuration
@@ -13,6 +14,9 @@ public class AiProviderProperties {
     private ProviderConfig provider = new ProviderConfig();
     private GeminiConfig gemini = new GeminiConfig();
     private OpenAIConfig openai = new OpenAIConfig();
+    private HttpConfig http = new HttpConfig();
+    private RetryConfig retry = new RetryConfig();
+    private CircuitBreakerConfig circuitBreaker = new CircuitBreakerConfig();
 
     @Data
     public static class ProviderConfig {
@@ -39,5 +43,25 @@ public class AiProviderProperties {
     public static class CostConfig {
         private BigDecimal inputTokenCostPerMillion;
         private BigDecimal outputTokenCostPerMillion;
+    }
+
+    @Data
+    public static class HttpConfig {
+        private Duration connectTimeout = Duration.ofSeconds(5);
+        private Duration readTimeout = Duration.ofSeconds(60);
+    }
+
+    @Data
+    public static class RetryConfig {
+        private boolean enabled = true;
+        private int maxAttempts = 3;
+        private Duration backoff = Duration.ofMillis(500);
+    }
+
+    @Data
+    public static class CircuitBreakerConfig {
+        private boolean enabled = true;
+        private int failureThreshold = 5;
+        private Duration openDuration = Duration.ofSeconds(30);
     }
 }

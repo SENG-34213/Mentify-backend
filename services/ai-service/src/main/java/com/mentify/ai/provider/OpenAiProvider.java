@@ -11,8 +11,10 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
  
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.ArrayList;
@@ -27,6 +29,8 @@ public class OpenAiProvider implements AiProvider {
  
     private final AiProviderProperties properties;
     private final RestClient restClient;
+    private final AiProviderRetryExecutor retryExecutor;
+    private final AiProviderCircuitBreaker circuitBreaker;
  
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
  
@@ -49,9 +53,14 @@ public class OpenAiProvider implements AiProvider {
         log.info("Sending request to OpenAI using model: {} feature={} traceId={}",
                 model, request.getFeatureType(), request.getTraceId());
 
+        long startedAt = System.nanoTime();
+        return circuitBreaker.execute(getProviderName(), () ->
+                retryExecutor.execute(getProviderName(), () -> callOpenAi(request, model, startedAt)));
+    }
+
+    private AiGenerateResponse callOpenAi(AiExecutionRequest request, String model, long startedAt) {
         try {
             Map<String, Object> body = buildRequestBody(request, model);
-            long startedAt = System.nanoTime();
 
             ResponseEntity<Map> responseEntity = restClient.post()
                     .uri(OPENAI_URL)
@@ -59,6 +68,10 @@ public class OpenAiProvider implements AiProvider {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
+                    .onStatus(status -> status.value() == 429, (req, resp) -> {
+                        log.warn("OpenAI rate limit response: {} {}", resp.getStatusCode(), resp.getStatusText());
+                        throw new AiProviderRateLimitException("OpenAI rate limit exceeded");
+                    })
                     .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
                         log.error("OpenAI client error: {} {}", resp.getStatusCode(), resp.getStatusText());
                         throw new AiProviderException("OpenAI client error: " + resp.getStatusCode());
@@ -74,6 +87,11 @@ public class OpenAiProvider implements AiProvider {
             String providerRequestId = resolveProviderRequestId(responseEntity, response);
             return mapToResponse(response, latencyMs, providerRequestId);
 
+        } catch (ResourceAccessException e) {
+            if (isTimeout(e)) {
+                throw new AiProviderTimeoutException("OpenAI request timed out", e);
+            }
+            throw new AiProviderException("Error communicating with AI provider", e);
         } catch (Exception e) {
             if (e instanceof AiProviderException) {
                 throw (AiProviderException) e;
@@ -81,6 +99,17 @@ public class OpenAiProvider implements AiProvider {
             log.error("Unexpected error calling OpenAI", e);
             throw new AiProviderException("Error communicating with AI provider", e);
         }
+    }
+
+    private boolean isTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void validateConfig() {

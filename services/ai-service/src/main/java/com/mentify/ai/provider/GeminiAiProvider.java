@@ -11,8 +11,10 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -26,6 +28,8 @@ public class GeminiAiProvider implements AiProvider {
 
     private final AiProviderProperties properties;
     private final RestClient restClient;
+    private final AiProviderRetryExecutor retryExecutor;
+    private final AiProviderCircuitBreaker circuitBreaker;
 
     private static final String GEMINI_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
 
@@ -51,15 +55,24 @@ public class GeminiAiProvider implements AiProvider {
         log.info("Sending request to Gemini using model: {} feature={} traceId={}",
                 model, request.getFeatureType(), request.getTraceId());
 
+        long startedAt = System.nanoTime();
+        return circuitBreaker.execute(getProviderName(), () ->
+                retryExecutor.execute(getProviderName(), () -> callGemini(request, model, url, startedAt)));
+    }
+
+    private AiGenerateResponse callGemini(AiExecutionRequest request, String model, String url, long startedAt) {
         try {
             Map<String, Object> body = buildRequestBody(request);
-            long startedAt = System.nanoTime();
 
             ResponseEntity<Map> responseEntity = restClient.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
+                    .onStatus(status -> status.value() == 429, (req, resp) -> {
+                        log.warn("Gemini rate limit response: {} {}", resp.getStatusCode(), resp.getStatusText());
+                        throw new AiProviderRateLimitException("Gemini rate limit exceeded");
+                    })
                     .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
                         log.error("Gemini client error: {} {}", resp.getStatusCode(), resp.getStatusText());
                         throw new AiProviderException("Gemini client error: " + resp.getStatusCode());
@@ -75,6 +88,11 @@ public class GeminiAiProvider implements AiProvider {
             String providerRequestId = resolveProviderRequestId(responseEntity, response);
             return mapToResponse(response, model, latencyMs, providerRequestId);
 
+        } catch (ResourceAccessException e) {
+            if (isTimeout(e)) {
+                throw new AiProviderTimeoutException("Gemini request timed out", e);
+            }
+            throw new AiProviderException("Error communicating with AI provider", e);
         } catch (Exception e) {
             if (e instanceof AiProviderException) {
                 throw (AiProviderException) e;
@@ -82,6 +100,17 @@ public class GeminiAiProvider implements AiProvider {
             log.error("Unexpected error calling Gemini", e);
             throw new AiProviderException("Error communicating with AI provider", e);
         }
+    }
+
+    private boolean isTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void validateConfig() {

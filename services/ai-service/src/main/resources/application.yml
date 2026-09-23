@@ -35,3 +35,14 @@ ai:
   openai:
     api-key: ${OPENAI_API_KEY:${AI_API_KEY:}}
     model: ${OPENAI_MODEL:${AI_MODEL:gpt-4o}}
+  http:
+    connect-timeout: ${AI_HTTP_CONNECT_TIMEOUT:5s}
+    read-timeout: ${AI_HTTP_READ_TIMEOUT:60s}
+  retry:
+    enabled: ${AI_RETRY_ENABLED:true}
+    max-attempts: ${AI_RETRY_MAX_ATTEMPTS:3}
+    backoff: ${AI_RETRY_BACKOFF:500ms}
+  circuit-breaker:
+    enabled: ${AI_CIRCUIT_BREAKER_ENABLED:true}
+    failure-threshold: ${AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
+    open-duration: ${AI_CIRCUIT_BREAKER_OPEN_DURATION:30s}

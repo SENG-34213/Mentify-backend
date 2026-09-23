@@ -41,13 +41,19 @@ class OpenAiProviderTest {
  
     @Mock
     private RestClient.ResponseSpec responseSpec;
- 
+
+    private AiProviderRetryExecutor retryExecutor;
+
+    private AiProviderCircuitBreaker circuitBreaker;
+	 
     private OpenAiProvider openAiProvider;
- 
+	 
     @BeforeEach
     void setUp() {
         properties = new AiProviderProperties();
-        openAiProvider = new OpenAiProvider(properties, restClient);
+        retryExecutor = new AiProviderRetryExecutor(properties);
+        circuitBreaker = new AiProviderCircuitBreaker(properties);
+        openAiProvider = new OpenAiProvider(properties, restClient, retryExecutor, circuitBreaker);
     }
  
     @Test

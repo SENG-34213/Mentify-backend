@@ -41,12 +41,18 @@ class GeminiAiProviderTest {
     @Mock
     private RestClient.ResponseSpec responseSpec;
 
+    private AiProviderRetryExecutor retryExecutor;
+
+    private AiProviderCircuitBreaker circuitBreaker;
+
     private GeminiAiProvider geminiAiProvider;
 
     @BeforeEach
     void setUp() {
         properties = new AiProviderProperties();
-        geminiAiProvider = new GeminiAiProvider(properties, restClient);
+        retryExecutor = new AiProviderRetryExecutor(properties);
+        circuitBreaker = new AiProviderCircuitBreaker(properties);
+        geminiAiProvider = new GeminiAiProvider(properties, restClient, retryExecutor, circuitBreaker);
     }
 
     @Test
