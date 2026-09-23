@@ -8,6 +8,7 @@ import com.mentify.ai.dto.response.InternalLessonResponse;
 import com.mentify.ai.dto.response.LessonSummaryResponse;
 import com.mentify.ai.exception.AiEmptyResponseException;
 import com.mentify.ai.exception.AiProviderConfigurationException;
+import com.mentify.ai.prompt.AiPromptRegistry;
 import com.mentify.ai.provider.AiProvider;
 import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.payload.response.ApiResponse;
@@ -24,6 +25,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +41,7 @@ class LessonSummarizationServiceImplTest {
     private AuthenticatedUserService authenticatedUserService;
 
     private AiProviderProperties properties;
+    private AiPromptRegistry promptRegistry;
 
     private LessonSummarizationServiceImpl lessonSummarizationService;
 
@@ -46,12 +49,14 @@ class LessonSummarizationServiceImplTest {
     void setUp() {
         properties = new AiProviderProperties();
         properties.getProvider().setName("GEMINI");
+        promptRegistry = new AiPromptRegistry();
         
         lessonSummarizationService = new LessonSummarizationServiceImpl(
                 lessonServiceClient,
                 List.of(aiProvider),
                 properties,
-                authenticatedUserService
+                authenticatedUserService,
+                promptRegistry
         );
     }
 
@@ -92,6 +97,45 @@ class LessonSummarizationServiceImplTest {
         assertEquals(lessonId, response.getLessonId());
         assertEquals("This is a summary", response.getSummary());
         assertEquals("GEMINI", response.getProvider());
+    }
+
+    @Test
+    void summarizeLesson_ShouldUseVersionedLessonSummaryPrompt() {
+        // Arrange
+        when(aiProvider.getProviderName()).thenReturn("GEMINI");
+        UUID lessonId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        String authHeader = "Bearer test-token";
+        InternalLessonResponse lessonData = InternalLessonResponse.builder()
+                .id(lessonId)
+                .title("Encapsulation")
+                .description("Hide internal object state")
+                .build();
+
+        ApiResponse<InternalLessonResponse> apiResponse = ApiResponse.<InternalLessonResponse>builder()
+                .data(lessonData)
+                .build();
+
+        when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Summary")
+                .provider("GEMINI")
+                .model("gemini-3-flash-preview")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        var requestCaptor = forClass(AiExecutionRequest.class);
+
+        // Act
+        lessonSummarizationService.summarizeLesson(lessonId, authHeader);
+
+        // Assert
+        org.mockito.Mockito.verify(aiProvider).generate(requestCaptor.capture());
+        AiExecutionRequest capturedRequest = requestCaptor.getValue();
+        assertEquals(promptRegistry.get(AiPromptRegistry.LESSON_SUMMARY, AiPromptRegistry.V1).systemPrompt(),
+                capturedRequest.getSystemPrompt());
+        assertEquals("Title: Encapsulation\n\nContent:\nHide internal object state", capturedRequest.getUserInput());
     }
 
     @Test

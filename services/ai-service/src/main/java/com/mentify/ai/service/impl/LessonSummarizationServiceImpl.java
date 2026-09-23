@@ -11,6 +11,8 @@ import com.mentify.ai.enums.AiFeatureType;
 import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.AiEmptyResponseException;
 import com.mentify.ai.exception.AiProviderConfigurationException;
+import com.mentify.ai.prompt.AiPromptRegistry;
+import com.mentify.ai.prompt.AiPromptTemplate;
 import com.mentify.ai.provider.AiProvider;
 import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.ai.service.LessonSummarizationService;
@@ -31,13 +33,7 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
     private final List<AiProvider> aiProviders;
     private final AiProviderProperties aiProviderProperties;
     private final AuthenticatedUserService authenticatedUserService;
-
-    private static final String SUMMARIZATION_SYSTEM_PROMPT =
-            "You summarize lesson content for a learning management system. " +
-            "Provide a concise, structured summary focused on main concepts, key points, and learning objectives.";
-
-    private static final String SUMMARIZATION_USER_INPUT_TEMPLATE =
-            "Title: %s\n\nContent:\n%s";
+    private final AiPromptRegistry promptRegistry;
 
     @Override
     public LessonSummaryResponse summarizeLesson(UUID lessonId, String authorizationHeader) {
@@ -63,6 +59,7 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
 
         // 3. Build internal AI execution request
         String traceId = UUID.randomUUID().toString();
+        AiPromptTemplate prompt = promptRegistry.get(AiPromptRegistry.LESSON_SUMMARY, AiPromptRegistry.V1);
         AiExecutionRequest generateRequest = AiExecutionRequest.builder()
                 .featureType(AiFeatureType.LESSON_SUMMARIZATION)
                 .userId(authenticatedUserService.getCurrentUserId())
@@ -70,15 +67,16 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
                         .courseId(lessonData.getCourseId())
                         .lessonId(lessonId)
                         .build())
-                .systemPrompt(SUMMARIZATION_SYSTEM_PROMPT)
-                .userInput(String.format(SUMMARIZATION_USER_INPUT_TEMPLATE, title, content))
+                .systemPrompt(prompt.systemPrompt())
+                .userInput(prompt.renderUserInput(title, content))
                 .responseFormat(AiResponseFormat.TEXT)
                 .traceId(traceId)
                 .build();
 
         // 4. Call AI Provider
         AiProvider provider = getProvider();
-        log.info("Summarizing lesson using provider: {} traceId={}", provider.getProviderName(), traceId);
+        log.info("Summarizing lesson using provider: {} prompt={} traceId={}",
+                provider.getProviderName(), prompt.promptId(), traceId);
         AiGenerateResponse generateResponse = provider.generate(generateRequest);
 
         // 5. Return structured response
