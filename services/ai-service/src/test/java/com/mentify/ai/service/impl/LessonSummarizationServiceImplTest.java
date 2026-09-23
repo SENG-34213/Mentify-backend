@@ -2,13 +2,14 @@ package com.mentify.ai.service.impl;
 
 import com.mentify.ai.client.LessonServiceClient;
 import com.mentify.ai.config.AiProviderProperties;
-import com.mentify.ai.dto.request.AiGenerateRequest;
+import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.response.InternalLessonResponse;
 import com.mentify.ai.dto.response.LessonSummaryResponse;
 import com.mentify.ai.exception.AiEmptyResponseException;
 import com.mentify.ai.exception.AiProviderConfigurationException;
 import com.mentify.ai.provider.AiProvider;
+import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.payload.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class LessonSummarizationServiceImplTest {
     @Mock
     private AiProvider aiProvider;
 
+    @Mock
+    private AuthenticatedUserService authenticatedUserService;
+
     private AiProviderProperties properties;
 
     private LessonSummarizationServiceImpl lessonSummarizationService;
@@ -46,7 +50,8 @@ class LessonSummarizationServiceImplTest {
         lessonSummarizationService = new LessonSummarizationServiceImpl(
                 lessonServiceClient,
                 List.of(aiProvider),
-                properties
+                properties,
+                authenticatedUserService
         );
     }
 
@@ -55,6 +60,7 @@ class LessonSummarizationServiceImplTest {
         // Arrange
         when(aiProvider.getProviderName()).thenReturn("GEMINI");
         UUID lessonId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         String authHeader = "Bearer test-token";
         InternalLessonResponse lessonData = InternalLessonResponse.builder()
                 .id(lessonId)
@@ -67,6 +73,7 @@ class LessonSummarizationServiceImplTest {
                 .build();
         
         when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
         
         AiGenerateResponse generateResponse = AiGenerateResponse.builder()
                 .content("This is a summary")
@@ -75,7 +82,7 @@ class LessonSummarizationServiceImplTest {
                 .generatedAt(LocalDateTime.now())
                 .build();
         
-        when(aiProvider.generate(any(AiGenerateRequest.class))).thenReturn(generateResponse);
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(generateResponse);
 
         // Act
         LessonSummaryResponse response = lessonSummarizationService.summarizeLesson(lessonId, authHeader);
@@ -116,6 +123,7 @@ class LessonSummarizationServiceImplTest {
         when(aiProvider.getProviderName()).thenReturn("GEMINI"); // Need this to avoid NPE in filter
         properties.getProvider().setName("OPENAI");
         UUID lessonId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         String authHeader = "Bearer test-token";
 
         InternalLessonResponse lessonData = InternalLessonResponse.builder()
@@ -127,6 +135,7 @@ class LessonSummarizationServiceImplTest {
                 .data(lessonData)
                 .build();
         when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
 
         // Act & Assert
         assertThrows(AiProviderConfigurationException.class, () -> 

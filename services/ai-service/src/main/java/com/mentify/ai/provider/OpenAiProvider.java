@@ -1,8 +1,9 @@
 package com.mentify.ai.provider;
  
 import com.mentify.ai.config.AiProviderProperties;
-import com.mentify.ai.dto.request.AiGenerateRequest;
+import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
+import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
  
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
  
@@ -37,19 +40,15 @@ public class OpenAiProvider implements AiProvider {
     }
 
     @Override
-    public AiGenerateResponse generate(AiGenerateRequest request) {
+    public AiGenerateResponse generate(AiExecutionRequest request) {
         validateConfig();
 
-        String model = getModel();
-        log.info("Sending request to OpenAI using model: {}", model);
+        String model = resolveModel(request);
+        log.info("Sending request to OpenAI using model: {} feature={} traceId={}",
+                model, request.getFeatureType(), request.getTraceId());
 
         try {
-            Map<String, Object> body = Map.of(
-                    "model", model,
-                    "messages", List.of(
-                            Map.of("role", "user", "content", request.getPrompt())
-                    )
-            );
+            Map<String, Object> body = buildRequestBody(request, model);
 
             Map<String, Object> response = restClient.post()
                     .uri(OPENAI_URL)
@@ -99,6 +98,35 @@ public class OpenAiProvider implements AiProvider {
             return properties.getOpenai().getModel();
         }
         return properties.getProvider().getModel();
+    }
+
+    private String resolveModel(AiExecutionRequest request) {
+        if (request.getModel() != null && !request.getModel().isBlank()) {
+            return request.getModel();
+        }
+        return getModel();
+    }
+
+    private Map<String, Object> buildRequestBody(AiExecutionRequest request, String model) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        if (request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
+            messages.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+        }
+        messages.add(Map.of("role", "user", "content", request.getUserInput()));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", messages);
+        if (request.getTemperature() != null) {
+            body.put("temperature", request.getTemperature());
+        }
+        if (request.getMaxTokens() != null) {
+            body.put("max_tokens", request.getMaxTokens());
+        }
+        if (AiResponseFormat.JSON_OBJECT.equals(request.getResponseFormat())) {
+            body.put("response_format", Map.of("type", "json_object"));
+        }
+        return body;
     }
  
     @SuppressWarnings("unchecked")

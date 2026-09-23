@@ -1,8 +1,10 @@
 package com.mentify.ai.provider;
 
 import com.mentify.ai.config.AiProviderProperties;
-import com.mentify.ai.dto.request.AiGenerateRequest;
+import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
+import com.mentify.ai.enums.AiFeatureType;
+import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.AiEmptyResponseException;
 import com.mentify.ai.exception.AiProviderConfigurationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +51,7 @@ class GeminiAiProviderTest {
     @SuppressWarnings("unchecked")
     void generate_ShouldReturnResponse_WhenGeminiReturnsValidData() {
         // Arrange
-        AiGenerateRequest request = new AiGenerateRequest("Test prompt");
+        AiExecutionRequest request = testRequest("Test prompt");
         properties.getGemini().setApiKey("test-key");
         properties.getGemini().setModel("gemini-3-flash-preview");
 
@@ -85,7 +87,7 @@ class GeminiAiProviderTest {
     @Test
     void generate_ShouldThrowException_WhenApiKeyIsMissing() {
         // Arrange
-        AiGenerateRequest request = new AiGenerateRequest("Test prompt");
+        AiExecutionRequest request = testRequest("Test prompt");
         properties.getGemini().setApiKey(null);
         properties.getProvider().setApiKey(null);
 
@@ -97,7 +99,7 @@ class GeminiAiProviderTest {
     @SuppressWarnings("unchecked")
     void generate_ShouldThrowException_WhenResponseIsEmpty() {
         // Arrange
-        AiGenerateRequest request = new AiGenerateRequest("Test prompt");
+        AiExecutionRequest request = testRequest("Test prompt");
         properties.getGemini().setApiKey("test-key");
         properties.getGemini().setModel("gemini-3-flash-preview");
 
@@ -113,5 +115,15 @@ class GeminiAiProviderTest {
 
         // Act & Assert
         assertThrows(AiEmptyResponseException.class, () -> geminiAiProvider.generate(request));
+    }
+
+    private AiExecutionRequest testRequest(String userInput) {
+        return AiExecutionRequest.builder()
+                .featureType(AiFeatureType.GENERAL_GENERATION)
+                .systemPrompt("Test system prompt")
+                .userInput(userInput)
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId("test-trace-id")
+                .build();
     }
 }

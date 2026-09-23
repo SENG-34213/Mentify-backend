@@ -2,13 +2,17 @@ package com.mentify.ai.service.impl;
 
 import com.mentify.ai.client.LessonServiceClient;
 import com.mentify.ai.config.AiProviderProperties;
-import com.mentify.ai.dto.request.AiGenerateRequest;
+import com.mentify.ai.dto.internal.AiExecutionContext;
+import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.response.InternalLessonResponse;
 import com.mentify.ai.dto.response.LessonSummaryResponse;
+import com.mentify.ai.enums.AiFeatureType;
+import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.AiEmptyResponseException;
 import com.mentify.ai.exception.AiProviderConfigurationException;
 import com.mentify.ai.provider.AiProvider;
+import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.ai.service.LessonSummarizationService;
 import com.mentify.payload.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -26,12 +30,14 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
     private final LessonServiceClient lessonServiceClient;
     private final List<AiProvider> aiProviders;
     private final AiProviderProperties aiProviderProperties;
+    private final AuthenticatedUserService authenticatedUserService;
 
-    private static final String SUMMARIZATION_PROMPT_TEMPLATE = 
-            "Please provide a concise and structured summary of the following lesson content. " +
-            "Focus on the main concepts, key points, and learning objectives.\n\n" +
-            "Title: %s\n\n" +
-            "Content:\n%s";
+    private static final String SUMMARIZATION_SYSTEM_PROMPT =
+            "You summarize lesson content for a learning management system. " +
+            "Provide a concise, structured summary focused on main concepts, key points, and learning objectives.";
+
+    private static final String SUMMARIZATION_USER_INPUT_TEMPLATE =
+            "Title: %s\n\nContent:\n%s";
 
     @Override
     public LessonSummaryResponse summarizeLesson(UUID lessonId, String authorizationHeader) {
@@ -55,15 +61,24 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
             throw new AiEmptyResponseException("Lesson has no usable text content for summarization");
         }
 
-        // 3. Build prompt
-        String prompt = String.format(SUMMARIZATION_PROMPT_TEMPLATE, title, content);
-
-        // 4. Call AI Provider
-        AiGenerateRequest generateRequest = AiGenerateRequest.builder()
-                .prompt(prompt)
+        // 3. Build internal AI execution request
+        String traceId = UUID.randomUUID().toString();
+        AiExecutionRequest generateRequest = AiExecutionRequest.builder()
+                .featureType(AiFeatureType.LESSON_SUMMARIZATION)
+                .userId(authenticatedUserService.getCurrentUserId())
+                .context(AiExecutionContext.builder()
+                        .courseId(lessonData.getCourseId())
+                        .lessonId(lessonId)
+                        .build())
+                .systemPrompt(SUMMARIZATION_SYSTEM_PROMPT)
+                .userInput(String.format(SUMMARIZATION_USER_INPUT_TEMPLATE, title, content))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
                 .build();
 
+        // 4. Call AI Provider
         AiProvider provider = getProvider();
+        log.info("Summarizing lesson using provider: {} traceId={}", provider.getProviderName(), traceId);
         AiGenerateResponse generateResponse = provider.generate(generateRequest);
 
         // 5. Return structured response
