@@ -12,8 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +56,8 @@ class GeminiAiProviderTest {
         AiExecutionRequest request = testRequest("Test prompt");
         properties.getGemini().setApiKey("test-key");
         properties.getGemini().setModel("gemini-3-flash-preview");
+        properties.getGemini().getCost().setInputTokenCostPerMillion(BigDecimal.valueOf(1));
+        properties.getGemini().getCost().setOutputTokenCostPerMillion(BigDecimal.valueOf(2));
 
         when(restClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
@@ -64,15 +68,26 @@ class GeminiAiProviderTest {
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
 
         Map<String, Object> geminiResponse = Map.of(
+                "responseId", "gemini-response-123",
+                "usageMetadata", Map.of(
+                        "promptTokenCount", 1000,
+                        "candidatesTokenCount", 2000,
+                        "totalTokenCount", 3000
+                ),
                 "candidates", List.of(
-                        Map.of("content", Map.of(
-                                "parts", List.of(
-                                        Map.of("text", "AI generated content")
+                        Map.of(
+                                "finishReason", "STOP",
+                                "content", Map.of(
+                                        "parts", List.of(
+                                                Map.of("text", "AI generated content")
+                                        )
                                 )
-                        ))
+                        )
                 )
         );
-        when(responseSpec.body(Map.class)).thenReturn(geminiResponse);
+        when(responseSpec.toEntity(Map.class)).thenReturn(ResponseEntity.ok()
+                .header("x-goog-request-id", "req-gemini-123")
+                .body(geminiResponse));
 
         // Act
         AiGenerateResponse response = geminiAiProvider.generate(request);
@@ -82,6 +97,13 @@ class GeminiAiProviderTest {
         assertEquals("AI generated content", response.getContent());
         assertEquals("GEMINI", response.getProvider());
         assertEquals("gemini-3-flash-preview", response.getModel());
+        assertEquals(1000, response.getInputTokens());
+        assertEquals(2000, response.getOutputTokens());
+        assertEquals(3000, response.getTotalTokens());
+        assertEquals(new BigDecimal("0.00500000"), response.getEstimatedCost());
+        assertNotNull(response.getLatencyMs());
+        assertEquals("STOP", response.getFinishReason());
+        assertEquals("req-gemini-123", response.getProviderRequestId());
     }
 
     @Test
@@ -111,7 +133,7 @@ class GeminiAiProviderTest {
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
 
-        when(responseSpec.body(Map.class)).thenReturn(Map.of()); // Empty map
+        when(responseSpec.toEntity(Map.class)).thenReturn(ResponseEntity.ok(Map.of())); // Empty map
 
         // Act & Assert
         assertThrows(AiEmptyResponseException.class, () -> geminiAiProvider.generate(request));

@@ -11,11 +11,12 @@ import com.mentify.ai.exception.AiProviderException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
- 
+	 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
  
@@ -55,6 +56,8 @@ class OpenAiProviderTest {
         AiExecutionRequest request = testRequest("Test prompt");
         properties.getOpenai().setApiKey("test-key");
         properties.getOpenai().setModel("gpt-4o");
+        properties.getOpenai().getCost().setInputTokenCostPerMillion(BigDecimal.valueOf(5));
+        properties.getOpenai().getCost().setOutputTokenCostPerMillion(BigDecimal.valueOf(15));
 
         when(restClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
@@ -67,12 +70,23 @@ class OpenAiProviderTest {
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
 
         Map<String, Object> openAiResponse = Map.of(
+                "id", "chatcmpl-test",
                 "model", "gpt-4o",
+                "usage", Map.of(
+                        "prompt_tokens", 1000,
+                        "completion_tokens", 500,
+                        "total_tokens", 1500
+                ),
                 "choices", List.of(
-                        Map.of("message", Map.of("content", "AI generated content"))
+                        Map.of(
+                                "finish_reason", "stop",
+                                "message", Map.of("content", "AI generated content")
+                        )
                 )
         );
-        when(responseSpec.body(Map.class)).thenReturn(openAiResponse);
+        when(responseSpec.toEntity(Map.class)).thenReturn(ResponseEntity.ok()
+                .header("x-request-id", "req-openai-123")
+                .body(openAiResponse));
 
         // Act
         AiGenerateResponse response = openAiProvider.generate(request);
@@ -82,6 +96,13 @@ class OpenAiProviderTest {
         assertEquals("AI generated content", response.getContent());
         assertEquals("OPENAI", response.getProvider());
         assertEquals("gpt-4o", response.getModel());
+        assertEquals(1000, response.getInputTokens());
+        assertEquals(500, response.getOutputTokens());
+        assertEquals(1500, response.getTotalTokens());
+        assertEquals(new BigDecimal("0.01250000"), response.getEstimatedCost());
+        assertNotNull(response.getLatencyMs());
+        assertEquals("stop", response.getFinishReason());
+        assertEquals("req-openai-123", response.getProviderRequestId());
     }
 
     @Test
@@ -111,7 +132,7 @@ class OpenAiProviderTest {
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
 
-        when(responseSpec.body(Map.class)).thenReturn(Map.of()); // Empty map
+        when(responseSpec.toEntity(Map.class)).thenReturn(ResponseEntity.ok(Map.of())); // Empty map
 
         // Act & Assert
         assertThrows(AiEmptyResponseException.class, () -> openAiProvider.generate(request));

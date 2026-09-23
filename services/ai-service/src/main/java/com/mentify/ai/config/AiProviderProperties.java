@@ -4,6 +4,8 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.math.BigDecimal;
+
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "ai")
@@ -23,11 +25,19 @@ public class AiProviderProperties {
     public static class GeminiConfig {
         private String apiKey;
         private String model;
+        private CostConfig cost = new CostConfig();
     }
 
     @Data
     public static class OpenAIConfig {
         private String apiKey;
         private String model;
+        private CostConfig cost = new CostConfig();
+    }
+
+    @Data
+    public static class CostConfig {
+        private BigDecimal inputTokenCostPerMillion;
+        private BigDecimal outputTokenCostPerMillion;
     }
 }

@@ -9,10 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
  
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,8 +51,9 @@ public class OpenAiProvider implements AiProvider {
 
         try {
             Map<String, Object> body = buildRequestBody(request, model);
+            long startedAt = System.nanoTime();
 
-            Map<String, Object> response = restClient.post()
+            ResponseEntity<Map> responseEntity = restClient.post()
                     .uri(OPENAI_URL)
                     .header("Authorization", "Bearer " + getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -64,9 +67,12 @@ public class OpenAiProvider implements AiProvider {
                         log.error("OpenAI server error: {} {}", resp.getStatusCode(), resp.getStatusText());
                         throw new AiProviderUnavailableException("OpenAI service unavailable");
                     })
-                    .body(Map.class);
+                    .toEntity(Map.class);
 
-            return mapToResponse(response);
+            long latencyMs = (System.nanoTime() - startedAt) / 1_000_000;
+            Map<String, Object> response = responseEntity.getBody();
+            String providerRequestId = resolveProviderRequestId(responseEntity, response);
+            return mapToResponse(response, latencyMs, providerRequestId);
 
         } catch (Exception e) {
             if (e instanceof AiProviderException) {
@@ -130,7 +136,7 @@ public class OpenAiProvider implements AiProvider {
     }
  
     @SuppressWarnings("unchecked")
-    private AiGenerateResponse mapToResponse(Map<String, Object> response) {
+    private AiGenerateResponse mapToResponse(Map<String, Object> response, long latencyMs, String providerRequestId) {
         if (response == null || !response.containsKey("choices")) {
             throw new AiEmptyResponseException("Empty or invalid response from OpenAI");
         }
@@ -143,6 +149,11 @@ public class OpenAiProvider implements AiProvider {
         Map<String, Object> choice = choices.get(0);
         Map<String, Object> message = (Map<String, Object>) choice.get("message");
         String content = (String) message.get("content");
+        String finishReason = AiUsageSupport.stringValue(choice, "finish_reason");
+        Map<String, Object> usage = (Map<String, Object>) response.getOrDefault("usage", Collections.emptyMap());
+        Integer inputTokens = AiUsageSupport.intValue(usage, "prompt_tokens");
+        Integer outputTokens = AiUsageSupport.intValue(usage, "completion_tokens");
+        Integer totalTokens = AiUsageSupport.intValue(usage, "total_tokens");
  
         if (content == null || content.isBlank()) {
             throw new AiEmptyResponseException("Blank content returned from OpenAI");
@@ -153,6 +164,21 @@ public class OpenAiProvider implements AiProvider {
                 .provider(getProviderName())
                 .model((String) response.get("model"))
                 .generatedAt(LocalDateTime.now())
+                .inputTokens(inputTokens)
+                .outputTokens(outputTokens)
+                .totalTokens(totalTokens)
+                .estimatedCost(AiUsageSupport.estimateCost(inputTokens, outputTokens, properties.getOpenai().getCost()))
+                .latencyMs(latencyMs)
+                .finishReason(finishReason)
+                .providerRequestId(providerRequestId)
                 .build();
+    }
+
+    private String resolveProviderRequestId(ResponseEntity<Map> responseEntity, Map<String, Object> response) {
+        String headerRequestId = AiUsageSupport.firstHeader(responseEntity.getHeaders(), "x-request-id", "openai-request-id");
+        if (headerRequestId != null) {
+            return headerRequestId;
+        }
+        return AiUsageSupport.stringValue(response, "id");
     }
 }

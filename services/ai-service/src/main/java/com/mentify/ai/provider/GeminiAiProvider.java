@@ -9,10 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +53,9 @@ public class GeminiAiProvider implements AiProvider {
 
         try {
             Map<String, Object> body = buildRequestBody(request);
+            long startedAt = System.nanoTime();
 
-            Map<String, Object> response = restClient.post()
+            ResponseEntity<Map> responseEntity = restClient.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
@@ -65,9 +68,12 @@ public class GeminiAiProvider implements AiProvider {
                         log.error("Gemini server error: {} {}", resp.getStatusCode(), resp.getStatusText());
                         throw new AiProviderUnavailableException("Gemini service unavailable");
                     })
-                    .body(Map.class);
+                    .toEntity(Map.class);
 
-            return mapToResponse(response, model);
+            long latencyMs = (System.nanoTime() - startedAt) / 1_000_000;
+            Map<String, Object> response = responseEntity.getBody();
+            String providerRequestId = resolveProviderRequestId(responseEntity, response);
+            return mapToResponse(response, model, latencyMs, providerRequestId);
 
         } catch (Exception e) {
             if (e instanceof AiProviderException) {
@@ -138,7 +144,7 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     @SuppressWarnings("unchecked")
-    private AiGenerateResponse mapToResponse(Map<String, Object> response, String model) {
+    private AiGenerateResponse mapToResponse(Map<String, Object> response, String model, long latencyMs, String providerRequestId) {
         if (response == null || !response.containsKey("candidates")) {
             throw new AiEmptyResponseException("Empty or invalid response from Gemini");
         }
@@ -149,6 +155,7 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         Map<String, Object> candidate = candidates.get(0);
+        String finishReason = AiUsageSupport.stringValue(candidate, "finishReason");
         Map<String, Object> contentMap = (Map<String, Object>) candidate.get("content");
         if (contentMap == null || !contentMap.containsKey("parts")) {
             throw new AiEmptyResponseException("No content or parts returned from Gemini");
@@ -160,6 +167,10 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         String text = (String) parts.get(0).get("text");
+        Map<String, Object> usage = (Map<String, Object>) response.getOrDefault("usageMetadata", Collections.emptyMap());
+        Integer inputTokens = AiUsageSupport.intValue(usage, "promptTokenCount");
+        Integer outputTokens = AiUsageSupport.intValue(usage, "candidatesTokenCount");
+        Integer totalTokens = AiUsageSupport.intValue(usage, "totalTokenCount");
 
         if (text == null || text.isBlank()) {
             throw new AiEmptyResponseException("Blank content returned from Gemini");
@@ -170,6 +181,21 @@ public class GeminiAiProvider implements AiProvider {
                 .provider(getProviderName())
                 .model(model)
                 .generatedAt(LocalDateTime.now())
+                .inputTokens(inputTokens)
+                .outputTokens(outputTokens)
+                .totalTokens(totalTokens)
+                .estimatedCost(AiUsageSupport.estimateCost(inputTokens, outputTokens, properties.getGemini().getCost()))
+                .latencyMs(latencyMs)
+                .finishReason(finishReason)
+                .providerRequestId(providerRequestId)
                 .build();
+    }
+
+    private String resolveProviderRequestId(ResponseEntity<Map> responseEntity, Map<String, Object> response) {
+        String headerRequestId = AiUsageSupport.firstHeader(responseEntity.getHeaders(), "x-request-id", "x-goog-request-id");
+        if (headerRequestId != null) {
+            return headerRequestId;
+        }
+        return AiUsageSupport.stringValue(response, "responseId");
     }
 }

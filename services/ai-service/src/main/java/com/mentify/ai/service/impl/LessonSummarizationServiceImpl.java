@@ -88,6 +88,13 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
                 .provider(generateResponse.getProvider())
                 .model(generateResponse.getModel())
                 .generatedAt(generateResponse.getGeneratedAt())
+                .inputTokens(generateResponse.getInputTokens())
+                .outputTokens(generateResponse.getOutputTokens())
+                .totalTokens(generateResponse.getTotalTokens())
+                .estimatedCost(generateResponse.getEstimatedCost())
+                .latencyMs(generateResponse.getLatencyMs())
+                .finishReason(generateResponse.getFinishReason())
+                .providerRequestId(generateResponse.getProviderRequestId())
                 .build();
     }
 
