@@ -51,6 +51,13 @@ ai:
     enabled: ${AI_CIRCUIT_BREAKER_ENABLED:true}
     failure-threshold: ${AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
     open-duration: ${AI_CIRCUIT_BREAKER_OPEN_DURATION:30s}
+  guardrails:
+    max-requests-per-minute: ${AI_MAX_REQUESTS_PER_MINUTE:10}
+    max-requests-per-day: ${AI_MAX_REQUESTS_PER_DAY:100}
+    max-input-characters: ${AI_MAX_INPUT_CHARACTERS:12000}
+    prompt-injection-detection-enabled: ${AI_PROMPT_INJECTION_DETECTION_ENABLED:true}
+    content-filtering-enabled: ${AI_CONTENT_FILTERING_ENABLED:true}
+    blocked-terms: ${AI_BLOCKED_TERMS:}
  
 logging:
   level:

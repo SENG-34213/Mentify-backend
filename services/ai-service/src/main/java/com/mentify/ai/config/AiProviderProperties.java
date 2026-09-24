@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Configuration
@@ -17,6 +19,7 @@ public class AiProviderProperties {
     private HttpConfig http = new HttpConfig();
     private RetryConfig retry = new RetryConfig();
     private CircuitBreakerConfig circuitBreaker = new CircuitBreakerConfig();
+    private GuardrailConfig guardrails = new GuardrailConfig();
 
     @Data
     public static class ProviderConfig {
@@ -63,5 +66,15 @@ public class AiProviderProperties {
         private boolean enabled = true;
         private int failureThreshold = 5;
         private Duration openDuration = Duration.ofSeconds(30);
+    }
+
+    @Data
+    public static class GuardrailConfig {
+        private int maxRequestsPerMinute = 10;
+        private int maxRequestsPerDay = 100;
+        private int maxInputCharacters = 12000;
+        private boolean promptInjectionDetectionEnabled = true;
+        private boolean contentFilteringEnabled = true;
+        private List<String> blockedTerms = new ArrayList<>();
     }
 }

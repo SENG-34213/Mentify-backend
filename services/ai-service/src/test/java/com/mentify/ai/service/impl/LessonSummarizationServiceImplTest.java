@@ -11,6 +11,9 @@ import com.mentify.ai.exception.AiProviderConfigurationException;
 import com.mentify.ai.prompt.AiPromptRegistry;
 import com.mentify.ai.provider.AiProvider;
 import com.mentify.ai.security.AuthenticatedUserService;
+import com.mentify.ai.service.AiAuditService;
+import com.mentify.ai.service.AiContentGuardService;
+import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.payload.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +43,15 @@ class LessonSummarizationServiceImplTest {
 
     @Mock
     private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private AiUsageGuardService usageGuardService;
+
+    @Mock
+    private AiContentGuardService contentGuardService;
+
+    @Mock
+    private AiAuditService auditService;
 
     private AiProviderProperties properties;
     private AiPromptRegistry promptRegistry;
@@ -56,7 +69,10 @@ class LessonSummarizationServiceImplTest {
                 List.of(aiProvider),
                 properties,
                 authenticatedUserService,
-                promptRegistry
+                promptRegistry,
+                usageGuardService,
+                contentGuardService,
+                auditService
         );
     }
 
@@ -79,6 +95,10 @@ class LessonSummarizationServiceImplTest {
         
         when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
         when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(contentGuardService.sanitizeForPrompt(any(), eq("lesson_title"), eq("Test Lesson")))
+                .thenReturn("<untrusted_lesson_title>\nTest Lesson\n</untrusted_lesson_title>");
+        when(contentGuardService.sanitizeForPrompt(any(), eq("lesson_content"), eq("Test content")))
+                .thenReturn("<untrusted_lesson_content>\nTest content\n</untrusted_lesson_content>");
         
         AiGenerateResponse generateResponse = AiGenerateResponse.builder()
                 .content("This is a summary")
@@ -97,6 +117,9 @@ class LessonSummarizationServiceImplTest {
         assertEquals(lessonId, response.getLessonId());
         assertEquals("This is a summary", response.getSummary());
         assertEquals("GEMINI", response.getProvider());
+        verify(usageGuardService).assertAllowed(userId, com.mentify.ai.enums.AiFeatureType.LESSON_SUMMARIZATION);
+        verify(auditService).recordCompleted(any(), eq(com.mentify.ai.enums.AiFeatureType.LESSON_SUMMARIZATION),
+                eq(userId), eq(null), eq(lessonId), eq(generateResponse));
     }
 
     @Test
@@ -118,6 +141,10 @@ class LessonSummarizationServiceImplTest {
 
         when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
         when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(contentGuardService.sanitizeForPrompt(any(), eq("lesson_title"), eq("Encapsulation")))
+                .thenReturn("<untrusted_lesson_title>\nEncapsulation\n</untrusted_lesson_title>");
+        when(contentGuardService.sanitizeForPrompt(any(), eq("lesson_content"), eq("Hide internal object state")))
+                .thenReturn("<untrusted_lesson_content>\nHide internal object state\n</untrusted_lesson_content>");
         when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
                 .content("Summary")
                 .provider("GEMINI")
@@ -135,7 +162,7 @@ class LessonSummarizationServiceImplTest {
         AiExecutionRequest capturedRequest = requestCaptor.getValue();
         assertEquals(promptRegistry.get(AiPromptRegistry.LESSON_SUMMARY, AiPromptRegistry.V1).systemPrompt(),
                 capturedRequest.getSystemPrompt());
-        assertEquals("Title: Encapsulation\n\nContent:\nHide internal object state", capturedRequest.getUserInput());
+        assertEquals("Title: <untrusted_lesson_title>\nEncapsulation\n</untrusted_lesson_title>\n\nContent:\n<untrusted_lesson_content>\nHide internal object state\n</untrusted_lesson_content>", capturedRequest.getUserInput());
     }
 
     @Test
@@ -154,6 +181,7 @@ class LessonSummarizationServiceImplTest {
                 .build();
         
         when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(UUID.randomUUID());
 
         // Act & Assert
         assertThrows(AiEmptyResponseException.class, () -> 
@@ -180,6 +208,10 @@ class LessonSummarizationServiceImplTest {
                 .build();
         when(lessonServiceClient.getLessonForAi(eq(lessonId), eq(authHeader))).thenReturn(apiResponse);
         when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(contentGuardService.sanitizeForPrompt(any(), eq("lesson_title"), eq("Test Lesson")))
+                .thenReturn("<untrusted_lesson_title>\nTest Lesson\n</untrusted_lesson_title>");
+        when(contentGuardService.sanitizeForPrompt(any(), eq("lesson_content"), eq("Test content")))
+                .thenReturn("<untrusted_lesson_content>\nTest content\n</untrusted_lesson_content>");
 
         // Act & Assert
         assertThrows(AiProviderConfigurationException.class, () -> 
