@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,10 +27,10 @@ public class QuizGenerationController {
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<GeneratedQuizDraftResponse>> generateQuiz(
             @RequestPart("file") MultipartFile file,
-            @RequestPart("courseId") UUID courseId,
-            @RequestPart("questionCount") Integer questionCount,
-            @RequestPart("difficulty") String difficulty,
-            @RequestPart("questionType") String questionType
+            @RequestParam UUID courseId,
+            @RequestParam Integer questionCount,
+            @RequestParam String difficulty,
+            @RequestParam String questionType
     ) {
         QuizGenerationRequest request = QuizGenerationRequest.builder()
                 .courseId(courseId)

@@ -104,8 +104,8 @@ public class AiQuizGenerationServiceImpl implements AiQuizGenerationService {
         try {
             ApiResponse<AiGeneratedQuizDraftResponse> response = aiQuizGenerationClient.generateQuiz(
                     file,
-                    courseId,
-                    questionCount,
+                    courseId.toString(),
+                    questionCount.toString(),
                     difficulty.name(),
                     questionType.name(),
                     authorizationHeader

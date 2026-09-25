@@ -73,8 +73,8 @@ class AiQuizGenerationServiceImplTest {
         MockMultipartFile file = new MockMultipartFile("file", "oop.pdf", "application/pdf", "pdf".getBytes());
         when(aiQuizGenerationClient.generateQuiz(
                 eq(file),
-                eq(courseId),
-                eq(1),
+                eq(courseId.toString()),
+                eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
                 eq(AUTH_HEADER)
@@ -107,8 +107,8 @@ class AiQuizGenerationServiceImplTest {
         MockMultipartFile file = new MockMultipartFile("file", "oop.pdf", "application/pdf", "pdf".getBytes());
         when(aiQuizGenerationClient.generateQuiz(
                 eq(file),
-                eq(courseId),
-                eq(1),
+                eq(courseId.toString()),
+                eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
                 eq(null)
@@ -173,8 +173,8 @@ class AiQuizGenerationServiceImplTest {
         MockMultipartFile file = new MockMultipartFile("file", "empty.pdf", "application/pdf", "pdf".getBytes());
         when(aiQuizGenerationClient.generateQuiz(
                 eq(file),
-                eq(courseId),
-                eq(1),
+                eq(courseId.toString()),
+                eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
                 eq(AUTH_HEADER)
@@ -199,8 +199,8 @@ class AiQuizGenerationServiceImplTest {
         MockMultipartFile file = new MockMultipartFile("file", "empty.pdf", "application/pdf", "pdf".getBytes());
         when(aiQuizGenerationClient.generateQuiz(
                 eq(file),
-                eq(courseId),
-                eq(1),
+                eq(courseId.toString()),
+                eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
                 eq(AUTH_HEADER)
@@ -225,8 +225,8 @@ class AiQuizGenerationServiceImplTest {
         MockMultipartFile file = new MockMultipartFile("file", "oop.pdf", "application/pdf", "pdf".getBytes());
         when(aiQuizGenerationClient.generateQuiz(
                 eq(file),
-                eq(courseId),
-                eq(1),
+                eq(courseId.toString()),
+                eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
                 eq(AUTH_HEADER)
