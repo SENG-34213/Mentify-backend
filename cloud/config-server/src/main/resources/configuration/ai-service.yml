@@ -1,5 +1,5 @@
 server:
-  port: ${AI_SERVICE_PORT:8087}
+  port: ${AI_SERVICE_PORT:8088}
  
 spring:
   security:
@@ -28,6 +28,22 @@ mentify:
   security:
     enabled: true
     principal-claim: preferred_username
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
  
 ai:
   provider:

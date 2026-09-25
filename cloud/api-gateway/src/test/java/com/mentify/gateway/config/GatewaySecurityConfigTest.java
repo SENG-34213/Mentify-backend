@@ -72,6 +72,16 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void givenNoToken_whenCallingAiQuizGenerationEndpoint_thenReturnsOk() {
+        // Arrange
+        var request = webTestClient.post().uri("/api/assignments/quizzes/ai/generate");
+
+        // Act and Assert
+        request.exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
     void givenNoToken_whenCallingGatewayProtectedEndpoint_thenReturnsUnauthorized() {
         // Arrange
         var request = webTestClient.get().uri("/protected-gateway-resource");
@@ -112,6 +122,11 @@ class GatewaySecurityConfigTest {
 
         @PostMapping("/api/v1/auth/forgot-password")
         Map<String, String> forgotPassword() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/assignments/quizzes/ai/generate")
+        Map<String, String> aiQuizGenerate() {
             return Map.of("status", "success");
         }
 
