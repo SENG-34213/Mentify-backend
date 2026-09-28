@@ -3,6 +3,7 @@ package com.mentify.controller;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.EntrollmentService;
 import jakarta.validation.Valid;
@@ -64,6 +65,15 @@ public class EntrollmentController {
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<UUID>>> getEnrolledStudentIdsByCourse(@PathVariable UUID courseId) {
         ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/students/unenrolled")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UnenrolledStudentResponse>>> getUnenrolledStudents(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<UnenrolledStudentResponse>> response = entrollmentService.getUnenrolledStudents(authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 }

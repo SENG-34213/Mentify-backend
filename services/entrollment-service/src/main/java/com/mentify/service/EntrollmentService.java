@@ -3,6 +3,7 @@ package com.mentify.service;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.payload.response.ApiResponse;
 
 import java.util.List;
@@ -17,4 +18,6 @@ public interface EntrollmentService {
     boolean isStudentEnrolledInCourse(UUID studentId, UUID courseId);
 
     ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId);
+
+    ApiResponse<List<UnenrolledStudentResponse>> getUnenrolledStudents(String authorizationHeader);
 }

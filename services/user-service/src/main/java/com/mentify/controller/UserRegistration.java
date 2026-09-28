@@ -18,9 +18,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -30,6 +32,19 @@ public class UserRegistration {
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;
     private final UserRepository userRepository;
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UserRegistrationResponse>>> getUsersByRole(
+            @RequestParam Role role
+    ) {
+        List<UserRegistrationResponse> users = userRegistrationService.getUsersByRole(role);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Users fetched successfully",
+                users
+        ));
+    }
 
     @PostMapping("/register")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")

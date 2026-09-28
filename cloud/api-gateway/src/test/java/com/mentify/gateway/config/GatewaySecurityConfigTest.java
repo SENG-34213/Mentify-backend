@@ -17,6 +17,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 @SpringBootTest(
         classes = GatewaySecurityConfigTest.TestApplication.class,
         properties = {
@@ -91,9 +93,37 @@ class GatewaySecurityConfigTest {
                 .expectStatus().isUnauthorized();
     }
 
+    @Test
+    void givenAllowedFrontendOrigin_whenSendingPreflightRequest_thenReturnsCorsHeaders() {
+        webTestClient.options()
+                .uri("http://api.mentify.test/protected-gateway-resource")
+                .header("Origin", "http://localhost:5173")
+                .header("Access-Control-Request-Method", "GET")
+                .header("Access-Control-Request-Headers", "Authorization,Content-Type")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost:5173")
+                .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+                .expectHeader().value("Access-Control-Allow-Methods", value -> assertThat(value).contains("GET"))
+                .expectHeader().value("Access-Control-Allow-Headers", value -> assertThat(value)
+                        .contains("Authorization")
+                        .contains("Content-Type"));
+    }
+
+    @Test
+    void givenAllowedFrontendOrigin_whenCallingPublicEndpoint_thenReturnsCorsHeaders() {
+        webTestClient.get()
+                .uri("http://api.mentify.test/api/v1/auth/public-test")
+                .header("Origin", "http://localhost:5173")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost:5173")
+                .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true");
+    }
+
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @Import({GatewaySecurityConfig.class, TestController.class})
+    @Import({GatewaySecurityConfig.class, GatewayCorsProperties.class, TestController.class})
     static class TestApplication {
 
         @Bean

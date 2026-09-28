@@ -5,6 +5,7 @@ import com.mentify.enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,4 +17,5 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByKeycloakUserId(String keycloakUserId);
     boolean existsByKeycloakUserIdAndRole(String keycloakUserId, Role role);
     boolean existsByIdAndRole(UUID id, Role role);
+    List<User> findAllByRoleOrderByCreatedAtDesc(Role role);
 }

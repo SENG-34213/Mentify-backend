@@ -2,12 +2,15 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.UserServiceClient;
 import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.client.dto.UserLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
@@ -37,6 +40,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     private final EntrollmentRepository entrollmentRepository;
     private final CourseServiceClient courseServiceClient;
     private final CommunicationServiceClient communicationServiceClient;
+    private final UserServiceClient userServiceClient;
 
     @Override
     @Transactional
@@ -110,6 +114,34 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    @Override
+    public ApiResponse<List<UnenrolledStudentResponse>> getUnenrolledStudents(String authorizationHeader) {
+        Set<UUID> enrolledStudentIds = new HashSet<>(entrollmentRepository.findActiveStudentIds());
+        List<UserLookupResponse> students = getStudents(authorizationHeader);
+
+        List<UnenrolledStudentResponse> unenrolledStudents = students.stream()
+                .filter(student -> student.getId() != null)
+                .filter(student -> !enrolledStudentIds.contains(student.getId()))
+                .map(UnenrolledStudentResponse::from)
+                .toList();
+
+        return ApiResponse.<List<UnenrolledStudentResponse>>builder()
+                .message("Unenrolled students fetched successfully")
+                .data(unenrolledStudents)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    private List<UserLookupResponse> getStudents(String authorizationHeader) {
+        try {
+            ApiResponse<List<UserLookupResponse>> response = userServiceClient.getUsersByRole("STUDENT", authorizationHeader);
+            return response != null && response.getData() != null ? response.getData() : List.of();
+        } catch (FeignException ex) {
+            throw new IllegalStateException("Failed to fetch students", ex);
+        }
     }
 
     private Set<UUID> sanitizeAndValidateCourseIds(List<UUID> courseIds) {
