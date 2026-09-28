@@ -1,6 +1,22 @@
 server:
   port: ${SERVER_PORT:8080}
 
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
 spring:
   security:
     oauth2:
@@ -45,7 +61,14 @@ spring:
         - id: assignment-service
           uri: lb://assignment-service
           predicates:
-            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/v1/assignments/**, /api/v1/submissions/**
+            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/submissions/**
+          filters:
+            - StripPrefix=0
+
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/ai/**
           filters:
             - StripPrefix=0
 

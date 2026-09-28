@@ -21,6 +21,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/ai/health").permitAll()
+                        .requestMatchers("/api/ai/quizzes/generate").permitAll()
                         .requestMatchers(
                                 "/actuator/health",
                                 "/actuator/info",

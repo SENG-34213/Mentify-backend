@@ -1,5 +1,6 @@
 package com.mentify.quiz.dto.request;
 
+import com.mentify.quiz.enums.QuizCreationMethod;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -46,4 +47,6 @@ public class CreateQuizRequest {
     private Integer maxAttempts;
 
     private Boolean showResultImmediately;
+
+    private QuizCreationMethod creationMethod;
 }

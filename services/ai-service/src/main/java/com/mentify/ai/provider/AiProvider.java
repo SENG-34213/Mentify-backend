@@ -1,6 +1,6 @@
 package com.mentify.ai.provider;
  
-import com.mentify.ai.dto.request.AiGenerateRequest;
+import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
  
 /**
@@ -20,5 +20,5 @@ public interface AiProvider {
     /**
      * Generate content based on a request
      */
-    AiGenerateResponse generate(AiGenerateRequest request);
+    AiGenerateResponse generate(AiExecutionRequest request);
 }

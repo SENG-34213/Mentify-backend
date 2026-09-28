@@ -1,7 +1,6 @@
 package com.mentify.quiz.service.impl;
 
 import com.mentify.payload.response.ApiResponse;
-import com.mentify.quiz.client.CourseServiceClient;
 import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.client.dto.CourseLookupResponse;
 import com.mentify.quiz.dto.request.CreateQuizRequest;
@@ -12,8 +11,8 @@ import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizQuestion;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
-import com.mentify.quiz.exception.CourseNotFoundException;
 import com.mentify.quiz.exception.InvalidQuestionOptionsException;
 import com.mentify.quiz.exception.QuizNotFoundException;
 import com.mentify.quiz.exception.StudentNotEnrolledException;
@@ -22,6 +21,7 @@ import com.mentify.quiz.mapper.QuizMapper;
 import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
+import com.mentify.quiz.service.CourseQuizAuthorizationService;
 import com.mentify.quiz.service.QuizService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
@@ -42,24 +42,27 @@ public class QuizServiceImpl implements QuizService {
 
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
-    private final CourseServiceClient courseServiceClient;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final CurrentUserService currentUserService;
+    private final CourseQuizAuthorizationService courseQuizAuthorizationService;
 
     @Override
     @Transactional
     public ApiResponse<QuizResponse> createQuiz(CreateQuizRequest request, String authorizationHeader) {
-        CourseLookupResponse course = getCourseOrThrow(request.getCourseId(), authorizationHeader);
-        assertCanCreateQuizForCourse(course);
+        CourseLookupResponse course = courseQuizAuthorizationService.assertCanCreateQuizForCourse(
+                request.getCourseId(),
+                authorizationHeader
+        );
         validateQuizTimes(request.getStartTime(), request.getEndTime());
 
         Quiz quiz = Quiz.builder()
                 .courseId(request.getCourseId())
-                .teacherId(resolveTeacherId(course))
+                .teacherId(courseQuizAuthorizationService.resolveTeacherId(course))
                 .title(request.getTitle().trim())
                 .description(trimToNull(request.getDescription()))
                 .durationMinutes(request.getDurationMinutes())
                 .totalMarks(BigDecimal.ZERO)
+                .creationMethod(resolveCreationMethod(request))
                 .passMark(request.getPassMark())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
@@ -94,7 +97,7 @@ public class QuizServiceImpl implements QuizService {
                 ? request.getShowResultImmediately()
                 : Boolean.TRUE);
 
-        getCourseOrThrow(quiz.getCourseId(), authorizationHeader);
+        courseQuizAuthorizationService.getCourseOrThrow(quiz.getCourseId(), authorizationHeader);
 
         List<QuizQuestion> questions = quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quizId);
         return response(HttpStatus.OK, "Quiz updated successfully",
@@ -108,7 +111,7 @@ public class QuizServiceImpl implements QuizService {
 
         assertCanManageQuiz(quiz);
         assertDraft(quiz);
-        getCourseOrThrow(quiz.getCourseId(), authorizationHeader);
+        courseQuizAuthorizationService.getCourseOrThrow(quiz.getCourseId(), authorizationHeader);
 
         List<QuizQuestion> questions = quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quizId);
         validatePublishable(questions);
@@ -199,22 +202,6 @@ public class QuizServiceImpl implements QuizService {
                 .orElseThrow(() -> new QuizNotFoundException(quizId));
     }
 
-    private CourseLookupResponse getCourseOrThrow(UUID courseId, String authorizationHeader) {
-        try {
-            CourseLookupResponse course = courseServiceClient.getCourseById(courseId, authorizationHeader).getData();
-            if (course == null || course.getId() == null) {
-                throw new CourseNotFoundException(courseId);
-            }
-            return course;
-        } catch (FeignException.NotFound ex) {
-            throw new CourseNotFoundException(courseId);
-        } catch (FeignException.Forbidden ex) {
-            throw new UnauthorizedQuizAccessException("Not authorized to validate this course");
-        } catch (FeignException ex) {
-            throw new IllegalStateException("Failed to validate course", ex);
-        }
-    }
-
     private void assertStudentEnrolled(UUID studentId, UUID courseId, String authorizationHeader) {
         try {
             if (!enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, authorizationHeader)) {
@@ -225,26 +212,6 @@ public class QuizServiceImpl implements QuizService {
         } catch (FeignException ex) {
             throw new IllegalStateException("Failed to validate enrollment", ex);
         }
-    }
-
-    private void assertCanCreateQuizForCourse(CourseLookupResponse course) {
-        if (currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
-            return;
-        }
-
-        if (currentUserService.hasAnyRole("TEACHER")
-                && currentUserService.getCurrentUserId().equals(course.getAssignedTeacherId())) {
-            return;
-        }
-
-        throw new UnauthorizedQuizAccessException("Teacher can only create quizzes for assigned courses");
-    }
-
-    private UUID resolveTeacherId(CourseLookupResponse course) {
-        if (currentUserService.hasAnyRole("TEACHER")) {
-            return currentUserService.getCurrentUserId();
-        }
-        return course.getAssignedTeacherId() != null ? course.getAssignedTeacherId() : currentUserService.getCurrentUserId();
     }
 
     private void assertCanManageQuiz(Quiz quiz) {
@@ -269,6 +236,10 @@ public class QuizServiceImpl implements QuizService {
         if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
             throw new InvalidQuestionOptionsException("Quiz start time must be before end time");
         }
+    }
+
+    private QuizCreationMethod resolveCreationMethod(CreateQuizRequest request) {
+        return request.getCreationMethod() != null ? request.getCreationMethod() : QuizCreationMethod.MANUAL;
     }
 
     private String trimToNull(String value) {

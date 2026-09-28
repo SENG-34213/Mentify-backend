@@ -40,8 +40,8 @@ class AiGenerationControllerTest {
     private ObjectMapper objectMapper;
  
     @Test
-    @WithMockUser
-    void generate_ShouldReturnSuccess_WhenAuthenticatedAndRequestIsValid() throws Exception {
+    @WithMockUser(roles = "ADMIN")
+    void generate_ShouldReturnSuccess_WhenAdminAndRequestIsValid() throws Exception {
         // Arrange
         AiGenerateRequest request = new AiGenerateRequest("Explain inheritance");
         AiGenerateResponse response = AiGenerateResponse.builder()
@@ -62,7 +62,20 @@ class AiGenerationControllerTest {
                 .andExpect(jsonPath("$.data.content").value("Inheritance is..."))
                 .andExpect(jsonPath("$.data.provider").value("OPENAI"));
     }
- 
+
+    @Test
+    @WithMockUser(roles = "STUDENT")
+    void generate_ShouldReturnForbidden_WhenAuthenticatedUserIsNotAdmin() throws Exception {
+        // Arrange
+        AiGenerateRequest request = new AiGenerateRequest("Explain inheritance");
+
+        // Act & Assert
+        mockMvc.perform(post("/api/ai/generate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     void generate_ShouldReturnUnauthorized_WhenNotAuthenticated() throws Exception {
         // Arrange
@@ -74,9 +87,9 @@ class AiGenerationControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
     }
- 
+
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void generate_ShouldReturnBadRequest_WhenRequestIsInvalid() throws Exception {
         // Arrange
         AiGenerateRequest request = new AiGenerateRequest(""); // Blank prompt

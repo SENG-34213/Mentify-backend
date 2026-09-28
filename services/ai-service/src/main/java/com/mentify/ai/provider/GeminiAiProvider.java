@@ -1,17 +1,24 @@
 package com.mentify.ai.provider;
 
 import com.mentify.ai.config.AiProviderProperties;
-import com.mentify.ai.dto.request.AiGenerateRequest;
+import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
+import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +29,8 @@ public class GeminiAiProvider implements AiProvider {
 
     private final AiProviderProperties properties;
     private final RestClient restClient;
+    private final AiProviderRetryExecutor retryExecutor;
+    private final AiProviderCircuitBreaker circuitBreaker;
 
     private static final String GEMINI_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
 
@@ -37,29 +46,34 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     @Override
-    public AiGenerateResponse generate(AiGenerateRequest request) {
+    public AiGenerateResponse generate(AiExecutionRequest request) {
         validateConfig();
 
-        String model = getModel();
+        String model = resolveModel(request);
         String apiKey = getApiKey();
         String url = String.format(GEMINI_URL_TEMPLATE, model, apiKey);
 
-        log.info("Sending request to Gemini using model: {}", model);
+        log.info("Sending request to Gemini using model: {} feature={} traceId={}",
+                model, request.getFeatureType(), request.getTraceId());
 
+        long startedAt = System.nanoTime();
+        return circuitBreaker.execute(getProviderName(), () ->
+                retryExecutor.execute(getProviderName(), () -> callGemini(request, model, url, startedAt)));
+    }
+
+    private AiGenerateResponse callGemini(AiExecutionRequest request, String model, String url, long startedAt) {
         try {
-            Map<String, Object> body = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", request.getPrompt())
-                            ))
-                    )
-            );
+            Map<String, Object> body = buildRequestBody(request);
 
-            Map<String, Object> response = restClient.post()
+            ResponseEntity<Map> responseEntity = restClient.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
+                    .onStatus(status -> status.value() == 429, (req, resp) -> {
+                        log.warn("Gemini rate limit response: {} {}", resp.getStatusCode(), resp.getStatusText());
+                        throw new AiProviderRateLimitException("Gemini rate limit exceeded");
+                    })
                     .onStatus(HttpStatusCode::is4xxClientError, (req, resp) -> {
                         log.error("Gemini client error: {} {}", resp.getStatusCode(), resp.getStatusText());
                         throw new AiProviderException("Gemini client error: " + resp.getStatusCode());
@@ -68,10 +82,18 @@ public class GeminiAiProvider implements AiProvider {
                         log.error("Gemini server error: {} {}", resp.getStatusCode(), resp.getStatusText());
                         throw new AiProviderUnavailableException("Gemini service unavailable");
                     })
-                    .body(Map.class);
+                    .toEntity(Map.class);
 
-            return mapToResponse(response, model);
+            long latencyMs = (System.nanoTime() - startedAt) / 1_000_000;
+            Map<String, Object> response = responseEntity.getBody();
+            String providerRequestId = resolveProviderRequestId(responseEntity, response);
+            return mapToResponse(response, model, latencyMs, providerRequestId);
 
+        } catch (ResourceAccessException e) {
+            if (isTimeout(e)) {
+                throw new AiProviderTimeoutException("Gemini request timed out", e);
+            }
+            throw new AiProviderException("Error communicating with AI provider", e);
         } catch (Exception e) {
             if (e instanceof AiProviderException) {
                 throw (AiProviderException) e;
@@ -79,6 +101,17 @@ public class GeminiAiProvider implements AiProvider {
             log.error("Unexpected error calling Gemini", e);
             throw new AiProviderException("Error communicating with AI provider", e);
         }
+    }
+
+    private boolean isTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void validateConfig() {
@@ -104,8 +137,55 @@ public class GeminiAiProvider implements AiProvider {
         return properties.getProvider().getModel();
     }
 
+    private String resolveModel(AiExecutionRequest request) {
+        if (request.getModel() != null && !request.getModel().isBlank()) {
+            return request.getModel();
+        }
+        return getModel();
+    }
+
+    private Map<String, Object> buildRequestBody(AiExecutionRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
+            body.put("systemInstruction", Map.of(
+                    "parts", List.of(Map.of("text", request.getSystemPrompt()))
+            ));
+        }
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Map.of("text", request.getUserInput()));
+        if (hasInlineDocument(request)) {
+            parts.add(Map.of("inlineData", Map.of(
+                    "mimeType", request.getDocumentMimeType(),
+                    "data", request.getDocumentDataBase64()
+            )));
+        }
+        body.put("contents", List.of(Map.of("parts", parts)));
+
+        Map<String, Object> generationConfig = new LinkedHashMap<>();
+        if (request.getTemperature() != null) {
+            generationConfig.put("temperature", request.getTemperature());
+        }
+        if (request.getMaxTokens() != null) {
+            generationConfig.put("maxOutputTokens", request.getMaxTokens());
+        }
+        if (AiResponseFormat.JSON_OBJECT.equals(request.getResponseFormat())) {
+            generationConfig.put("responseMimeType", "application/json");
+        }
+        if (!generationConfig.isEmpty()) {
+            body.put("generationConfig", generationConfig);
+        }
+        return body;
+    }
+
+    private boolean hasInlineDocument(AiExecutionRequest request) {
+        return request.getDocumentMimeType() != null
+                && !request.getDocumentMimeType().isBlank()
+                && request.getDocumentDataBase64() != null
+                && !request.getDocumentDataBase64().isBlank();
+    }
+
     @SuppressWarnings("unchecked")
-    private AiGenerateResponse mapToResponse(Map<String, Object> response, String model) {
+    private AiGenerateResponse mapToResponse(Map<String, Object> response, String model, long latencyMs, String providerRequestId) {
         if (response == null || !response.containsKey("candidates")) {
             throw new AiEmptyResponseException("Empty or invalid response from Gemini");
         }
@@ -116,6 +196,7 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         Map<String, Object> candidate = candidates.get(0);
+        String finishReason = AiUsageSupport.stringValue(candidate, "finishReason");
         Map<String, Object> contentMap = (Map<String, Object>) candidate.get("content");
         if (contentMap == null || !contentMap.containsKey("parts")) {
             throw new AiEmptyResponseException("No content or parts returned from Gemini");
@@ -127,6 +208,10 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         String text = (String) parts.get(0).get("text");
+        Map<String, Object> usage = (Map<String, Object>) response.getOrDefault("usageMetadata", Collections.emptyMap());
+        Integer inputTokens = AiUsageSupport.intValue(usage, "promptTokenCount");
+        Integer outputTokens = AiUsageSupport.intValue(usage, "candidatesTokenCount");
+        Integer totalTokens = AiUsageSupport.intValue(usage, "totalTokenCount");
 
         if (text == null || text.isBlank()) {
             throw new AiEmptyResponseException("Blank content returned from Gemini");
@@ -137,6 +222,21 @@ public class GeminiAiProvider implements AiProvider {
                 .provider(getProviderName())
                 .model(model)
                 .generatedAt(LocalDateTime.now())
+                .inputTokens(inputTokens)
+                .outputTokens(outputTokens)
+                .totalTokens(totalTokens)
+                .estimatedCost(AiUsageSupport.estimateCost(inputTokens, outputTokens, properties.getGemini().getCost()))
+                .latencyMs(latencyMs)
+                .finishReason(finishReason)
+                .providerRequestId(providerRequestId)
                 .build();
+    }
+
+    private String resolveProviderRequestId(ResponseEntity<Map> responseEntity, Map<String, Object> response) {
+        String headerRequestId = AiUsageSupport.firstHeader(responseEntity.getHeaders(), "x-request-id", "x-goog-request-id");
+        if (headerRequestId != null) {
+            return headerRequestId;
+        }
+        return AiUsageSupport.stringValue(response, "responseId");
     }
 }

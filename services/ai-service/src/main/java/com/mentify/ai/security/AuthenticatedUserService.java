@@ -16,10 +16,15 @@ import java.util.stream.Collectors;
 public class AuthenticatedUserService {
 
     private static final String ROLE_PREFIX = "ROLE_";
+    private static final String LOCAL_USER_ID_CLAIM = "local_user_id";
 
     public UUID getCurrentUserId() {
         Jwt jwt = getCurrentJwt();
         String subject = jwt.getSubject();
+
+        if (subject == null || subject.isBlank()) {
+            subject = jwt.getClaimAsString(LOCAL_USER_ID_CLAIM);
+        }
 
         if (subject == null || subject.isBlank()) {
             throw new AccessDeniedException("Authenticated user identity is missing");

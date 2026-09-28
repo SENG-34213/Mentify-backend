@@ -12,12 +12,18 @@ spring:
 eureka:
   instance:
     prefer-ip-address: true
-    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
  
 mentify:
   security:
@@ -35,3 +41,30 @@ ai:
   openai:
     api-key: ${OPENAI_API_KEY:${AI_API_KEY:}}
     model: ${OPENAI_MODEL:${AI_MODEL:gpt-4o}}
+  http:
+    connect-timeout: ${AI_HTTP_CONNECT_TIMEOUT:5s}
+    read-timeout: ${AI_HTTP_READ_TIMEOUT:60s}
+  retry:
+    enabled: ${AI_RETRY_ENABLED:true}
+    max-attempts: ${AI_RETRY_MAX_ATTEMPTS:3}
+    backoff: ${AI_RETRY_BACKOFF:500ms}
+  circuit-breaker:
+    enabled: ${AI_CIRCUIT_BREAKER_ENABLED:true}
+    failure-threshold: ${AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
+    open-duration: ${AI_CIRCUIT_BREAKER_OPEN_DURATION:30s}
+  guardrails:
+    max-requests-per-minute: ${AI_MAX_REQUESTS_PER_MINUTE:300}
+    max-requests-per-hour: ${AI_MAX_REQUESTS_PER_HOUR:1000}
+    max-requests-per-day: ${AI_MAX_REQUESTS_PER_DAY:3000}
+    max-input-characters: ${AI_MAX_INPUT_CHARACTERS:12000}
+    prompt-injection-detection-enabled: ${AI_PROMPT_INJECTION_DETECTION_ENABLED:true}
+    content-filtering-enabled: ${AI_CONTENT_FILTERING_ENABLED:true}
+    blocked-terms: ${AI_BLOCKED_TERMS:}
+  quiz-generation:
+    max-file-size-bytes: ${AI_QUIZ_MAX_FILE_SIZE_BYTES:10485760}
+    max-question-count: ${AI_QUIZ_MAX_QUESTION_COUNT:20}
+    max-document-characters: ${AI_QUIZ_MAX_DOCUMENT_CHARACTERS:12000}
+    min-document-characters-per-question: ${AI_QUIZ_MIN_DOCUMENT_CHARACTERS_PER_QUESTION:120}
+    max-output-tokens: ${AI_QUIZ_MAX_OUTPUT_TOKENS:8192}
+    temperature: ${AI_QUIZ_TEMPERATURE:0.2}
+    regeneration-attempts: ${AI_QUIZ_REGENERATION_ATTEMPTS:1}
