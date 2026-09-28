@@ -19,6 +19,9 @@ public class AiExecutionRequest {
     private AiExecutionContext context;
     private String systemPrompt;
     private String userInput;
+    private String documentMimeType;
+    private String documentDataBase64;
+    private String documentFilename;
     private String model;
     private Double temperature;
     private Integer maxTokens;

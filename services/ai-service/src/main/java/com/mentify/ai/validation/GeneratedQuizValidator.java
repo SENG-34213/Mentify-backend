@@ -14,8 +14,11 @@ import java.util.Set;
 public class GeneratedQuizValidator {
 
     public void validate(List<GeneratedQuestionResponse> questions, int expectedCount, String expectedQuestionType) {
-        if (questions == null || questions.size() != expectedCount) {
-            throw new AiInvalidGenerationException("AI response did not contain the requested number of questions");
+        if (questions == null || questions.isEmpty()) {
+            throw new AiInvalidGenerationException("AI response did not contain any questions");
+        }
+        if (questions.size() > expectedCount) {
+            throw new AiInvalidGenerationException("AI response contained more questions than requested");
         }
 
         Set<String> questionTexts = new HashSet<>();

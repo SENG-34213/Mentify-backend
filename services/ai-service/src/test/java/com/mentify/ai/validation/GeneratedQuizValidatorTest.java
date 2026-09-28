@@ -8,11 +8,20 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GeneratedQuizValidatorTest {
 
     private final GeneratedQuizValidator validator = new GeneratedQuizValidator();
+
+    @Test
+    void acceptsFewerQuestionsThanRequestedWhenTheyAreValid() {
+        List<GeneratedQuestionResponse> questions = List.of(validQuestion("What is encapsulation?", 1));
+
+        assertThatCode(() -> validator.validate(questions, 3, "MULTIPLE_CHOICE_SINGLE_ANSWER"))
+                .doesNotThrowAnyException();
+    }
 
     @Test
     void rejectsDuplicateQuestions() {

@@ -20,6 +20,7 @@ public interface AiQuizGenerationClient {
             @RequestParam("questionCount") String questionCount,
             @RequestParam("difficulty") String difficulty,
             @RequestParam("questionType") String questionType,
+            @RequestParam(value = "userPrompt", required = false) String userPrompt,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     );
 }

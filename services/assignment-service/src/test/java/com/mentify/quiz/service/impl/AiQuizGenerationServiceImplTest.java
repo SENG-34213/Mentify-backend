@@ -77,6 +77,7 @@ class AiQuizGenerationServiceImplTest {
                 eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
+                eq(null),
                 eq(AUTH_HEADER)
         )).thenReturn(ApiResponse.<AiGeneratedQuizDraftResponse>builder()
                 .status(HttpStatus.OK)
@@ -90,6 +91,7 @@ class AiQuizGenerationServiceImplTest {
                 1,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 AUTH_HEADER
         );
 
@@ -111,6 +113,7 @@ class AiQuizGenerationServiceImplTest {
                 eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
+                eq(null),
                 eq(null)
         )).thenReturn(ApiResponse.<AiGeneratedQuizDraftResponse>builder()
                 .status(HttpStatus.OK)
@@ -124,6 +127,7 @@ class AiQuizGenerationServiceImplTest {
                 1,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 null
         );
 
@@ -131,6 +135,45 @@ class AiQuizGenerationServiceImplTest {
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         assertThat(response.getData().isSaved()).isFalse();
         assertThat(response.getData().isPublished()).isFalse();
+    }
+
+    @Test
+    void forwardsUserPromptToAiService() {
+        UUID courseId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile("file", "oop.pdf", "application/pdf", "pdf".getBytes());
+        when(aiQuizGenerationClient.generateQuiz(
+                eq(file),
+                eq(courseId.toString()),
+                eq("1"),
+                eq("MEDIUM"),
+                eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
+                eq("Focus on architecture tradeoffs"),
+                eq(AUTH_HEADER)
+        )).thenReturn(ApiResponse.<AiGeneratedQuizDraftResponse>builder()
+                .status(HttpStatus.OK)
+                .statusCode(HttpStatus.OK.value())
+                .data(generatedDraft(courseId))
+                .build());
+
+        service.generateDraft(
+                file,
+                courseId,
+                1,
+                QuizGenerationDifficulty.MEDIUM,
+                QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                "Focus on architecture tradeoffs",
+                AUTH_HEADER
+        );
+
+        verify(aiQuizGenerationClient).generateQuiz(
+                file,
+                courseId.toString(),
+                "1",
+                "MEDIUM",
+                "MULTIPLE_CHOICE_SINGLE_ANSWER",
+                "Focus on architecture tradeoffs",
+                AUTH_HEADER
+        );
     }
 
     @Test
@@ -146,10 +189,11 @@ class AiQuizGenerationServiceImplTest {
                 1,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 AUTH_HEADER
         )).isInstanceOf(UnauthorizedQuizAccessException.class);
 
-        verify(aiQuizGenerationClient, never()).generateQuiz(any(), any(), any(), any(), any(), any());
+        verify(aiQuizGenerationClient, never()).generateQuiz(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -160,11 +204,12 @@ class AiQuizGenerationServiceImplTest {
                 21,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 AUTH_HEADER
         )).isInstanceOf(InvalidQuestionOptionsException.class)
                 .hasMessageContaining("Question count");
 
-        verify(aiQuizGenerationClient, never()).generateQuiz(any(), any(), any(), any(), any(), any());
+        verify(aiQuizGenerationClient, never()).generateQuiz(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -177,6 +222,7 @@ class AiQuizGenerationServiceImplTest {
                 eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
+                eq(null),
                 eq(AUTH_HEADER)
         )).thenThrow(feignException(500, """
                 {"status":500,"message":"Gemini API key is missing","timestamp":"2026-09-25T10:00:00"}
@@ -188,6 +234,7 @@ class AiQuizGenerationServiceImplTest {
                 1,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 AUTH_HEADER
         )).isInstanceOf(AiQuizGenerationException.class)
                 .hasMessage("AI quiz generation failed: Gemini API key is missing");
@@ -203,6 +250,7 @@ class AiQuizGenerationServiceImplTest {
                 eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
+                eq(null),
                 eq(AUTH_HEADER)
         )).thenThrow(feignException(400, """
                 {"status":400,"message":"Validation failed","errors":{"file":"Document file is required"}}
@@ -214,6 +262,7 @@ class AiQuizGenerationServiceImplTest {
                 1,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 AUTH_HEADER
         )).isInstanceOf(AiQuizGenerationException.class)
                 .hasMessage("AI quiz generation request was rejected: Validation failed; file: Document file is required");
@@ -229,6 +278,7 @@ class AiQuizGenerationServiceImplTest {
                 eq("1"),
                 eq("MEDIUM"),
                 eq("MULTIPLE_CHOICE_SINGLE_ANSWER"),
+                eq(null),
                 eq(AUTH_HEADER)
         )).thenThrow(new RetryableException(
                 -1,
@@ -245,6 +295,7 @@ class AiQuizGenerationServiceImplTest {
                 1,
                 QuizGenerationDifficulty.MEDIUM,
                 QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER,
+                null,
                 AUTH_HEADER
         )).isInstanceOf(AiQuizGenerationException.class)
                 .hasMessage("AI quiz generation failed: AI service is unreachable: Connection refused");

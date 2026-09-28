@@ -30,6 +30,7 @@ public class AiQuizGenerationController {
             @RequestParam Integer questionCount,
             @RequestParam QuizGenerationDifficulty difficulty,
             @RequestParam QuestionType questionType,
+            @RequestParam(required = false) String userPrompt,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         ApiResponse<AiQuizDraftResponse> response = aiQuizGenerationService.generateDraft(
@@ -38,6 +39,7 @@ public class AiQuizGenerationController {
                 questionCount,
                 difficulty,
                 questionType,
+                userPrompt,
                 authorizationHeader
         );
         return new ResponseEntity<>(response, response.getStatus());

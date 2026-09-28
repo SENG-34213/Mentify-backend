@@ -16,6 +16,7 @@ public interface AiQuizGenerationService {
             Integer questionCount,
             QuizGenerationDifficulty difficulty,
             QuestionType questionType,
+            String userPrompt,
             String authorizationHeader
     );
 }

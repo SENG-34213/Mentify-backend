@@ -10,6 +10,7 @@ import com.mentify.ai.exception.AiProviderConfigurationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
@@ -110,6 +111,45 @@ class GeminiAiProviderTest {
         assertNotNull(response.getLatencyMs());
         assertEquals("STOP", response.getFinishReason());
         assertEquals("req-gemini-123", response.getProviderRequestId());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void generate_ShouldAttachInlineDocument_WhenRequestContainsDocument() {
+        // Arrange
+        AiExecutionRequest request = testRequest("Generate a quiz from the attached PDF");
+        request.setDocumentMimeType("application/pdf");
+        request.setDocumentDataBase64("JVBERi0xLjQ=");
+        request.setDocumentFilename("lesson.pdf");
+        properties.getGemini().setApiKey("test-key");
+        properties.getGemini().setModel("gemini-3-flash-preview");
+
+        when(restClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.contentType(any())).thenReturn(requestBodySpec);
+        ArgumentCaptor<Map<String, Object>> bodyCaptor = ArgumentCaptor.forClass(Map.class);
+        when(requestBodySpec.body(bodyCaptor.capture())).thenReturn(requestBodySpec);
+        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        when(responseSpec.toEntity(Map.class)).thenReturn(ResponseEntity.ok(Map.of(
+                "candidates", List.of(Map.of(
+                        "content", Map.of("parts", List.of(Map.of("text", "AI generated content")))
+                ))
+        )));
+
+        // Act
+        geminiAiProvider.generate(request);
+
+        // Assert
+        Map<String, Object> body = bodyCaptor.getValue();
+        List<Map<String, Object>> contents = (List<Map<String, Object>>) body.get("contents");
+        List<Map<String, Object>> parts = (List<Map<String, Object>>) contents.get(0).get("parts");
+        assertEquals(Map.of("text", "Generate a quiz from the attached PDF"), parts.get(0));
+        assertEquals(Map.of("inlineData", Map.of(
+                "mimeType", "application/pdf",
+                "data", "JVBERi0xLjQ="
+        )), parts.get(1));
     }
 
     @Test

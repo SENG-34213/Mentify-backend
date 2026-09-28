@@ -49,7 +49,8 @@ class QuizGenerationControllerTest {
                         .param("courseId", courseId.toString())
                         .param("questionCount", "3")
                         .param("difficulty", "MEDIUM")
-                        .param("questionType", "MULTIPLE_CHOICE_SINGLE_ANSWER"))
+                        .param("questionType", "MULTIPLE_CHOICE_SINGLE_ANSWER")
+                        .param("userPrompt", "Focus on architecture tradeoffs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statusCode").value(200))
                 .andExpect(jsonPath("$.data.courseId").value(courseId.toString()));
@@ -59,7 +60,8 @@ class QuizGenerationControllerTest {
                         courseId.equals(request.getCourseId())
                                 && request.getQuestionCount().equals(3)
                                 && request.getDifficulty().equals("MEDIUM")
-                                && request.getQuestionType().equals("MULTIPLE_CHOICE_SINGLE_ANSWER")),
+                                && request.getQuestionType().equals("MULTIPLE_CHOICE_SINGLE_ANSWER")
+                                && request.getUserPrompt().equals("Focus on architecture tradeoffs")),
                 eq(file)
         );
     }

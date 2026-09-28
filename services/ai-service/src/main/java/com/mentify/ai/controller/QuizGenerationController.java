@@ -30,13 +30,15 @@ public class QuizGenerationController {
             @RequestParam UUID courseId,
             @RequestParam Integer questionCount,
             @RequestParam String difficulty,
-            @RequestParam String questionType
+            @RequestParam String questionType,
+            @RequestParam(required = false) String userPrompt
     ) {
         QuizGenerationRequest request = QuizGenerationRequest.builder()
                 .courseId(courseId)
                 .questionCount(questionCount)
                 .difficulty(difficulty)
                 .questionType(questionType)
+                .userPrompt(userPrompt)
                 .build();
         GeneratedQuizDraftResponse draft = quizGenerationService.generateQuiz(request, file);
         return ResponseEntity.ok(ApiResponse.<GeneratedQuizDraftResponse>builder()

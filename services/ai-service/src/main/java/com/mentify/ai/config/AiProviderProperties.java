@@ -70,7 +70,8 @@ public class AiProviderProperties {
 
     @Data
     public static class GuardrailConfig {
-        private int maxRequestsPerMinute = 10;
+        private int maxRequestsPerMinute = 1000;
+        private int maxRequestsPerHour = 3000;
         private int maxRequestsPerDay = 100;
         private int maxInputCharacters = 12000;
         private boolean promptInjectionDetectionEnabled = true;

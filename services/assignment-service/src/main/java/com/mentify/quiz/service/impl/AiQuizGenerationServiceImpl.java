@@ -46,6 +46,7 @@ public class AiQuizGenerationServiceImpl implements AiQuizGenerationService {
             Integer questionCount,
             QuizGenerationDifficulty difficulty,
             QuestionType questionType,
+            String userPrompt,
             String authorizationHeader
     ) {
         validateSettings(questionCount, difficulty, questionType);
@@ -59,6 +60,7 @@ public class AiQuizGenerationServiceImpl implements AiQuizGenerationService {
                 questionCount,
                 difficulty,
                 questionType,
+                userPrompt,
                 authorizationHeader
         );
 
@@ -99,6 +101,7 @@ public class AiQuizGenerationServiceImpl implements AiQuizGenerationService {
             Integer questionCount,
             QuizGenerationDifficulty difficulty,
             QuestionType questionType,
+            String userPrompt,
             String authorizationHeader
     ) {
         try {
@@ -108,6 +111,7 @@ public class AiQuizGenerationServiceImpl implements AiQuizGenerationService {
                     questionCount.toString(),
                     difficulty.name(),
                     questionType.name(),
+                    userPrompt,
                     authorizationHeader
             );
             if (response == null || response.getData() == null) {

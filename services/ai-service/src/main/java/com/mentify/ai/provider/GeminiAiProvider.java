@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClient;
 
 import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -150,11 +151,15 @@ public class GeminiAiProvider implements AiProvider {
                     "parts", List.of(Map.of("text", request.getSystemPrompt()))
             ));
         }
-        body.put("contents", List.of(
-                Map.of("parts", List.of(
-                        Map.of("text", request.getUserInput())
-                ))
-        ));
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Map.of("text", request.getUserInput()));
+        if (hasInlineDocument(request)) {
+            parts.add(Map.of("inlineData", Map.of(
+                    "mimeType", request.getDocumentMimeType(),
+                    "data", request.getDocumentDataBase64()
+            )));
+        }
+        body.put("contents", List.of(Map.of("parts", parts)));
 
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         if (request.getTemperature() != null) {
@@ -170,6 +175,13 @@ public class GeminiAiProvider implements AiProvider {
             body.put("generationConfig", generationConfig);
         }
         return body;
+    }
+
+    private boolean hasInlineDocument(AiExecutionRequest request) {
+        return request.getDocumentMimeType() != null
+                && !request.getDocumentMimeType().isBlank()
+                && request.getDocumentDataBase64() != null
+                && !request.getDocumentDataBase64().isBlank();
     }
 
     @SuppressWarnings("unchecked")

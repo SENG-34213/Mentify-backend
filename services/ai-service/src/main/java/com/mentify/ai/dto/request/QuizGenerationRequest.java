@@ -30,4 +30,6 @@ public class QuizGenerationRequest {
 
     @NotBlank(message = "Question type is required")
     private String questionType;
+
+    private String userPrompt;
 }
