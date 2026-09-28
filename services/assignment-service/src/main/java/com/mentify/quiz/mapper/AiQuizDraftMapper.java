@@ -7,6 +7,7 @@ import com.mentify.quiz.dto.request.CreateQuestionRequest;
 import com.mentify.quiz.dto.request.QuestionOptionRequest;
 import com.mentify.quiz.dto.response.AiQuizDraftResponse;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizGenerationDifficulty;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +34,7 @@ public class AiQuizDraftMapper {
                 .questionCount(questions.size())
                 .difficulty(difficulty)
                 .questionType(questionType)
+                .creationMethod(QuizCreationMethod.AI_GENERATED)
                 .questions(questions)
                 .provider(response.getProvider())
                 .model(response.getModel())

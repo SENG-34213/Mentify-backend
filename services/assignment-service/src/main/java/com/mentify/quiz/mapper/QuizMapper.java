@@ -9,6 +9,7 @@ import com.mentify.quiz.dto.response.TeacherQuestionResponse;
 import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizQuestion;
+import com.mentify.quiz.enums.QuizCreationMethod;
 
 import java.util.Comparator;
 import java.util.List;
@@ -32,6 +33,7 @@ public final class QuizMapper {
                 .endTime(quiz.getEndTime())
                 .maxAttempts(quiz.getMaxAttempts())
                 .status(quiz.getStatus())
+                .creationMethod(resolveCreationMethod(quiz))
                 .showResultImmediately(quiz.getShowResultImmediately())
                 .questions(questions == null ? null : questions.stream()
                         .sorted(Comparator.comparing(QuizQuestion::getQuestionOrder))
@@ -63,6 +65,10 @@ public final class QuizMapper {
                 .correct(option.getCorrect())
                 .optionOrder(option.getOptionOrder())
                 .build();
+    }
+
+    private static QuizCreationMethod resolveCreationMethod(Quiz quiz) {
+        return quiz.getCreationMethod() != null ? quiz.getCreationMethod() : QuizCreationMethod.MANUAL;
     }
 
     public static StudentQuizResponse toStudentQuizResponse(Quiz quiz, List<QuizQuestion> questions) {

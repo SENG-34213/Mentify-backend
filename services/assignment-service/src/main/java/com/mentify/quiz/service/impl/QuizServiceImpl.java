@@ -11,6 +11,7 @@ import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizQuestion;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.exception.InvalidQuestionOptionsException;
 import com.mentify.quiz.exception.QuizNotFoundException;
@@ -61,6 +62,7 @@ public class QuizServiceImpl implements QuizService {
                 .description(trimToNull(request.getDescription()))
                 .durationMinutes(request.getDurationMinutes())
                 .totalMarks(BigDecimal.ZERO)
+                .creationMethod(resolveCreationMethod(request))
                 .passMark(request.getPassMark())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
@@ -234,6 +236,10 @@ public class QuizServiceImpl implements QuizService {
         if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
             throw new InvalidQuestionOptionsException("Quiz start time must be before end time");
         }
+    }
+
+    private QuizCreationMethod resolveCreationMethod(CreateQuizRequest request) {
+        return request.getCreationMethod() != null ? request.getCreationMethod() : QuizCreationMethod.MANUAL;
     }
 
     private String trimToNull(String value) {

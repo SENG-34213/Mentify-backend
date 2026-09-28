@@ -5,6 +5,7 @@ import com.mentify.quiz.client.dto.AiGeneratedQuestionResponse;
 import com.mentify.quiz.client.dto.AiGeneratedQuizDraftResponse;
 import com.mentify.quiz.dto.response.AiQuizDraftResponse;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizGenerationDifficulty;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +40,7 @@ class AiQuizDraftMapperTest {
         );
 
         assertThat(draft.getCourseId()).isEqualTo(courseId);
+        assertThat(draft.getCreationMethod()).isEqualTo(QuizCreationMethod.AI_GENERATED);
         assertThat(draft.isSaved()).isFalse();
         assertThat(draft.isPublished()).isFalse();
         assertThat(draft.getQuestions()).hasSize(1);

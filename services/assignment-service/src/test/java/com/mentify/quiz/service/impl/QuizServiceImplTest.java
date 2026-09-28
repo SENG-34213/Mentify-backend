@@ -11,6 +11,7 @@ import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizQuestion;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.mapper.QuizMapper;
 import com.mentify.quiz.repository.QuizQuestionRepository;
@@ -95,6 +96,7 @@ class QuizServiceImplTest {
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getData().getStatus()).isEqualTo(QuizStatus.DRAFT);
+        assertThat(response.getData().getCreationMethod()).isEqualTo(QuizCreationMethod.MANUAL);
         assertThat(response.getData().getTitle()).isEqualTo("Java Basics Quiz");
         assertThat(response.getData().getTeacherId()).isEqualTo(teacherId);
         assertThat(response.getData().getTotalMarks()).isEqualByComparingTo("0.00");
@@ -103,6 +105,38 @@ class QuizServiceImplTest {
         verify(quizRepository).save(quizCaptor.capture());
         assertThat(quizCaptor.getValue().getCourseId()).isEqualTo(courseId);
         assertThat(quizCaptor.getValue().getTeacherId()).isEqualTo(teacherId);
+        assertThat(quizCaptor.getValue().getCreationMethod()).isEqualTo(QuizCreationMethod.MANUAL);
+    }
+
+    @Test
+    void teacherCanCreateQuizFromAiDraft() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        CreateQuizRequest request = CreateQuizRequest.builder()
+                .courseId(courseId)
+                .title("AI Java Basics Quiz")
+                .durationMinutes(15)
+                .passMark(new BigDecimal("10.00"))
+                .maxAttempts(1)
+                .creationMethod(QuizCreationMethod.AI_GENERATED)
+                .build();
+
+        CourseLookupResponse course = course(courseId, teacherId);
+        when(courseQuizAuthorizationService.assertCanCreateQuizForCourse(courseId, AUTH_HEADER)).thenReturn(course);
+        when(courseQuizAuthorizationService.resolveTeacherId(course)).thenReturn(teacherId);
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> {
+            Quiz quiz = invocation.getArgument(0);
+            quiz.setId(UUID.randomUUID());
+            return quiz;
+        });
+
+        ApiResponse<QuizResponse> response = quizService.createQuiz(request, AUTH_HEADER);
+
+        assertThat(response.getData().getCreationMethod()).isEqualTo(QuizCreationMethod.AI_GENERATED);
+
+        ArgumentCaptor<Quiz> quizCaptor = ArgumentCaptor.forClass(Quiz.class);
+        verify(quizRepository).save(quizCaptor.capture());
+        assertThat(quizCaptor.getValue().getCreationMethod()).isEqualTo(QuizCreationMethod.AI_GENERATED);
     }
 
     @Test

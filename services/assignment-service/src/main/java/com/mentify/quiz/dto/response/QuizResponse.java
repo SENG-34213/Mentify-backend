@@ -1,5 +1,6 @@
 package com.mentify.quiz.dto.response;
 
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,6 +30,7 @@ public class QuizResponse {
     private LocalDateTime endTime;
     private Integer maxAttempts;
     private QuizStatus status;
+    private QuizCreationMethod creationMethod;
     private Boolean showResultImmediately;
     private List<TeacherQuestionResponse> questions;
     private LocalDateTime createdAt;

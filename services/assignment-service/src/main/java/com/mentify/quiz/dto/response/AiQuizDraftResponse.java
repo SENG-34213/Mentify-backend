@@ -2,6 +2,7 @@ package com.mentify.quiz.dto.response;
 
 import com.mentify.quiz.dto.request.CreateQuestionRequest;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizGenerationDifficulty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +23,7 @@ public class AiQuizDraftResponse {
     private int questionCount;
     private QuizGenerationDifficulty difficulty;
     private QuestionType questionType;
+    private QuizCreationMethod creationMethod;
     private List<CreateQuestionRequest> questions;
     private String provider;
     private String model;
