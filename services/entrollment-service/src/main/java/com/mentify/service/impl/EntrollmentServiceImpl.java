@@ -117,6 +117,21 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     }
 
     @Override
+    @Transactional
+    public ApiResponse<List<EntrollmentResponse>> getActiveEntrollments() {
+        List<EntrollmentResponse> enrollments = entrollmentRepository.findAllByIsActiveTrueOrderByCreatedAtDesc().stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ApiResponse.<List<EntrollmentResponse>>builder()
+                .message("Active enrollments fetched successfully")
+                .data(enrollments)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
     public ApiResponse<List<UnenrolledStudentResponse>> getUnenrolledStudents(String authorizationHeader) {
         Set<UUID> enrolledStudentIds = new HashSet<>(entrollmentRepository.findActiveStudentIds());
         List<UserLookupResponse> students = getStudents(authorizationHeader);
