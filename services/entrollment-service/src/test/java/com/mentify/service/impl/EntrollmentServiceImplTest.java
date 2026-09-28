@@ -2,12 +2,15 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.UserServiceClient;
 import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.client.dto.UserLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
@@ -46,6 +49,9 @@ class EntrollmentServiceImplTest {
 
     @Mock
     private CommunicationServiceClient communicationServiceClient;
+
+    @Mock
+    private UserServiceClient userServiceClient;
 
     @InjectMocks
     private EntrollmentServiceImpl entrollmentService;
@@ -226,6 +232,31 @@ class EntrollmentServiceImplTest {
         assertEquals(List.of(firstStudentId, secondStudentId), response.getData());
     }
 
+    @Test
+    void getUnenrolledStudentsReturnsStudentsWithNoActiveEnrollment() {
+        UUID enrolledStudentId = UUID.randomUUID();
+        UUID unenrolledStudentId = UUID.randomUUID();
+
+        when(entrollmentRepository.findActiveStudentIds()).thenReturn(List.of(enrolledStudentId));
+        when(userServiceClient.getUsersByRole("STUDENT", "Bearer token"))
+                .thenReturn(ApiResponse.<List<UserLookupResponse>>builder()
+                        .status(HttpStatus.OK)
+                        .statusCode(HttpStatus.OK.value())
+                        .message("Users fetched successfully")
+                        .data(List.of(
+                                student(enrolledStudentId, "enrolled@example.com", "Enrolled", "Student"),
+                                student(unenrolledStudentId, "free@example.com", "Free", "Student")
+                        ))
+                        .build());
+
+        ApiResponse<List<UnenrolledStudentResponse>> response = entrollmentService.getUnenrolledStudents("Bearer token");
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertEquals(1, response.getData().size());
+        assertEquals(unenrolledStudentId, response.getData().get(0).getId());
+        assertEquals("free@example.com", response.getData().get(0).getEmail());
+    }
+
     private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds) {
         List<CourseLookupResponse> responses = courseIds.stream().map(id -> {
             CourseLookupResponse response = new CourseLookupResponse();
@@ -239,5 +270,22 @@ class EntrollmentServiceImplTest {
                 .message("Courses fetched successfully")
                 .data(responses)
                 .build();
+    }
+
+    private UserLookupResponse student(UUID id, String email, String firstName, String lastName) {
+        UserLookupResponse student = new UserLookupResponse();
+        student.setId(id);
+        student.setEmail(email);
+        student.setFirstName(firstName);
+        student.setLastName(lastName);
+        student.setRole("STUDENT");
+        student.setAccountStatus("ACTIVE");
+
+        UserLookupResponse.StudentProfileResponse profile = new UserLookupResponse.StudentProfileResponse();
+        profile.setStudentId("STU-" + id.toString().substring(0, 8));
+        profile.setGrade("10");
+        student.setStudentProfile(profile);
+
+        return student;
     }
 }

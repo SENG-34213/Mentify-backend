@@ -24,3 +24,13 @@ management:
     web:
       exposure:
         include: health,info
+
+mentify:
+  gateway:
+    cors:
+      allowed-origin-patterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+      allowed-methods: ${GATEWAY_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      allowed-headers: ${GATEWAY_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,Origin,X-Requested-With}
+      exposed-headers: ${GATEWAY_CORS_EXPOSED_HEADERS:Location}
+      allow-credentials: ${GATEWAY_CORS_ALLOW_CREDENTIALS:true}
+      max-age-seconds: ${GATEWAY_CORS_MAX_AGE_SECONDS:3600}

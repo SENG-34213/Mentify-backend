@@ -146,6 +146,21 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    public ApiResponse<List<CourseResponse>> getAllCourses() {
+        List<CourseResponse> courses = courseRepository.findAll().stream()
+                .map(CourseMapper::toCourseResponse)
+                .collect(Collectors.toList());
+
+        return ApiResponse.<List<CourseResponse>>builder()
+                .message("Courses fetched successfully")
+                .data(courses)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids) {
         log.info("Fetching {} courses in bulk", ids.size());
 
