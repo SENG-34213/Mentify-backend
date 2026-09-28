@@ -29,6 +29,13 @@ public class EntrollmentController {
 
     private final EntrollmentService entrollmentService;
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<EntrollmentResponse>>> getActiveEntrollments() {
+        ApiResponse<List<EntrollmentResponse>> response = entrollmentService.getActiveEntrollments();
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> createEntrollment(

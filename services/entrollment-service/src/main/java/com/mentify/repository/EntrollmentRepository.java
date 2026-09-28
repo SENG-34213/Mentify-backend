@@ -13,6 +13,8 @@ public interface EntrollmentRepository extends JpaRepository<Entrollment, UUID> 
 
     List<Entrollment> findAllByStudentIdAndIsActiveTrue(UUID studentId);
 
+    List<Entrollment> findAllByIsActiveTrueOrderByCreatedAtDesc();
+
     Optional<Entrollment> findByIdAndIsActiveTrue(UUID id);
 
     @Query("""

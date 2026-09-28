@@ -19,5 +19,7 @@ public interface EntrollmentService {
 
     ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId);
 
+    ApiResponse<List<EntrollmentResponse>> getActiveEntrollments();
+
     ApiResponse<List<UnenrolledStudentResponse>> getUnenrolledStudents(String authorizationHeader);
 }
