@@ -141,18 +141,22 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
     @Override
     @Transactional
     public CommunicationGroupResponse archiveGroup(UUID groupId) {
-        UUID currentUserId = authenticatedUserService.getCurrentUserId();
-        Set<String> roles = authenticatedUserService.getCurrentUserRoles();
         CommunicationGroup group = findActiveGroup(groupId);
-
-        if (!isAdmin(roles)) {
-            GroupMember member = groupMemberService.validateActiveMembership(groupId, currentUserId);
-            if (!GroupMemberRole.TEACHER.equals(member.getRole())) {
-                throw new UnauthorizedGroupAccessException("Only admins and authorized teachers can archive communication groups");
-            }
-        }
+        validateCanChangeArchiveStatus(groupId, "Only admins and authorized teachers can archive communication groups");
 
         group.setStatus(GroupStatus.ARCHIVED);
+        CommunicationGroup savedGroup = communicationGroupRepository.save(group);
+
+        return CommunicationGroupMapper.toGroupResponse(savedGroup);
+    }
+
+    @Override
+    @Transactional
+    public CommunicationGroupResponse unarchiveGroup(UUID groupId) {
+        CommunicationGroup group = findArchivedGroup(groupId);
+        validateCanChangeArchiveStatus(groupId, "Only admins and authorized teachers can unarchive communication groups");
+
+        group.setStatus(GroupStatus.ACTIVE);
         CommunicationGroup savedGroup = communicationGroupRepository.save(group);
 
         return CommunicationGroupMapper.toGroupResponse(savedGroup);
@@ -246,6 +250,25 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
     private CommunicationGroup findActiveGroup(UUID groupId) {
         return communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ACTIVE)
                 .orElseThrow(() -> new CommunicationGroupNotFoundException(groupId));
+    }
+
+    private CommunicationGroup findArchivedGroup(UUID groupId) {
+        return communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ARCHIVED)
+                .orElseThrow(() -> new CommunicationGroupNotFoundException(groupId));
+    }
+
+    private void validateCanChangeArchiveStatus(UUID groupId, String unauthorizedMessage) {
+        UUID currentUserId = authenticatedUserService.getCurrentUserId();
+        Set<String> roles = authenticatedUserService.getCurrentUserRoles();
+
+        if (isAdmin(roles)) {
+            return;
+        }
+
+        GroupMember member = groupMemberService.validateActiveMembership(groupId, currentUserId);
+        if (!GroupMemberRole.TEACHER.equals(member.getRole())) {
+            throw new UnauthorizedGroupAccessException(unauthorizedMessage);
+        }
     }
 
     private GroupMemberRole roleForCreator(Set<String> roles) {

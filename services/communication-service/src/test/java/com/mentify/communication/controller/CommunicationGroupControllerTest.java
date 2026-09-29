@@ -183,6 +183,23 @@ class CommunicationGroupControllerTest {
     }
 
     @Test
+    void unarchiveGroupReturnsGroup() throws Exception {
+        UUID groupId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+
+        when(communicationGroupService.unarchiveGroup(groupId))
+                .thenReturn(groupResponse(groupId, courseId, GroupStatus.ACTIVE));
+
+        mockMvc.perform(post("/api/communication/groups/{groupId}/unarchive", groupId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Communication group unarchived successfully"))
+                .andExpect(jsonPath("$.data.id").value(groupId.toString()))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        verify(communicationGroupService).unarchiveGroup(groupId);
+    }
+
+    @Test
     void mutatingEndpointsAreRoleRestricted() throws NoSuchMethodException {
         Method create = CommunicationGroupController.class.getDeclaredMethod(
                 "createGroup",
@@ -200,11 +217,13 @@ class CommunicationGroupControllerTest {
                 AddStudentToGroupRequest.class
         );
         Method archive = CommunicationGroupController.class.getDeclaredMethod("archiveGroup", UUID.class);
+        Method unarchive = CommunicationGroupController.class.getDeclaredMethod("unarchiveGroup", UUID.class);
 
         assertThat(create.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
         assertThat(addStudent.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
         assertThat(addStudentByCourse.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
         assertThat(archive.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
+        assertThat(unarchive.getAnnotation(PreAuthorize.class).value()).contains("ADMIN", "SUPER_ADMIN", "TEACHER");
     }
 
     private CreateCommunicationGroupRequest validRequest(UUID courseId) {

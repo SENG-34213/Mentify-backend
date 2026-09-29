@@ -20,4 +20,6 @@ public interface CommunicationGroupService {
     GroupMemberResponse addStudentToCourseGroup(UUID courseId, UUID studentId);
 
     CommunicationGroupResponse archiveGroup(UUID groupId);
+
+    CommunicationGroupResponse unarchiveGroup(UUID groupId);
 }
