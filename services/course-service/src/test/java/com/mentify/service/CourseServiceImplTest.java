@@ -9,6 +9,7 @@ import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
+import com.mentify.repository.GradeRepository;
 import com.mentify.service.impl.CourseServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,13 +42,16 @@ class CourseServiceImplTest {
     private CourseRepository courseRepository;
 
     @Mock
+    private GradeRepository gradeRepository;
+
+    @Mock
     private UserServiceClient userServiceClient;
 
     private CourseServiceImpl courseService;
 
     @BeforeEach
     void setUp() {
-        courseService = new CourseServiceImpl(courseRepository, userServiceClient);
+        courseService = new CourseServiceImpl(courseRepository, gradeRepository, userServiceClient);
     }
 
     @Test
@@ -57,6 +61,7 @@ class CourseServiceImplTest {
 
         when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
                 .thenReturn(false);
+        when(gradeRepository.existsById(request.getGradeId())).thenReturn(true);
         when(userServiceClient.isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(true);
         when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> {
             Course course = invocation.getArgument(0);
@@ -120,6 +125,7 @@ class CourseServiceImplTest {
 
         when(courseRepository.existsByCourseNameAndGradeId(request.getCourseName(), request.getGradeId()))
                 .thenReturn(false);
+        when(gradeRepository.existsById(request.getGradeId())).thenReturn(true);
         when(userServiceClient.isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(false);
 
         assertThatThrownBy(() -> courseService.createCourse(request, AUTH_HEADER))
@@ -169,6 +175,7 @@ class CourseServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
         when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(updateRequest.getCourseName(), updateRequest.getGradeId(), courseId))
                 .thenReturn(false);
+        when(gradeRepository.existsById(updateRequest.getGradeId())).thenReturn(true);
         when(userServiceClient.isTeacherExists(updateRequest.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(true);
         when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -243,6 +250,7 @@ class CourseServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(existingCourse));
         when(courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId))
                 .thenReturn(false);
+        when(gradeRepository.existsById(request.getGradeId())).thenReturn(true);
         when(userServiceClient.isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER)).thenReturn(false);
 
         assertThatThrownBy(() -> courseService.updateCourse(courseId, request, AUTH_HEADER))

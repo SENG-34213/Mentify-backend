@@ -9,6 +9,7 @@ import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.mapper.CourseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
+import com.mentify.repository.GradeRepository;
 import com.mentify.service.CourseService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
+    private final GradeRepository gradeRepository;
     private final UserServiceClient userServiceClient;
 
     @Override
@@ -42,6 +44,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
+        validateGradeExists(request.getGradeId());
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
@@ -77,6 +80,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
+        validateGradeExists(request.getGradeId());
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         existingCourse.setCourseName(request.getCourseName().trim());
@@ -123,6 +127,12 @@ public class CourseServiceImpl implements CourseService {
     private void validateTeacherExists(UUID teacherId, String authorizationHeader) {
         if (teacherId == null || !userServiceClient.isTeacherExists(teacherId.toString(), authorizationHeader)) {
             throw new ResourceNotFoundException("Teacher", "id", teacherId);
+        }
+    }
+
+    private void validateGradeExists(UUID gradeId) {
+        if (gradeId == null || !gradeRepository.existsById(gradeId)) {
+            throw new ResourceNotFoundException("Grade", "id", gradeId);
         }
     }
 
