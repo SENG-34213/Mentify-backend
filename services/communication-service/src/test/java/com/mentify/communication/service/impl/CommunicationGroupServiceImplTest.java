@@ -327,6 +327,39 @@ class CommunicationGroupServiceImplTest {
         assertThrows(UnauthorizedGroupAccessException.class, () -> communicationGroupService.archiveGroup(groupId));
     }
 
+    @Test
+    void authorizedTeacherCanUnarchiveGroup() {
+        UUID groupId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ARCHIVED);
+        GroupMember member = member(group, teacherId, GroupMemberRole.TEACHER);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_TEACHER"));
+        when(communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ARCHIVED)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, teacherId)).thenReturn(member);
+        when(communicationGroupRepository.save(group)).thenReturn(group);
+
+        CommunicationGroupResponse response = communicationGroupService.unarchiveGroup(groupId);
+
+        assertEquals(GroupStatus.ACTIVE, response.getStatus());
+    }
+
+    @Test
+    void unauthorizedMemberCannotUnarchiveGroup() {
+        UUID groupId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ARCHIVED);
+        GroupMember member = member(group, studentId, GroupMemberRole.STUDENT);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(studentId);
+        when(authenticatedUserService.getCurrentUserRoles()).thenReturn(Set.of("ROLE_TEACHER"));
+        when(communicationGroupRepository.findByIdAndStatus(groupId, GroupStatus.ARCHIVED)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, studentId)).thenReturn(member);
+
+        assertThrows(UnauthorizedGroupAccessException.class, () -> communicationGroupService.unarchiveGroup(groupId));
+    }
+
     private CreateCommunicationGroupRequest validRequest(UUID courseId) {
         return CreateCommunicationGroupRequest.builder()
                 .courseId(courseId)

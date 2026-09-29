@@ -98,4 +98,12 @@ public class CommunicationGroupController {
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Communication group archived successfully", response));
     }
+
+    @PostMapping("/{groupId}/unarchive")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<CommunicationGroupResponse>> unarchiveGroup(@PathVariable UUID groupId) {
+        CommunicationGroupResponse response = communicationGroupService.unarchiveGroup(groupId);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Communication group unarchived successfully", response));
+    }
 }
