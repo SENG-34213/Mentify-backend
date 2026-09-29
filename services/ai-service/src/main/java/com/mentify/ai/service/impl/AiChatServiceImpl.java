@@ -8,6 +8,7 @@ import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
+import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
 import com.mentify.ai.enums.AiFeatureType;
 import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.AiContentPolicyException;
@@ -20,6 +21,7 @@ import com.mentify.ai.service.AiChatService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiContentGuardService contentGuardService;
     private final AiAuditService auditService;
     private final TodayQuizPerformanceTool todayQuizPerformanceTool;
+    private final UserRegistrationOverviewTool userRegistrationOverviewTool;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -85,6 +88,10 @@ public class AiChatServiceImpl implements AiChatService {
     ) {
         if (isTodayQuizPerformanceRequest(rawMessage)) {
             return answerTodayQuizPerformance(rawMessage, authorizationHeader, traceId, userId);
+        }
+
+        if (isUserRegistrationOverviewRequest(rawMessage)) {
+            return answerUserRegistrationOverview(authorizationHeader, traceId, userId);
         }
 
         if (isAmbiguousMentifyPerformanceRequest(rawMessage)) {
@@ -148,6 +155,19 @@ public class AiChatServiceImpl implements AiChatService {
         return response(groundedAnswer, List.of(todayQuizPerformanceTool.getName()));
     }
 
+    private AiChatResponse answerUserRegistrationOverview(String authorizationHeader, String traceId, UUID userId) {
+        UserRegistrationOverviewToolResult toolResult;
+        try {
+            toolResult = userRegistrationOverviewTool.execute(authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", userRegistrationOverviewTool.getName());
+            throw new AccessDeniedException("Only admins can access user registration overview data");
+        }
+
+        String groundedAnswer = generateGroundedUserOverviewAnswer(toolResult, traceId, userId);
+        return response(groundedAnswer, List.of(userRegistrationOverviewTool.getName()));
+    }
+
     private AiChatResponse answerGeneralQuestion(String guardedMessage, String traceId, UUID userId) {
         AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
                 .featureType(AiFeatureType.TUTOR_CHAT)
@@ -193,6 +213,35 @@ public class AiChatServiceImpl implements AiChatService {
         return generateResponse.getContent();
     }
 
+    private String generateGroundedUserOverviewAnswer(
+            UserRegistrationOverviewToolResult toolResult,
+            String traceId,
+            UUID userId
+    ) {
+        String toolJson = toJson(toolResult);
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant for admins.
+                        Use only the supplied tool_result JSON to answer.
+                        Do not invent users, counts, account statuses, grades, teacher codes, or registration details.
+                        Summarize counts first, then mention recent students/teachers only if present.
+                        Keep the response concise and operational.
+                        """)
+                .userInput("""
+                        tool_name: getUserRegistrationOverview
+                        tool_result:
+                        %s
+                        """.formatted(toolJson))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return generateResponse.getContent();
+    }
+
     private boolean isTodayQuizPerformanceRequest(String message) {
         String normalized = normalize(message);
         return normalized.contains("quiz")
@@ -209,6 +258,24 @@ public class AiChatServiceImpl implements AiChatService {
                 && !normalized.contains("quiz")
                 && !normalized.contains("attendance")
                 && !normalized.contains("assignment");
+    }
+
+    private boolean isUserRegistrationOverviewRequest(String message) {
+        String normalized = normalize(message);
+        boolean userIntent = normalized.contains("registered")
+                || normalized.contains("registration")
+                || normalized.contains("users")
+                || normalized.contains("students")
+                || normalized.contains("teachers");
+        boolean adminDataIntent = normalized.contains("student details")
+                || normalized.contains("teacher details")
+                || normalized.contains("student teacher")
+                || normalized.contains("how many")
+                || normalized.contains("count")
+                || normalized.contains("overview")
+                || normalized.contains("recent")
+                || normalized.contains("details");
+        return userIntent && adminDataIntent;
     }
 
     private boolean isUnsupportedMentifyDataRequest(String message) {

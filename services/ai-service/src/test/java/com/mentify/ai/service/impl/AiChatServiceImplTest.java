@@ -8,6 +8,7 @@ import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.QuizPerformanceSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
+import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
 import com.mentify.ai.enums.AiFeatureType;
 import com.mentify.ai.exception.AiProviderUnavailableException;
 import com.mentify.ai.provider.AiProvider;
@@ -16,6 +17,7 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
 import feign.Request;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +68,9 @@ class AiChatServiceImplTest {
     @Mock
     private TodayQuizPerformanceTool todayQuizPerformanceTool;
 
+    @Mock
+    private UserRegistrationOverviewTool userRegistrationOverviewTool;
+
     private AiChatServiceImpl aiChatService;
 
     @BeforeEach
@@ -75,6 +80,7 @@ class AiChatServiceImplTest {
 
         lenient().when(aiProvider.getProviderName()).thenReturn("OPENAI");
         lenient().when(todayQuizPerformanceTool.getName()).thenReturn(TodayQuizPerformanceTool.TOOL_NAME);
+        lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
 
         aiChatService = new AiChatServiceImpl(
                 properties,
@@ -84,6 +90,7 @@ class AiChatServiceImplTest {
                 contentGuardService,
                 auditService,
                 todayQuizPerformanceTool,
+                userRegistrationOverviewTool,
                 new ObjectMapper().findAndRegisterModules()
         );
     }
@@ -198,6 +205,47 @@ class AiChatServiceImplTest {
         assertThat(response.getMessage()).contains("Encapsulation");
         assertThat(response.getToolsUsed()).isEmpty();
         verify(todayQuizPerformanceTool, never()).execute(any());
+        verify(userRegistrationOverviewTool, never()).execute(any());
+    }
+
+    @Test
+    void adminRegistrationOverviewUsesAdminToolAndGroundedAiResponse() {
+        UUID adminId = UUID.randomUUID();
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(userRegistrationOverviewTool.execute(AUTH_HEADER)).thenReturn(userOverviewResult());
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Mentify has 15 users: 10 students and 3 teachers.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder().message("Show registered student teacher details overview").build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("15 users");
+        assertThat(response.getToolsUsed()).containsExactly(UserRegistrationOverviewTool.TOOL_NAME);
+        verify(userRegistrationOverviewTool).execute(AUTH_HEADER);
+        verify(todayQuizPerformanceTool, never()).execute(any());
+    }
+
+    @Test
+    void nonAdminUserRegistrationOverviewIsRejectedAsAccessDenied() {
+        UUID teacherId = UUID.randomUUID();
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(userRegistrationOverviewTool.execute(AUTH_HEADER)).thenThrow(forbiddenFeignException());
+
+        assertThatThrownBy(() -> aiChatService.chat(
+                AiChatRequest.builder().message("How many registered students and teachers are there?").build(),
+                AUTH_HEADER
+        )).isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Only admins can access user registration overview data");
     }
 
     @Test
@@ -230,6 +278,32 @@ class AiChatServiceImplTest {
                         .lowestPercentage(new BigDecimal("60.00"))
                         .passedAttempts(2)
                         .belowPassThresholdAttempts(0)
+                        .build()))
+                .build();
+    }
+
+    private UserRegistrationOverviewToolResult userOverviewResult() {
+        return UserRegistrationOverviewToolResult.builder()
+                .totalUsers(15)
+                .usersByRole(Map.of("STUDENT", 10L, "TEACHER", 3L, "ADMIN", 2L))
+                .usersByAccountStatus(Map.of("ACTIVE", 9L, "INVITED", 6L))
+                .recentStudents(List.of(UserRegistrationOverviewToolResult.RegisteredUserSummary.builder()
+                        .firstName("Nimal")
+                        .lastName("Perera")
+                        .email("nimal@example.com")
+                        .role("STUDENT")
+                        .accountStatus("ACTIVE")
+                        .studentId("TIT-03-001")
+                        .grade("03")
+                        .build()))
+                .recentTeachers(List.of(UserRegistrationOverviewToolResult.RegisteredUserSummary.builder()
+                        .firstName("Amal")
+                        .lastName("Silva")
+                        .email("amal@example.com")
+                        .role("TEACHER")
+                        .accountStatus("INVITED")
+                        .teacherCode("TIT-TCH-001")
+                        .specializations(List.of("Math"))
                         .build()))
                 .build();
     }
