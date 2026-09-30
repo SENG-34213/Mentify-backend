@@ -3,6 +3,7 @@ package com.mentify.ai.websocket;
 import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiChatWebSocketResponse;
+import com.mentify.ai.exception.AiProviderUnavailableException;
 import com.mentify.ai.service.AiChatService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,11 +60,16 @@ class AiChatWebSocketControllerTest {
     @Test
     void websocketChatSendsProcessingAndCompletionResponses() {
         UUID conversationId = UUID.randomUUID();
+        UUID assistantMessageId = UUID.randomUUID();
         AiChatRequest request = AiChatRequest.builder()
                 .conversationId(conversationId)
+                .clientMessageId("ws-message-1")
                 .message("What is inheritance?")
                 .build();
         AiChatResponse chatResponse = AiChatResponse.builder()
+                .conversationId(conversationId)
+                .messageId(assistantMessageId)
+                .clientMessageId("ws-message-1")
                 .message("Inheritance allows a class to reuse behavior from another class.")
                 .toolsUsed(List.of())
                 .build();
@@ -81,7 +87,10 @@ class AiChatWebSocketControllerTest {
         assertThat(responseCaptor.getAllValues())
                 .extracting(AiChatWebSocketResponse::getStatus)
                 .containsExactly("PROCESSING", "COMPLETED");
+        assertThat(responseCaptor.getAllValues().get(0).getClientMessageId()).isEqualTo("ws-message-1");
         assertThat(responseCaptor.getAllValues().get(1).getConversationId()).isEqualTo(conversationId);
+        assertThat(responseCaptor.getAllValues().get(1).getMessageId()).isEqualTo(assistantMessageId);
+        assertThat(responseCaptor.getAllValues().get(1).getClientMessageId()).isEqualTo("ws-message-1");
         assertThat(responseCaptor.getAllValues().get(1).getData()).isEqualTo(chatResponse);
         verify(aiChatService).chat(request, AUTHORIZATION_HEADER);
     }
@@ -146,7 +155,36 @@ class AiChatWebSocketControllerTest {
                 .extracting(AiChatWebSocketResponse::getStatus)
                 .containsExactly("PROCESSING", "ERROR");
         assertThat(responseCaptor.getAllValues().get(1).getConversationId()).isEqualTo(conversationId);
-        assertThat(responseCaptor.getAllValues().get(1).getMessage()).isEqualTo("Conversation not found");
+        assertThat(responseCaptor.getAllValues().get(1).getMessage()).isEqualTo("Access denied");
+    }
+
+    @Test
+    void websocketChatSanitizesProviderFailureResponse() {
+        UUID conversationId = UUID.randomUUID();
+        AiChatRequest request = AiChatRequest.builder()
+                .conversationId(conversationId)
+                .clientMessageId("provider-failure-1")
+                .message("What is inheritance?")
+                .build();
+        Authentication authentication = authentication("admin-user", "ROLE_ADMIN");
+        when(aiChatService.chat(request, AUTHORIZATION_HEADER))
+                .thenThrow(new AiProviderUnavailableException("provider secret details"));
+
+        assertThatThrownBy(() -> controller.chat(request, AUTHORIZATION_HEADER, authentication, headerAccessor()))
+                .isInstanceOf(AiProviderUnavailableException.class)
+                .hasMessage("provider secret details");
+
+        ArgumentCaptor<AiChatWebSocketResponse> responseCaptor = ArgumentCaptor.forClass(AiChatWebSocketResponse.class);
+        verify(messagingTemplate, times(2)).convertAndSendToUser(
+                eq("admin-user"),
+                eq("/queue/ai/chat"),
+                responseCaptor.capture()
+        );
+        AiChatWebSocketResponse errorResponse = responseCaptor.getAllValues().get(1);
+        assertThat(errorResponse.getStatus()).isEqualTo("ERROR");
+        assertThat(errorResponse.getConversationId()).isEqualTo(conversationId);
+        assertThat(errorResponse.getClientMessageId()).isEqualTo("provider-failure-1");
+        assertThat(errorResponse.getMessage()).isEqualTo("AI provider is currently unavailable. Please try again later.");
     }
 
     @Test

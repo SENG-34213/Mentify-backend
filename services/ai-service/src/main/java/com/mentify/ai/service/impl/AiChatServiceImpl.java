@@ -34,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -67,12 +69,21 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiMessageRepository messageRepository;
 
     @Override
+    @Transactional
     public AiChatResponse chat(AiChatRequest request, String authorizationHeader) {
         String traceId = UUID.randomUUID().toString();
         UUID userId = authenticatedUserService.getCurrentUserId();
         AiFeatureType featureType = AiFeatureType.TUTOR_CHAT;
 
         try {
+            AiConversation conversation = conversationRepository.findByIdAndUserId(request.getConversationId(), userId)
+                    .orElseThrow(AiConversationNotFoundException::new);
+            String clientMessageId = normalizeClientMessageId(request.getClientMessageId());
+            AiChatResponse duplicateResponse = findDuplicateResponse(conversation.getId(), clientMessageId);
+            if (duplicateResponse != null) {
+                return duplicateResponse;
+            }
+
             usageGuardService.assertAllowed(userId, featureType);
             String guardedMessage = contentGuardService.sanitizeForPrompt(
                     featureType,
@@ -81,9 +92,7 @@ public class AiChatServiceImpl implements AiChatService {
             );
             auditService.recordAllowed(traceId, featureType, userId, null, null);
 
-            AiConversation conversation = conversationRepository.findByIdAndUserId(request.getConversationId(), userId)
-                    .orElseThrow(AiConversationNotFoundException::new);
-            saveMessage(conversation, AiMessageRole.USER, request.getMessage());
+            saveMessage(conversation, AiMessageRole.USER, request.getMessage(), clientMessageId);
 
             ConversationMemory conversationMemory = buildConversationMemory(conversation.getId());
             AiChatResponse response = routeMessage(
@@ -94,8 +103,9 @@ public class AiChatServiceImpl implements AiChatService {
                     userId,
                     conversationMemory
             );
-            saveMessage(conversation, AiMessageRole.ASSISTANT, response.getMessage());
+            AiMessage assistantMessage = saveMessage(conversation, AiMessageRole.ASSISTANT, response.getMessage(), null);
             touchConversation(conversation);
+            attachPersistenceMetadata(response, conversation.getId(), assistantMessage.getId(), clientMessageId);
 
             return response;
         } catch (RuntimeException ex) {
@@ -442,12 +452,61 @@ public class AiChatServiceImpl implements AiChatService {
         return message == null ? "" : message.toLowerCase(Locale.ROOT);
     }
 
-    private void saveMessage(AiConversation conversation, AiMessageRole role, String content) {
-        messageRepository.saveAndFlush(AiMessage.builder()
+    private AiMessage saveMessage(AiConversation conversation, AiMessageRole role, String content, String clientMessageId) {
+        return messageRepository.saveAndFlush(AiMessage.builder()
                 .conversation(conversation)
                 .role(role)
                 .content(content)
+                .clientMessageId(clientMessageId)
                 .build());
+    }
+
+    private AiChatResponse findDuplicateResponse(UUID conversationId, String clientMessageId) {
+        if (!StringUtils.hasText(clientMessageId)) {
+            return null;
+        }
+
+        return messageRepository.findFirstByConversation_IdAndRoleAndClientMessageId(
+                        conversationId,
+                        AiMessageRole.USER,
+                        clientMessageId
+                )
+                .map(userMessage -> messageRepository.findFirstByConversation_IdAndRoleAndCreatedAtAfterOrderByCreatedAtAsc(
+                                conversationId,
+                                AiMessageRole.ASSISTANT,
+                                userMessage.getCreatedAt()
+                        )
+                        .map(assistantMessage -> AiChatResponse.builder()
+                                .conversationId(conversationId)
+                                .messageId(assistantMessage.getId())
+                                .clientMessageId(clientMessageId)
+                                .message(assistantMessage.getContent())
+                                .toolsUsed(List.of())
+                                .timestamp(assistantMessage.getCreatedAt())
+                                .build())
+                        .orElseGet(() -> AiChatResponse.builder()
+                                .conversationId(conversationId)
+                                .clientMessageId(clientMessageId)
+                                .message("Your previous AI chat request is still being processed.")
+                                .toolsUsed(List.of())
+                                .timestamp(LocalDateTime.now())
+                                .build()))
+                .orElse(null);
+    }
+
+    private void attachPersistenceMetadata(
+            AiChatResponse response,
+            UUID conversationId,
+            UUID assistantMessageId,
+            String clientMessageId
+    ) {
+        response.setConversationId(conversationId);
+        response.setMessageId(assistantMessageId);
+        response.setClientMessageId(clientMessageId);
+    }
+
+    private String normalizeClientMessageId(String clientMessageId) {
+        return StringUtils.hasText(clientMessageId) ? clientMessageId.trim() : null;
     }
 
     private void touchConversation(AiConversation conversation) {

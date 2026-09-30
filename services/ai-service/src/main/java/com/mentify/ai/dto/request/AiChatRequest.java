@@ -19,6 +19,9 @@ public class AiChatRequest {
     @NotNull(message = "Conversation id is required")
     private UUID conversationId;
 
+    @Size(max = 100, message = "Client message id must not exceed 100 characters")
+    private String clientMessageId;
+
     @NotBlank(message = "Message is required")
     @Size(max = 4000, message = "Message must not exceed 4000 characters")
     private String message;

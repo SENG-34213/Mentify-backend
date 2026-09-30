@@ -15,6 +15,8 @@ import java.util.UUID;
 public class AiChatWebSocketResponse {
 
     private UUID conversationId;
+    private UUID messageId;
+    private String clientMessageId;
     private String status;
     private String message;
     private AiChatResponse data;
