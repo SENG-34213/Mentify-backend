@@ -1,6 +1,7 @@
 package com.mentify.repository;
 
 import com.mentify.entity.User;
+import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -18,4 +19,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByKeycloakUserIdAndRole(String keycloakUserId, Role role);
     boolean existsByIdAndRole(UUID id, Role role);
     List<User> findAllByRoleOrderByCreatedAtDesc(Role role);
+    List<User> findTop5ByRoleOrderByCreatedAtDesc(Role role);
+    long countByRole(Role role);
+    long countByAccountStatus(AccountStatus accountStatus);
 }

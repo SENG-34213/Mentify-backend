@@ -51,7 +51,7 @@ class AiGenerationControllerTest {
                 .generatedAt(LocalDateTime.now())
                 .build();
  
-        when(aiService.generate(any(AiGenerateRequest.class))).thenReturn(response);
+        when(aiService.generate(any(AiGenerateRequest.class), any())).thenReturn(response);
  
         // Act & Assert
         mockMvc.perform(post("/api/ai/generate")
