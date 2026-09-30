@@ -33,8 +33,14 @@ import java.util.UUID;
 @AllArgsConstructor
 public class AiConversation extends BaseEntity {
 
+    private static final String DEFAULT_TITLE = "New conversation";
+
     @Column(name = "user_id", nullable = false, columnDefinition = "uuid")
     private UUID userId;
+
+    @Column(nullable = false, length = 150, columnDefinition = "varchar(150) default 'New conversation'")
+    @Builder.Default
+    private String title = DEFAULT_TITLE;
 
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("createdAt ASC")
@@ -44,5 +50,9 @@ public class AiConversation extends BaseEntity {
     public void addMessage(AiMessage message) {
         messages.add(message);
         message.setConversation(this);
+    }
+
+    public void setTitle(String title) {
+        this.title = title == null || title.isBlank() ? DEFAULT_TITLE : title.trim();
     }
 }
