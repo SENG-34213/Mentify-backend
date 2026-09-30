@@ -236,6 +236,7 @@ class AiChatServiceImplTest {
         AiChatResponse response = aiChatService.chat(
                 AiChatRequest.builder()
                         .conversationId(conversationId)
+                        .clientMessageId("client-message-1")
                         .message("What is encapsulation?")
                         .build(),
                 AUTH_HEADER
@@ -243,8 +244,98 @@ class AiChatServiceImplTest {
 
         assertThat(response.getMessage()).contains("Encapsulation");
         assertThat(response.getToolsUsed()).isEmpty();
+        assertThat(response.getConversationId()).isEqualTo(conversationId);
+        assertThat(response.getMessageId()).isNotNull();
+        assertThat(response.getClientMessageId()).isEqualTo("client-message-1");
         verify(todayQuizPerformanceTool, never()).execute(any());
         verify(userRegistrationOverviewTool, never()).execute(any());
+
+        ArgumentCaptor<AiMessage> messageCaptor = ArgumentCaptor.forClass(AiMessage.class);
+        verify(messageRepository, times(2)).saveAndFlush(messageCaptor.capture());
+        assertThat(messageCaptor.getAllValues().get(0).getClientMessageId()).isEqualTo("client-message-1");
+        assertThat(messageCaptor.getAllValues().get(1).getClientMessageId()).isNull();
+    }
+
+    @Test
+    void duplicateClientMessageIdReturnsPersistedAssistantResponseWithoutReprocessing() {
+        UUID adminId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(adminId, conversationId);
+        AiMessage existingUserMessage = message(conversation, AiMessageRole.USER, "How many teachers are registered?");
+        existingUserMessage.setClientMessageId("retry-1");
+        existingUserMessage.setCreatedAt(LocalDateTime.now().minusSeconds(5));
+        AiMessage existingAssistantMessage = message(conversation, AiMessageRole.ASSISTANT, "Mentify has 3 registered teachers.");
+        existingAssistantMessage.setCreatedAt(LocalDateTime.now().minusSeconds(4));
+
+        prepareOwnedConversation(adminId, conversationId, List.of());
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(messageRepository.findFirstByConversation_IdAndRoleAndClientMessageId(
+                conversationId,
+                AiMessageRole.USER,
+                "retry-1"
+        )).thenReturn(Optional.of(existingUserMessage));
+        when(messageRepository.findFirstByConversation_IdAndRoleAndCreatedAtAfterOrderByCreatedAtAsc(
+                conversationId,
+                AiMessageRole.ASSISTANT,
+                existingUserMessage.getCreatedAt()
+        )).thenReturn(Optional.of(existingAssistantMessage));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .clientMessageId("retry-1")
+                        .message("How many teachers are registered?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getConversationId()).isEqualTo(conversationId);
+        assertThat(response.getMessageId()).isEqualTo(existingAssistantMessage.getId());
+        assertThat(response.getClientMessageId()).isEqualTo("retry-1");
+        assertThat(response.getMessage()).isEqualTo("Mentify has 3 registered teachers.");
+        assertThat(response.getToolsUsed()).isEmpty();
+        verify(usageGuardService, never()).assertAllowed(any(), any());
+        verify(contentGuardService, never()).sanitizeForPrompt(any(), any(), any());
+        verify(aiProvider, never()).generate(any());
+        verify(messageRepository, never()).saveAndFlush(any(AiMessage.class));
+    }
+
+    @Test
+    void duplicateClientMessageIdWithoutAssistantDoesNotPersistAnotherUserMessage() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        AiMessage existingUserMessage = message(conversation, AiMessageRole.USER, "What is polymorphism?");
+        existingUserMessage.setClientMessageId("retry-in-flight");
+        existingUserMessage.setCreatedAt(LocalDateTime.now().minusSeconds(5));
+
+        prepareOwnedConversation(teacherId, conversationId, List.of());
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(messageRepository.findFirstByConversation_IdAndRoleAndClientMessageId(
+                conversationId,
+                AiMessageRole.USER,
+                "retry-in-flight"
+        )).thenReturn(Optional.of(existingUserMessage));
+        when(messageRepository.findFirstByConversation_IdAndRoleAndCreatedAtAfterOrderByCreatedAtAsc(
+                conversationId,
+                AiMessageRole.ASSISTANT,
+                existingUserMessage.getCreatedAt()
+        )).thenReturn(Optional.empty());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .clientMessageId("retry-in-flight")
+                        .message("What is polymorphism?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getConversationId()).isEqualTo(conversationId);
+        assertThat(response.getClientMessageId()).isEqualTo("retry-in-flight");
+        assertThat(response.getMessage()).isEqualTo("Your previous AI chat request is still being processed.");
+        assertThat(response.getMessageId()).isNull();
+        verify(messageRepository, never()).saveAndFlush(any(AiMessage.class));
     }
 
     @Test
@@ -728,8 +819,6 @@ class AiChatServiceImplTest {
         UUID teacherId = UUID.randomUUID();
         UUID conversationId = UUID.randomUUID();
         when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
-        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
-                .thenAnswer(invocation -> invocation.getArgument(2));
         when(conversationRepository.findByIdAndUserId(conversationId, teacherId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> aiChatService.chat(
@@ -749,8 +838,6 @@ class AiChatServiceImplTest {
         UUID teacherId = UUID.randomUUID();
         UUID otherUsersConversationId = UUID.randomUUID();
         when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
-        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
-                .thenAnswer(invocation -> invocation.getArgument(2));
         when(conversationRepository.findByIdAndUserId(otherUsersConversationId, teacherId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> aiChatService.chat(
@@ -869,7 +956,18 @@ class AiChatServiceImplTest {
         lenient().when(messageRepository.findByConversation_IdOrderByCreatedAtDesc(eq(conversationId), any()))
                 .thenReturn(recentMessagesDescending);
         lenient().when(messageRepository.saveAndFlush(any(AiMessage.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    AiMessage savedMessage = invocation.getArgument(0);
+                    if (savedMessage.getId() == null) {
+                        savedMessage.setId(UUID.randomUUID());
+                    }
+                    if (savedMessage.getCreatedAt() == null) {
+                        LocalDateTime now = LocalDateTime.now();
+                        savedMessage.setCreatedAt(now);
+                        savedMessage.setUpdatedAt(now);
+                    }
+                    return savedMessage;
+                });
         lenient().when(conversationRepository.saveAndFlush(any(AiConversation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }

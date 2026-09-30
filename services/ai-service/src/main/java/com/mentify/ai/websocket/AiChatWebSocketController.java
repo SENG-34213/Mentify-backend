@@ -3,6 +3,10 @@ package com.mentify.ai.websocket;
 import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiChatWebSocketResponse;
+import com.mentify.ai.exception.AiConversationNotFoundException;
+import com.mentify.ai.exception.AiProviderException;
+import com.mentify.ai.exception.AiProviderTimeoutException;
+import com.mentify.ai.exception.AiProviderUnavailableException;
 import com.mentify.ai.service.AiChatService;
 import com.mentify.ai.websocket.security.AiWebSocketAuthInterceptor;
 import jakarta.validation.Valid;
@@ -51,14 +55,23 @@ public class AiChatWebSocketController {
 
         String userDestination = authentication.getName();
         UUID conversationId = request.getConversationId();
+        String clientMessageId = request.getClientMessageId();
         log.info("Received websocket AI chat request conversationId={}", conversationId);
-        sendStatus(userDestination, conversationId, "PROCESSING", "AI chat request is being processed", null);
+        sendStatus(userDestination, conversationId, null, clientMessageId, "PROCESSING", "AI chat request is being processed", null);
 
         try {
             AiChatResponse response = aiChatService.chat(request, resolveAuthorizationHeader(authorizationHeader, headerAccessor));
-            sendStatus(userDestination, conversationId, "COMPLETED", "AI chat response generated successfully", response);
+            sendStatus(
+                    userDestination,
+                    conversationId,
+                    response.getMessageId(),
+                    response.getClientMessageId(),
+                    "COMPLETED",
+                    "AI chat response generated successfully",
+                    response
+            );
         } catch (RuntimeException ex) {
-            sendError(userDestination, conversationId, ex);
+            sendError(userDestination, conversationId, clientMessageId, ex);
             throw ex;
         } finally {
             SecurityContextHolder.clearContext();
@@ -77,7 +90,7 @@ public class AiChatWebSocketController {
                 RESPONSE_DESTINATION,
                 AiChatWebSocketResponse.builder()
                         .status("ERROR")
-                        .message(ex.getMessage())
+                        .message(safeErrorMessage(ex))
                         .timestamp(LocalDateTime.now())
                         .build()
         );
@@ -133,6 +146,8 @@ public class AiChatWebSocketController {
     private void sendStatus(
             String userDestination,
             UUID conversationId,
+            UUID messageId,
+            String clientMessageId,
             String status,
             String message,
             AiChatResponse data
@@ -142,6 +157,8 @@ public class AiChatWebSocketController {
                 RESPONSE_DESTINATION,
                 AiChatWebSocketResponse.builder()
                         .conversationId(conversationId)
+                        .messageId(messageId)
+                        .clientMessageId(clientMessageId)
                         .status(status)
                         .message(message)
                         .data(data)
@@ -150,16 +167,36 @@ public class AiChatWebSocketController {
         );
     }
 
-    private void sendError(String userDestination, UUID conversationId, RuntimeException ex) {
+    private void sendError(String userDestination, UUID conversationId, String clientMessageId, RuntimeException ex) {
         messagingTemplate.convertAndSendToUser(
                 userDestination,
                 RESPONSE_DESTINATION,
                 AiChatWebSocketResponse.builder()
                         .conversationId(conversationId)
+                        .clientMessageId(clientMessageId)
                         .status("ERROR")
-                        .message(ex.getMessage())
+                        .message(safeErrorMessage(ex))
                         .timestamp(LocalDateTime.now())
                         .build()
         );
+    }
+
+    private String safeErrorMessage(Exception ex) {
+        if (ex instanceof AccessDeniedException) {
+            return "Access denied";
+        }
+        if (ex instanceof AiConversationNotFoundException) {
+            return "AI conversation not found";
+        }
+        if (ex instanceof AiProviderTimeoutException) {
+            return "AI provider timed out. Please try again.";
+        }
+        if (ex instanceof AiProviderUnavailableException) {
+            return "AI provider is currently unavailable. Please try again later.";
+        }
+        if (ex instanceof AiProviderException) {
+            return "AI provider request failed. Please try again.";
+        }
+        return "AI chat request failed";
     }
 }
