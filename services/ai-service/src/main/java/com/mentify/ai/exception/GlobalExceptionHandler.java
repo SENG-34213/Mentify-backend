@@ -81,6 +81,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, headers, HttpStatus.TOO_MANY_REQUESTS);
     }
 
+    @ExceptionHandler(AiConversationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAiConversationNotFoundException(AiConversationNotFoundException ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(HttpStatus.NOT_FOUND.value())
+                .message(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(AiProviderException.class)
     public ResponseEntity<ErrorResponse> handleAiProviderException(AiProviderException ex) {
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;

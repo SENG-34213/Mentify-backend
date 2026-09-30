@@ -10,6 +10,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,10 +32,12 @@ class AiConversationPersistenceTest {
 
         AiConversation savedConversation = conversationRepository.save(AiConversation.builder()
                 .userId(userId)
+                .title("Lesson planning")
                 .build());
 
         assertThat(savedConversation.getId()).isNotNull();
         assertThat(savedConversation.getUserId()).isEqualTo(userId);
+        assertThat(savedConversation.getTitle()).isEqualTo("Lesson planning");
         assertThat(savedConversation.getCreatedAt()).isNotNull();
         assertThat(conversationRepository.existsByIdAndUserId(savedConversation.getId(), userId)).isTrue();
     }
@@ -49,6 +53,34 @@ class AiConversationPersistenceTest {
         assertThat(conversationRepository.findByUserId(userId, PageRequest.of(0, 10)).getContent())
                 .hasSize(2)
                 .allMatch(conversation -> userId.equals(conversation.getUserId()));
+    }
+
+    @Test
+    void conversationsCanBeLoadedForUserOrderedByUpdatedAtDescending() {
+        UUID userId = UUID.randomUUID();
+        AiConversation olderConversation = AiConversation.builder()
+                .userId(userId)
+                .title("Older")
+                .build();
+        olderConversation.setUpdatedAt(LocalDateTime.now().minusDays(1));
+        AiConversation newerConversation = AiConversation.builder()
+                .userId(userId)
+                .title("Newer")
+                .build();
+        newerConversation.setUpdatedAt(LocalDateTime.now());
+
+        conversationRepository.save(olderConversation);
+        conversationRepository.save(newerConversation);
+        conversationRepository.save(AiConversation.builder()
+                .userId(UUID.randomUUID())
+                .title("Other user")
+                .build());
+
+        List<AiConversation> conversations = conversationRepository.findByUserIdOrderByUpdatedAtDesc(userId);
+
+        assertThat(conversations)
+                .extracting(AiConversation::getTitle)
+                .containsExactly("Newer", "Older");
     }
 
     @Test
@@ -74,6 +106,9 @@ class AiConversationPersistenceTest {
                 savedConversation.getId(),
                 PageRequest.of(0, 10, Sort.by("createdAt").ascending())
         ).getContent())
+                .extracting(AiMessage::getRole)
+                .containsExactly(AiMessageRole.USER, AiMessageRole.ASSISTANT);
+        assertThat(messageRepository.findByConversation_IdOrderByCreatedAtAsc(savedConversation.getId()))
                 .extracting(AiMessage::getRole)
                 .containsExactly(AiMessageRole.USER, AiMessageRole.ASSISTANT);
     }
