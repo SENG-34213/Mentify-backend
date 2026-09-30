@@ -82,6 +82,18 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: ai-service-v1-compat
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/v1/ai/**
+          filters:
+            - RewritePath=/api/v1/ai/(?<segment>.*), /api/ai/$\{segment}
+
+        - id: ai-service-websocket
+          uri: lb:ws://ai-service
+          predicates:
+            - Path=/ws/ai,/ws/ai/**
+
         - id: attendance-service
           uri: lb://attendance-service
           predicates:

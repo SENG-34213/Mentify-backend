@@ -4,6 +4,7 @@ import com.mentify.ai.dto.request.AiConversationCreateRequest;
 import com.mentify.ai.dto.request.AiConversationUpdateRequest;
 import com.mentify.ai.dto.response.AiConversationDetailResponse;
 import com.mentify.ai.dto.response.AiConversationResponse;
+import com.mentify.ai.dto.response.AiMessageResponse;
 import com.mentify.ai.service.AiConversationService;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -62,6 +63,18 @@ public class AiConversationController {
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK.value(),
                 "AI conversation retrieved successfully",
+                response
+        ));
+    }
+
+    @GetMapping("/{conversationId}/messages")
+    public ResponseEntity<ApiResponse<List<AiMessageResponse>>> getConversationMessages(
+            @PathVariable UUID conversationId
+    ) {
+        List<AiMessageResponse> response = conversationService.getConversationMessages(conversationId);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "AI conversation messages retrieved successfully",
                 response
         ));
     }

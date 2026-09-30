@@ -55,10 +55,7 @@ public class AiConversationServiceImpl implements AiConversationService {
     @Transactional(readOnly = true)
     public AiConversationDetailResponse getConversation(UUID conversationId) {
         AiConversation conversation = findOwnedConversation(conversationId);
-        List<AiMessageResponse> messages = messageRepository.findByConversation_IdOrderByCreatedAtAsc(conversationId)
-                .stream()
-                .map(this::toMessageResponse)
-                .toList();
+        List<AiMessageResponse> messages = loadConversationMessages(conversationId);
 
         return AiConversationDetailResponse.builder()
                 .id(conversation.getId())
@@ -67,6 +64,13 @@ public class AiConversationServiceImpl implements AiConversationService {
                 .updatedAt(conversation.getUpdatedAt())
                 .messages(messages)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AiMessageResponse> getConversationMessages(UUID conversationId) {
+        findOwnedConversation(conversationId);
+        return loadConversationMessages(conversationId);
     }
 
     @Override
@@ -88,6 +92,13 @@ public class AiConversationServiceImpl implements AiConversationService {
         UUID userId = authenticatedUserService.getCurrentUserId();
         return conversationRepository.findByIdAndUserId(conversationId, userId)
                 .orElseThrow(AiConversationNotFoundException::new);
+    }
+
+    private List<AiMessageResponse> loadConversationMessages(UUID conversationId) {
+        return messageRepository.findByConversation_IdOrderByCreatedAtAsc(conversationId)
+                .stream()
+                .map(this::toMessageResponse)
+                .toList();
     }
 
     private AiConversationResponse toConversationResponse(AiConversation conversation) {

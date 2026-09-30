@@ -84,6 +84,16 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void givenNoToken_whenCallingAiWebSocketHandshakePath_thenReturnsOk() {
+        // Arrange
+        var request = webTestClient.get().uri("/ws/ai");
+
+        // Act and Assert
+        request.exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
     void givenNoToken_whenCallingGatewayProtectedEndpoint_thenReturnsUnauthorized() {
         // Arrange
         var request = webTestClient.get().uri("/protected-gateway-resource");
@@ -157,6 +167,11 @@ class GatewaySecurityConfigTest {
 
         @PostMapping("/api/assignments/quizzes/ai/generate")
         Map<String, String> aiQuizGenerate() {
+            return Map.of("status", "success");
+        }
+
+        @GetMapping("/ws/ai")
+        Map<String, String> aiWebSocketHandshakeProbe() {
             return Map.of("status", "success");
         }
 

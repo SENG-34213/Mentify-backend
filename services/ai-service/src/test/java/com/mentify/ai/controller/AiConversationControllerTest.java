@@ -127,6 +127,24 @@ class AiConversationControllerTest {
 
     @Test
     @WithMockUser(roles = "TEACHER")
+    void getConversationMessagesShouldReturnMessageList() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        when(conversationService.getConversationMessages(conversationId)).thenReturn(List.of(
+                AiMessageResponse.builder().role(AiMessageRole.USER).content("Hi").build(),
+                AiMessageResponse.builder().role(AiMessageRole.ASSISTANT).content("Hello").build()
+        ));
+
+        mockMvc.perform(get("/api/ai/conversations/{conversationId}/messages", conversationId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.data[0].role").value("USER"))
+                .andExpect(jsonPath("$.data[0].content").value("Hi"))
+                .andExpect(jsonPath("$.data[1].role").value("ASSISTANT"))
+                .andExpect(jsonPath("$.data[1].content").value("Hello"));
+    }
+
+    @Test
+    @WithMockUser(roles = "TEACHER")
     void updateConversationShouldValidateTitle() throws Exception {
         UUID conversationId = UUID.randomUUID();
 

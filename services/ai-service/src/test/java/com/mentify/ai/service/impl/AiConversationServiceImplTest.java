@@ -125,6 +125,41 @@ class AiConversationServiceImplTest {
     }
 
     @Test
+    void getConversationMessagesLoadsOnlyOwnedConversationMessages() {
+        UUID userId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = AiConversation.builder()
+                .userId(userId)
+                .title("Lesson summary")
+                .build();
+        conversation.setId(conversationId);
+        AiMessage userMessage = AiMessage.builder()
+                .conversation(conversation)
+                .role(AiMessageRole.USER)
+                .content("Summarize lesson")
+                .build();
+        AiMessage assistantMessage = AiMessage.builder()
+                .conversation(conversation)
+                .role(AiMessageRole.ASSISTANT)
+                .content("Summary")
+                .build();
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(userId);
+        when(conversationRepository.findByIdAndUserId(conversationId, userId)).thenReturn(Optional.of(conversation));
+        when(messageRepository.findByConversation_IdOrderByCreatedAtAsc(conversationId))
+                .thenReturn(List.of(userMessage, assistantMessage));
+
+        List<com.mentify.ai.dto.response.AiMessageResponse> response =
+                conversationService.getConversationMessages(conversationId);
+
+        assertThat(response)
+                .extracting(message -> message.getRole())
+                .containsExactly(AiMessageRole.USER, AiMessageRole.ASSISTANT);
+        verify(conversationRepository).findByIdAndUserId(conversationId, userId);
+        verify(messageRepository).findByConversation_IdOrderByCreatedAtAsc(conversationId);
+    }
+
+    @Test
     void updateConversationRejectsConversationNotOwnedByCurrentUser() {
         UUID userId = UUID.randomUUID();
         UUID conversationId = UUID.randomUUID();
