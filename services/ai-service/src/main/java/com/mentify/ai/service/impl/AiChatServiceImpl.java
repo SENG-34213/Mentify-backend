@@ -84,14 +84,14 @@ public class AiChatServiceImpl implements AiChatService {
                     .orElseThrow(AiConversationNotFoundException::new);
             saveMessage(conversation, AiMessageRole.USER, request.getMessage());
 
-            String conversationContext = buildConversationContext(conversation.getId());
+            ConversationMemory conversationMemory = buildConversationMemory(conversation.getId());
             AiChatResponse response = routeMessage(
                     request.getMessage(),
                     guardedMessage,
                     authorizationHeader,
                     traceId,
                     userId,
-                    conversationContext
+                    conversationMemory
             );
             saveMessage(conversation, AiMessageRole.ASSISTANT, response.getMessage());
             touchConversation(conversation);
@@ -113,16 +113,44 @@ public class AiChatServiceImpl implements AiChatService {
             String authorizationHeader,
             String traceId,
             UUID userId,
-            String conversationContext
+            ConversationMemory conversationMemory
     ) {
-        String routingMessage = buildRoutingMessage(rawMessage, conversationContext);
+        boolean contextualFollowUp = isContextualFollowUp(rawMessage);
+        if (contextualFollowUp && !conversationMemory.hasPriorContext()) {
+            return toolOnlyResponse(
+                    "I need a little more context before I can answer that follow-up. Which students, class, quiz, or users do you mean?",
+                    List.of(),
+                    traceId,
+                    userId
+            );
+        }
+
+        String routingMessage = buildRoutingMessage(rawMessage, conversationMemory);
+
+        if (requiresUnsupportedHistoricalMentifyData(rawMessage, routingMessage)) {
+            return toolOnlyResponse(
+                    "I can use the conversation to understand what you are referring to, but I don't currently have an authorized tool for that time period. Please specify a supported Mentify data view, such as today's quiz performance, or provide the data you want summarized.",
+                    List.of(),
+                    traceId,
+                    userId
+            );
+        }
+
+        if (requiresClassClarification(rawMessage, routingMessage)) {
+            return toolOnlyResponse(
+                    "Which class and metric do you want me to check: quiz performance, attendance, or assignments?",
+                    List.of(),
+                    traceId,
+                    userId
+            );
+        }
 
         if (isTodayQuizPerformanceRequest(routingMessage)) {
-            return answerTodayQuizPerformance(rawMessage, conversationContext, authorizationHeader, traceId, userId);
+            return answerTodayQuizPerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
         if (isUserRegistrationOverviewRequest(routingMessage)) {
-            return answerUserRegistrationOverview(rawMessage, conversationContext, authorizationHeader, traceId, userId);
+            return answerUserRegistrationOverview(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
         if (isAmbiguousMentifyPerformanceRequest(routingMessage)) {
@@ -143,7 +171,7 @@ public class AiChatServiceImpl implements AiChatService {
             );
         }
 
-        return answerGeneralQuestion(guardedMessage, conversationContext, traceId, userId);
+        return answerGeneralQuestion(guardedMessage, conversationMemory.prompt(), traceId, userId);
     }
 
     private AiChatResponse answerTodayQuizPerformance(
@@ -357,11 +385,47 @@ public class AiChatServiceImpl implements AiChatService {
         return normalized.contains("them")
                 || normalized.contains("they")
                 || normalized.contains("their")
+                || normalized.contains("those students")
+                || normalized.contains("that class")
+                || normalized.contains("what about")
+                || normalized.contains("compare it")
+                || normalized.contains("compare them")
+                || normalized.contains("yesterday")
+                || normalized.contains("last month")
                 || normalized.contains("those")
                 || normalized.contains("these")
                 || normalized.contains("that")
                 || normalized.contains("it")
                 || normalized.contains("active");
+    }
+
+    private boolean requiresUnsupportedHistoricalMentifyData(String rawMessage, String routingMessage) {
+        String normalizedRaw = normalize(rawMessage);
+        if (!(normalizedRaw.contains("yesterday")
+                || normalizedRaw.contains("last month")
+                || normalizedRaw.contains("last year")
+                || normalizedRaw.contains("compare it")
+                || normalizedRaw.contains("compare them"))) {
+            return false;
+        }
+
+        String normalizedRoutingMessage = normalize(routingMessage);
+        return normalizedRoutingMessage.contains("quiz")
+                || normalizedRoutingMessage.contains("student")
+                || normalizedRoutingMessage.contains("teacher")
+                || normalizedRoutingMessage.contains("attendance")
+                || normalizedRoutingMessage.contains("assignment")
+                || normalizedRoutingMessage.contains("class");
+    }
+
+    private boolean requiresClassClarification(String rawMessage, String routingMessage) {
+        String normalizedRaw = normalize(rawMessage);
+        if (!normalizedRaw.contains("that class")) {
+            return false;
+        }
+
+        String normalizedRoutingMessage = normalize(routingMessage);
+        return !normalizedRoutingMessage.contains("quiz");
     }
 
     private boolean wantsOverallSummary(String message) {
@@ -390,7 +454,7 @@ public class AiChatServiceImpl implements AiChatService {
         conversationRepository.saveAndFlush(conversation);
     }
 
-    private String buildConversationContext(UUID conversationId) {
+    private ConversationMemory buildConversationMemory(UUID conversationId) {
         List<AiMessage> recentMessages = new ArrayList<>(
                 messageRepository.findByConversation_IdOrderByCreatedAtDesc(
                         conversationId,
@@ -400,7 +464,7 @@ public class AiChatServiceImpl implements AiChatService {
         Collections.reverse(recentMessages);
 
         if (recentMessages.isEmpty()) {
-            return "conversation_history:\n(none)";
+            return new ConversationMemory("conversation_history:\n(none)", false);
         }
 
         StringBuilder builder = new StringBuilder("conversation_history:\n");
@@ -410,14 +474,14 @@ public class AiChatServiceImpl implements AiChatService {
                     .append(message.getContent())
                     .append('\n');
         }
-        return builder.toString().trim();
+        return new ConversationMemory(builder.toString().trim(), recentMessages.size() > 1);
     }
 
-    private String buildRoutingMessage(String rawMessage, String conversationContext) {
+    private String buildRoutingMessage(String rawMessage, ConversationMemory conversationMemory) {
         if (!isContextualFollowUp(rawMessage)) {
             return rawMessage;
         }
-        return rawMessage + "\n" + conversationContext;
+        return rawMessage + "\n" + conversationMemory.prompt();
     }
 
     private String buildPromptInput(String conversationContext, String guardedMessage) {
@@ -469,5 +533,8 @@ public class AiChatServiceImpl implements AiChatService {
 
     private boolean isGuardrailBlock(RuntimeException ex) {
         return ex instanceof AiContentPolicyException || ex instanceof AiQuotaExceededException;
+    }
+
+    private record ConversationMemory(String prompt, boolean hasPriorContext) {
     }
 }
