@@ -380,6 +380,199 @@ class AiChatServiceImplTest {
     }
 
     @Test
+    void teacherFollowUpAboutThoseStudentsUsesSameConversationHistoryAndQuizTool() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        AiMessage currentQuestion = message(conversation, AiMessageRole.USER, "What about those students?");
+        AiMessage previousAnswer = message(conversation, AiMessageRole.ASSISTANT, "Today's Java OOP Quiz had 2 submitted attempts.");
+        AiMessage previousQuestion = message(conversation, AiMessageRole.USER, "How was today's quiz performance?");
+
+        prepareOwnedConversation(teacherId, conversationId, List.of(currentQuestion, previousAnswer, previousQuestion));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(todayQuizPerformanceTool.execute(AUTH_HEADER)).thenReturn(singleQuizResult());
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("For those quiz attempts, both passed and the average score was 70.00%.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What about those students?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getToolsUsed()).containsExactly(TodayQuizPerformanceTool.TOOL_NAME);
+        verify(todayQuizPerformanceTool).execute(AUTH_HEADER);
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains("How was today's quiz performance?", "Today's Java OOP Quiz", "What about those students?");
+    }
+
+    @Test
+    void ambiguousFollowUpWithoutPriorContextAsksForClarification() {
+        UUID adminId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(adminId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("How many of them are active?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("need a little more context");
+        assertThat(response.getToolsUsed()).isEmpty();
+        verify(userRegistrationOverviewTool, never()).execute(any());
+        verify(todayQuizPerformanceTool, never()).execute(any());
+        verify(aiProvider, never()).generate(any());
+    }
+
+    @Test
+    void historicalMentifyFollowUpDoesNotReuseTodayToolOrConversationFacts() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        AiMessage currentQuestion = message(conversation, AiMessageRole.USER, "What about yesterday?");
+        AiMessage previousAnswer = message(conversation, AiMessageRole.ASSISTANT, "Today's Java OOP Quiz had 2 submitted attempts.");
+        AiMessage previousQuestion = message(conversation, AiMessageRole.USER, "How was today's quiz performance?");
+
+        prepareOwnedConversation(teacherId, conversationId, List.of(currentQuestion, previousAnswer, previousQuestion));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What about yesterday?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("don't currently have an authorized tool for that time period");
+        assertThat(response.getToolsUsed()).isEmpty();
+        verify(todayQuizPerformanceTool, never()).execute(any());
+        verify(aiProvider, never()).generate(any());
+    }
+
+    @Test
+    void compareWithLastMonthAsksForSupportedAuthorizedDataInsteadOfGuessing() {
+        UUID adminId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(adminId, conversationId);
+        AiMessage currentQuestion = message(conversation, AiMessageRole.USER, "Compare it with last month.");
+        AiMessage previousAnswer = message(conversation, AiMessageRole.ASSISTANT, "Mentify has 3 registered teachers.");
+        AiMessage previousQuestion = message(conversation, AiMessageRole.USER, "How many teachers are registered?");
+
+        prepareOwnedConversation(adminId, conversationId, List.of(currentQuestion, previousAnswer, previousQuestion));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Compare it with last month.")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("authorized tool for that time period");
+        assertThat(response.getToolsUsed()).isEmpty();
+        verify(userRegistrationOverviewTool, never()).execute(any());
+        verify(aiProvider, never()).generate(any());
+    }
+
+    @Test
+    void classFollowUpAsksForMetricClarificationWhenContextDoesNotIdentifySupportedTool() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        AiMessage currentQuestion = message(conversation, AiMessageRole.USER, "What about that class?");
+        AiMessage previousAnswer = message(conversation, AiMessageRole.ASSISTANT, "Grade 6 Science has mixed progress.");
+        AiMessage previousQuestion = message(conversation, AiMessageRole.USER, "Tell me about Grade 6 Science.");
+
+        prepareOwnedConversation(teacherId, conversationId, List.of(currentQuestion, previousAnswer, previousQuestion));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What about that class?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("Which class and metric");
+        assertThat(response.getToolsUsed()).isEmpty();
+        verify(aiProvider, never()).generate(any());
+    }
+
+    @Test
+    void differentConversationDoesNotUseAnotherConversationHistoryForFollowUp() {
+        UUID adminId = UUID.randomUUID();
+        UUID activeConversationId = prepareOwnedConversation(adminId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(activeConversationId)
+                        .message("How many of them are active?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("need a little more context");
+        verify(messageRepository).findByConversation_IdOrderByCreatedAtDesc(eq(activeConversationId), any());
+        verify(userRegistrationOverviewTool, never()).execute(any());
+        verify(aiProvider, never()).generate(any());
+    }
+
+    @Test
+    void previousContextDoesNotBypassToolAuthorization() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        AiMessage currentQuestion = message(conversation, AiMessageRole.USER, "How many of them are active?");
+        AiMessage previousAnswer = message(conversation, AiMessageRole.ASSISTANT, "Mentify has 3 registered teachers.");
+        AiMessage previousQuestion = message(conversation, AiMessageRole.USER, "How many teachers are registered?");
+
+        prepareOwnedConversation(teacherId, conversationId, List.of(currentQuestion, previousAnswer, previousQuestion));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(userRegistrationOverviewTool.execute(AUTH_HEADER)).thenThrow(forbiddenFeignException());
+
+        assertThatThrownBy(() -> aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("How many of them are active?")
+                        .build(),
+                AUTH_HEADER
+        )).isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Only admins can access user registration overview data");
+
+        verify(aiProvider, never()).generate(any());
+    }
+
+    @Test
     void invalidConversationIdIsRejectedBeforeMessagePersistence() {
         UUID teacherId = UUID.randomUUID();
         UUID conversationId = UUID.randomUUID();
