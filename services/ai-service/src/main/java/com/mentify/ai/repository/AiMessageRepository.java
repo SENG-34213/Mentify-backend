@@ -13,4 +13,6 @@ public interface AiMessageRepository extends JpaRepository<AiMessage, UUID> {
     Page<AiMessage> findByConversation_Id(UUID conversationId, Pageable pageable);
 
     List<AiMessage> findByConversation_IdOrderByCreatedAtAsc(UUID conversationId);
+
+    List<AiMessage> findByConversation_IdOrderByCreatedAtDesc(UUID conversationId, Pageable pageable);
 }
