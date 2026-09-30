@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
  
@@ -25,9 +26,12 @@ public class AiGenerationController {
 
     @PostMapping("/generate")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<AiGenerateResponse>> generate(@Valid @RequestBody AiGenerateRequest request) {
+    public ResponseEntity<ApiResponse<AiGenerateResponse>> generate(
+            @Valid @RequestBody AiGenerateRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
         log.info("Received AI generation request");
-        AiGenerateResponse response = aiService.generate(request);
+        AiGenerateResponse response = aiService.generate(request, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.<AiGenerateResponse>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("AI content generated successfully")

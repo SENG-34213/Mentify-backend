@@ -9,4 +9,6 @@ public interface AiService {
     Map<String, String> getServiceStatus();
  
     AiGenerateResponse generate(AiGenerateRequest request);
+
+    AiGenerateResponse generate(AiGenerateRequest request, String authorizationHeader);
 }

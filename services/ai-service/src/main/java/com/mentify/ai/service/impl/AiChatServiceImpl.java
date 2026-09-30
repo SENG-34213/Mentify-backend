@@ -263,7 +263,11 @@ public class AiChatServiceImpl implements AiChatService {
     private boolean isUserRegistrationOverviewRequest(String message) {
         String normalized = normalize(message);
         boolean userIntent = normalized.contains("registered")
+                || normalized.contains("regosterd")
+                || normalized.contains("registerd")
+                || normalized.contains("registred")
                 || normalized.contains("registration")
+                || normalized.contains("user")
                 || normalized.contains("users")
                 || normalized.contains("students")
                 || normalized.contains("teachers");

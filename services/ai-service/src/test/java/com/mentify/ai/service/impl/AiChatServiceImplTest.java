@@ -234,6 +234,31 @@ class AiChatServiceImplTest {
     }
 
     @Test
+    void adminUserCountQuestionWithTypoUsesAdminTool() {
+        UUID adminId = UUID.randomUUID();
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(userRegistrationOverviewTool.execute(AUTH_HEADER)).thenReturn(userOverviewResult());
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Mentify has 15 registered users.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder().message("how many user are regosterd?").build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("15 registered users");
+        assertThat(response.getToolsUsed()).containsExactly(UserRegistrationOverviewTool.TOOL_NAME);
+        verify(userRegistrationOverviewTool).execute(AUTH_HEADER);
+        verify(todayQuizPerformanceTool, never()).execute(any());
+    }
+
+    @Test
     void nonAdminUserRegistrationOverviewIsRejectedAsAccessDenied() {
         UUID teacherId = UUID.randomUUID();
         when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
