@@ -60,6 +60,8 @@ ai:
     prompt-injection-detection-enabled: ${AI_PROMPT_INJECTION_DETECTION_ENABLED:true}
     content-filtering-enabled: ${AI_CONTENT_FILTERING_ENABLED:true}
     blocked-terms: ${AI_BLOCKED_TERMS:}
+  conversation:
+    max-context-messages: ${AI_CONVERSATION_MAX_CONTEXT_MESSAGES:20}
   quiz-generation:
     max-file-size-bytes: ${AI_QUIZ_MAX_FILE_SIZE_BYTES:10485760}
     max-question-count: ${AI_QUIZ_MAX_QUESTION_COUNT:20}

@@ -32,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
@@ -85,11 +86,13 @@ class AiChatServiceImplTest {
     @Mock
     private AiMessageRepository messageRepository;
 
+    private AiProviderProperties properties;
+
     private AiChatServiceImpl aiChatService;
 
     @BeforeEach
     void setUp() {
-        AiProviderProperties properties = new AiProviderProperties();
+        properties = new AiProviderProperties();
         properties.getProvider().setName("OPENAI");
 
         lenient().when(aiProvider.getProviderName()).thenReturn("OPENAI");
@@ -546,6 +549,154 @@ class AiChatServiceImplTest {
     }
 
     @Test
+    void shortConversationContextIncludesAllLoadedMessagesInChronologicalOrder() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        AiMessage currentQuestion = message(conversation, AiMessageRole.USER, "Explain decorators too.");
+        AiMessage previousAnswer = message(conversation, AiMessageRole.ASSISTANT, "Inheritance shares behavior from a parent class.");
+        AiMessage previousQuestion = message(conversation, AiMessageRole.USER, "What is inheritance?");
+
+        prepareOwnedConversation(teacherId, conversationId, List.of(currentQuestion, previousAnswer, previousQuestion));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Decorators add behavior around existing functions or classes.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Explain decorators too.")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        String userInput = executionCaptor.getValue().getUserInput();
+        assertThat(userInput).contains("What is inheritance?", "Inheritance shares behavior", "Explain decorators too.");
+        assertThat(userInput.indexOf("What is inheritance?"))
+                .isLessThan(userInput.indexOf("Inheritance shares behavior"));
+        assertThat(userInput.indexOf("Inheritance shares behavior"))
+                .isLessThan(userInput.indexOf("Explain decorators too."));
+    }
+
+    @Test
+    void longConversationUsesConfiguredContextLimitAndKeepsChronologicalOrder() {
+        properties.getConversation().setMaxContextMessages(10);
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = UUID.randomUUID();
+        AiConversation conversation = conversation(teacherId, conversationId);
+        List<AiMessage> latestTenDescending = new java.util.ArrayList<>();
+        latestTenDescending.add(message(conversation, AiMessageRole.USER, "Continue from there."));
+        latestTenDescending.addAll(numberedMessagesDescending(conversation, 17, 25));
+
+        prepareOwnedConversation(teacherId, conversationId, latestTenDescending);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Here is the follow-up answer.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Continue from there.")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findByConversation_IdOrderByCreatedAtDesc(eq(conversationId), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        String userInput = executionCaptor.getValue().getUserInput();
+        assertThat(userInput).contains("turn-017", "turn-025", "Continue from there.");
+        assertThat(userInput).doesNotContain("turn-016");
+        assertThat(userInput.indexOf("turn-017")).isLessThan(userInput.indexOf("turn-025"));
+        assertThat(userInput.indexOf("turn-025")).isLessThan(userInput.indexOf("Continue from there."));
+    }
+
+    @Test
+    void configuredContextLimitIsClampedToAllowedRange() {
+        properties.getConversation().setMaxContextMessages(50);
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Answer")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What is abstraction?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findByConversation_IdOrderByCreatedAtDesc(eq(conversationId), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+    }
+
+    @Test
+    void contextWindowUsesOnlyTheRequestedConversationHistory() {
+        UUID teacherId = UUID.randomUUID();
+        UUID activeConversationId = UUID.randomUUID();
+        UUID otherConversationId = UUID.randomUUID();
+        AiConversation activeConversation = conversation(teacherId, activeConversationId);
+        AiConversation otherConversation = conversation(teacherId, otherConversationId);
+        AiMessage activeCurrent = message(activeConversation, AiMessageRole.USER, "Explain it again.");
+        AiMessage activePrevious = message(activeConversation, AiMessageRole.ASSISTANT, "Abstraction hides implementation details.");
+        AiMessage otherConversationMessage = message(otherConversation, AiMessageRole.ASSISTANT, "Other conversation secret context.");
+
+        prepareOwnedConversation(teacherId, activeConversationId, List.of(activeCurrent, activePrevious));
+        lenient().when(messageRepository.findByConversation_IdOrderByCreatedAtDesc(eq(otherConversationId), any()))
+                .thenReturn(List.of(otherConversationMessage));
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Abstraction means focusing on what an object does.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(activeConversationId)
+                        .message("Explain it again.")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains("Abstraction hides implementation details.")
+                .doesNotContain("Other conversation secret context");
+        verify(messageRepository, never()).findByConversation_IdOrderByCreatedAtDesc(eq(otherConversationId), any());
+    }
+
+    @Test
     void previousContextDoesNotBypassToolAuthorization() {
         UUID teacherId = UUID.randomUUID();
         UUID conversationId = UUID.randomUUID();
@@ -740,5 +891,13 @@ class AiChatServiceImplTest {
                 .build();
         message.setId(UUID.randomUUID());
         return message;
+    }
+
+    private List<AiMessage> numberedMessagesDescending(AiConversation conversation, int startInclusive, int endInclusive) {
+        List<AiMessage> messages = new java.util.ArrayList<>();
+        for (int index = endInclusive; index >= startInclusive; index--) {
+            messages.add(message(conversation, AiMessageRole.ASSISTANT, "turn-%03d".formatted(index)));
+        }
+        return messages;
     }
 }

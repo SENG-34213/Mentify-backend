@@ -51,6 +51,7 @@ public class AiChatServiceImpl implements AiChatService {
     private static final String RESULT_MULTIPLE_QUIZZES = "MULTIPLE_QUIZZES";
     private static final String MENTIFY_TOOL_PROVIDER = "MENTIFY_TOOLS";
     private static final String TOOL_ONLY_MODEL = "TOOL_ONLY";
+    private static final int MIN_CONTEXT_MESSAGES = 10;
     private static final int MAX_CONTEXT_MESSAGES = 20;
 
     private final AiProviderProperties aiProviderProperties;
@@ -458,7 +459,7 @@ public class AiChatServiceImpl implements AiChatService {
         List<AiMessage> recentMessages = new ArrayList<>(
                 messageRepository.findByConversation_IdOrderByCreatedAtDesc(
                         conversationId,
-                        PageRequest.of(0, MAX_CONTEXT_MESSAGES)
+                        PageRequest.of(0, getContextWindowSize())
                 )
         );
         Collections.reverse(recentMessages);
@@ -491,6 +492,11 @@ public class AiChatServiceImpl implements AiChatService {
                 current_user_message:
                 %s
                 """.formatted(conversationContext, guardedMessage);
+    }
+
+    private int getContextWindowSize() {
+        int configuredLimit = aiProviderProperties.getConversation().getMaxContextMessages();
+        return Math.max(MIN_CONTEXT_MESSAGES, Math.min(MAX_CONTEXT_MESSAGES, configuredLimit));
     }
 
     private AiProvider getProvider() {

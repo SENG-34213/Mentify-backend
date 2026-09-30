@@ -20,6 +20,7 @@ public class AiProviderProperties {
     private RetryConfig retry = new RetryConfig();
     private CircuitBreakerConfig circuitBreaker = new CircuitBreakerConfig();
     private GuardrailConfig guardrails = new GuardrailConfig();
+    private ConversationConfig conversation = new ConversationConfig();
 
     @Data
     public static class ProviderConfig {
@@ -77,5 +78,10 @@ public class AiProviderProperties {
         private boolean promptInjectionDetectionEnabled = true;
         private boolean contentFilteringEnabled = true;
         private List<String> blockedTerms = new ArrayList<>();
+    }
+
+    @Data
+    public static class ConversationConfig {
+        private int maxContextMessages = 20;
     }
 }
