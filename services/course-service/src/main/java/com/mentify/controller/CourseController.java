@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +22,15 @@ import java.util.UUID;
 public class CourseController {
 
     private final CourseService courseService;
+    @GetMapping("/my-courses")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<List<CourseResponse>>> getMyCourses(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID teacherId = UUID.fromString(jwt.getSubject());
+        ApiResponse<List<CourseResponse>> response = courseService.getCoursesForTeacher(teacherId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 
 
     @PostMapping

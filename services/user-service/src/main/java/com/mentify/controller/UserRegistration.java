@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +34,19 @@ public class UserRegistration {
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;
     private final UserRepository userRepository;
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<UserRegistrationResponse>> getCurrentUser(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UserRegistrationResponse response = userRegistrationService.getCurrentUser(jwt.getSubject());
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Current user fetched successfully",
+                response
+        ));
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")

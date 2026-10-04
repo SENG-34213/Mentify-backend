@@ -67,6 +67,13 @@ public class UserRegistrationService {
     }
 
     @Transactional(readOnly = true)
+    public UserRegistrationResponse getCurrentUser(String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return UserRegistrationResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
     public void resendInvitation(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

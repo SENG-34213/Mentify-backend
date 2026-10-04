@@ -171,6 +171,23 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId) {
+        List<CourseResponse> courses = courseRepository
+                .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId)
+                .stream()
+                .map(CourseMapper::toCourseResponse)
+                .collect(Collectors.toList());
+
+        return ApiResponse.<List<CourseResponse>>builder()
+                .message("Teacher courses fetched successfully")
+                .data(courses)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids) {
         log.info("Fetching {} courses in bulk", ids.size());
 
