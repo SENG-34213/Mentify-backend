@@ -23,12 +23,12 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     public ApiResponse<Page<UserResponse>> getAllTeachers(Pageable pageable) {
 
-        Page<User> students = userRepository.findAllByRole(Role.STUDENT, pageable);
-        Page<UserResponse> listOfStudents = students.map(teacherMapper::toUserResponse);
+        Page<User> teachers = userRepository.findAllByRole(Role.TEACHER, pageable);
+        Page<UserResponse> listOfTeachers = teachers.map(teacherMapper::toUserResponse);
 
         return ApiResponse.<Page<UserResponse>>builder()
                 .message("Successfully returned paginated list of Students")
-                .data(listOfStudents)
+                .data(listOfTeachers)
                 .status(HttpStatus.OK)
                 .build();
     }
