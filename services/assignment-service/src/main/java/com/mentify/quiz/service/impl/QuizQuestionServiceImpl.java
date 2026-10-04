@@ -74,7 +74,6 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
                 .orElseThrow(() -> new QuestionNotFoundException(questionId));
 
         assertCanManageQuiz(quiz);
-        assertDraft(quiz);
         validateQuestionRequest(request);
 
         question.setQuestionText(request.getQuestionText().trim());

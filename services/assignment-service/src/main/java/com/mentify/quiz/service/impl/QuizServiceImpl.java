@@ -83,7 +83,6 @@ public class QuizServiceImpl implements QuizService {
     public ApiResponse<QuizResponse> updateQuiz(UUID quizId, UpdateQuizRequest request, String authorizationHeader) {
         Quiz quiz = getQuizOrThrow(quizId);
         assertCanManageQuiz(quiz);
-        assertDraft(quiz);
         validateQuizTimes(request.getStartTime(), request.getEndTime());
 
         quiz.setTitle(request.getTitle().trim());
@@ -134,6 +133,29 @@ public class QuizServiceImpl implements QuizService {
 
         return response(HttpStatus.OK, "Quiz fetched successfully",
                 QuizMapper.toTeacherQuizResponse(quiz, questions));
+    }
+
+    @Override
+    public ApiResponse<List<QuizResponse>> getTeacherQuizzes() {
+        List<QuizResponse> quizzes = quizRepository
+                .findByTeacherIdAndIsActiveTrueOrderByCreatedAtDesc(currentUserService.getCurrentUserId())
+                .stream()
+                .map(quiz -> QuizMapper.toTeacherQuizResponse(
+                        quiz,
+                        quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quiz.getId())
+                ))
+                .toList();
+        return response(HttpStatus.OK, "Teacher quizzes fetched successfully", quizzes);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<Object> deleteQuiz(UUID quizId) {
+        Quiz quiz = getQuizOrThrow(quizId);
+        assertCanManageQuiz(quiz);
+        quiz.setActive(false);
+        quizRepository.save(quiz);
+        return response(HttpStatus.OK, "Quiz deleted successfully", null);
     }
 
     @Override

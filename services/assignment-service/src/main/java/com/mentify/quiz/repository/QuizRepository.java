@@ -14,6 +14,8 @@ public interface QuizRepository extends JpaRepository<Quiz, UUID> {
 
     Optional<Quiz> findByIdAndIsActiveTrue(UUID id);
 
+    List<Quiz> findByTeacherIdAndIsActiveTrueOrderByCreatedAtDesc(UUID teacherId);
+
     List<Quiz> findByCourseIdAndStatusAndIsActiveTrueOrderByStartTimeAsc(UUID courseId, QuizStatus status);
 
     List<Quiz> findByStartTimeBetweenAndStatusAndIsActiveTrueOrderByStartTimeAsc(
