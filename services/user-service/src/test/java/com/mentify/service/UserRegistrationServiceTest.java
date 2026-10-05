@@ -347,6 +347,52 @@ class UserRegistrationServiceTest {
         verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
     }
 
+    @Test
+    void updateUserStatus_whenUserExists_deactivatesUser() {
+        UUID userId = UUID.randomUUID();
+        User user = invitedUser(userId, "keycloak-user-id");
+        user.setActive(true);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        userRegistrationService.updateUserStatus(userId, false);
+
+        assertThat(user.isActive()).isFalse();
+
+        verify(userRepository).findById(userId);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void updateUserStatus_whenUserExists_activatesUser() {
+        UUID userId = UUID.randomUUID();
+        User user = invitedUser(userId, "keycloak-user-id");
+        user.setActive(false);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        userRegistrationService.updateUserStatus(userId, true);
+
+        assertThat(user.isActive()).isTrue();
+
+        verify(userRepository).findById(userId);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void updateUserStatus_whenUserDoesNotExist_throwsResourceNotFoundException() {
+        UUID userId = UUID.randomUUID();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userRegistrationService.updateUserStatus(userId, false))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("User not found");
+
+        verify(userRepository).findById(userId);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
     private AdminRegisterUserRequest validRequest(Role role) {
         return new AdminRegisterUserRequest(
                 "student@gmail.com",
