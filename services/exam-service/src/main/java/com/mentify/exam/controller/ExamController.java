@@ -1,6 +1,9 @@
 package com.mentify.exam.controller;
 
+import com.mentify.exam.dto.request.BatchMarksEntryRequest;
 import com.mentify.exam.dto.request.CreateExamRequest;
+import com.mentify.exam.dto.response.MarksEntryResponse;
+import com.mentify.exam.service.MarksEntryService;
 import com.mentify.exam.dto.request.UpdateExamRequest;
 import com.mentify.exam.dto.response.ExamResponse;
 import com.mentify.exam.service.ExamService;
@@ -29,6 +32,7 @@ import java.util.UUID;
 public class ExamController {
 
     private final ExamService examService;
+    private final MarksEntryService marksEntryService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ExamResponse>> createExam(
@@ -69,6 +73,23 @@ public class ExamController {
             @RequestHeader("Authorization") String authorizationHeader) {
         return respond(HttpStatus.OK, "Exam cancelled successfully",
                 examService.cancelExam(examId, authorizationHeader));
+    }
+
+    @PostMapping("/{examId}/complete")
+    public ResponseEntity<ApiResponse<ExamResponse>> completeExam(
+            @PathVariable UUID examId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Exam completed successfully",
+                examService.completeExam(examId, authorizationHeader));
+    }
+
+    @PutMapping("/{examId}/results")
+    public ResponseEntity<ApiResponse<MarksEntryResponse>> enterMarks(
+            @PathVariable UUID examId,
+            @Valid @RequestBody BatchMarksEntryRequest request,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Marks recorded successfully",
+                marksEntryService.enterMarks(examId, request, authorizationHeader));
     }
 
     private <T> ResponseEntity<ApiResponse<T>> respond(HttpStatus status, String message, T data) {

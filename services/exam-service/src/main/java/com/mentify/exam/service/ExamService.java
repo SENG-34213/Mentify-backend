@@ -18,4 +18,6 @@ public interface ExamService {
     ExamResponse updateExam(UUID examId, UpdateExamRequest request, String authorizationHeader);
 
     ExamResponse cancelExam(UUID examId, String authorizationHeader);
+
+    ExamResponse completeExam(UUID examId, String authorizationHeader);
 }
