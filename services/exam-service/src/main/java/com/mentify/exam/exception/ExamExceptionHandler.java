@@ -3,10 +3,12 @@ package com.mentify.exam.exception;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
+import feign.FeignException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -71,6 +73,18 @@ public class ExamExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return build(HttpStatus.BAD_REQUEST, "Invalid request");
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getClass().getSimpleName());
+        return build(HttpStatus.CONFLICT, "The request conflicts with existing data");
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDependencyFailure(FeignException ex) {
+        log.warn("Downstream service call failed with status {}", ex.status());
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "A dependent service is currently unavailable. Please try again later.");
     }
 
     @ExceptionHandler(Exception.class)

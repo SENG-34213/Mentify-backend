@@ -81,4 +81,33 @@ class ExamExceptionHandlerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.statusCode").value(400));
     }
+
+    @Test
+    void duplicateDataReturns409WithoutLeakingDatabaseDetails() throws Exception {
+        MvcResult result = mockMvc.perform(get(BASE + "/duplicate").header("Authorization", bearer()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.statusCode").value(409))
+                .andExpect(jsonPath("$.message").value("The request conflicts with existing data"))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        assertFalse(body.contains("jdbc:") || body.contains("uk_exam_student") || body.contains("duplicate key"));
+    }
+
+    @Test
+    void dependencyFailureReturns503WithoutLeakingServiceDetails() throws Exception {
+        MvcResult result = mockMvc.perform(get(BASE + "/dependency").header("Authorization", bearer()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.statusCode").value(503))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        assertFalse(body.contains("secret-token") || body.contains("course-service"));
+    }
+
+    @Test
+    void wrongFieldTypeReturns400() throws Exception {
+        mockMvc.perform(post(BASE + "/validate").header("Authorization", bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":[1]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
 }
