@@ -21,7 +21,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DataJpaTest
+// Pinned so CI's SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop cannot replace the Flyway schema under test.
+@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @ActiveProfiles("test")
 class ExamRepositoryPersistenceTest {
 
