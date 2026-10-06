@@ -70,6 +70,8 @@
               path: services/communication-service
             - service: attendance-service
               path: services/attendance-service
+            - service: exam-service
+              path: services/exam-service
 
       steps:
         - name: Checkout code
@@ -114,6 +116,8 @@
               path: services/communication-service
             - service: attendance-service
               path: services/attendance-service
+            - service: exam-service
+              path: services/exam-service
 
       steps:
         - name: Checkout code
@@ -164,6 +168,8 @@
               path: services/communication-service
             - service: attendance-service
               path: services/attendance-service
+            - service: exam-service
+              path: services/exam-service
 
       steps:
         - name: Checkout code
@@ -249,6 +255,9 @@
             - service: attendance-service
               path: services/attendance-service
               server_port: "8087"
+            - service: exam-service
+              path: services/exam-service
+              server_port: "8089"
 
       services:
         postgres-user:
@@ -335,6 +344,19 @@
             --health-timeout 5s
             --health-retries 5
 
+        postgres-exam:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.EXAM_DB_NAME }}
+            POSTGRES_USER: ${{ vars.EXAM_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_EXAM_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_EXAM_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
         postgres-keycloak:
           image: ${{ vars.POSTGRES_IMAGE }}
           env:
@@ -411,6 +433,11 @@
             ATTENDANCE_DB_NAME: ${{ vars.ATTENDANCE_DB_NAME }}
             ATTENDANCE_DB_USERNAME: ${{ vars.ATTENDANCE_DB_USERNAME }}
             ATTENDANCE_DB_PASSWORD: ${{ secrets.CI_ATTENDANCE_DB_PASSWORD }}
+            EXAM_DB_HOST: localhost
+            EXAM_DB_PORT: ${{ vars.HOST_PORT_EXAM_DB }}
+            EXAM_DB_NAME: ${{ vars.EXAM_DB_NAME }}
+            EXAM_DB_USERNAME: ${{ vars.EXAM_DB_USERNAME }}
+            EXAM_DB_PASSWORD: ${{ secrets.CI_EXAM_DB_PASSWORD }}
 
             SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
 

@@ -21,5 +21,6 @@
         <module>communication-service</module>
         <module>attendance-service</module>
         <module>ai-service</module>
+        <module>exam-service</module>
     </modules>
 </project>

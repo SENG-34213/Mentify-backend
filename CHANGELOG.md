@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added exam-service foundation (#38): Keycloak JWT security via common-lib, JWT-derived user identity/roles, safe global exception handling, health checks, env-based config in config-server (exam-service.yml, port 8089), gateway route /api/v1/exams/**, CI/docker/env wiring. Schema is managed by Flyway (db/migration, same setup as user-service) with Hibernate ddl-auto: validate.
 - Added the user-service Keycloak login bridge at `POST /api/v1/auth/login`.
 - Added local profile status and role consistency checks after successful Keycloak authentication.
 - Added first-login activation for complete local `INVITED` profiles after successful Keycloak authentication.
