@@ -137,6 +137,7 @@ public class MarksEntryServiceImpl implements MarksEntryService {
                 .attendanceStatus(r.getAttendanceStatus())
                 .marksObtained(r.getMarksObtained())
                 .resultStatus(r.getResultStatus())
+                .grade(r.getGrade())
                 .remarks(r.getRemarks())
                 .markedBy(r.getMarkedBy())
                 .markedAt(r.getMarkedAt())

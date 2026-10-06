@@ -3,6 +3,10 @@ package com.mentify.exam.controller;
 import com.mentify.exam.dto.request.BatchMarksEntryRequest;
 import com.mentify.exam.dto.request.CreateExamRequest;
 import com.mentify.exam.dto.response.MarksEntryResponse;
+import com.mentify.exam.dto.response.ExamResultSheetResponse;
+import com.mentify.exam.dto.response.ExamSummaryResponse;
+import com.mentify.exam.service.ExamResultSheetService;
+import com.mentify.exam.service.ExamSummaryService;
 import com.mentify.exam.service.MarksEntryService;
 import com.mentify.exam.dto.request.UpdateExamRequest;
 import com.mentify.exam.dto.response.ExamResponse;
@@ -33,6 +37,8 @@ public class ExamController {
 
     private final ExamService examService;
     private final MarksEntryService marksEntryService;
+    private final ExamResultSheetService examResultSheetService;
+    private final ExamSummaryService examSummaryService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ExamResponse>> createExam(
@@ -81,6 +87,22 @@ public class ExamController {
             @RequestHeader("Authorization") String authorizationHeader) {
         return respond(HttpStatus.OK, "Exam completed successfully",
                 examService.completeExam(examId, authorizationHeader));
+    }
+
+    @GetMapping("/{examId}/results")
+    public ResponseEntity<ApiResponse<ExamResultSheetResponse>> getResultSheet(
+            @PathVariable UUID examId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Exam results fetched successfully",
+                examResultSheetService.getResultSheet(examId, authorizationHeader));
+    }
+
+    @GetMapping("/{examId}/summary")
+    public ResponseEntity<ApiResponse<ExamSummaryResponse>> getSummary(
+            @PathVariable UUID examId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Exam summary fetched successfully",
+                examSummaryService.getSummary(examId, authorizationHeader));
     }
 
     @PutMapping("/{examId}/results")
