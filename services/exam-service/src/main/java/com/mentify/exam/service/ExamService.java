@@ -19,5 +19,9 @@ public interface ExamService {
 
     ExamResponse cancelExam(UUID examId, String authorizationHeader);
 
+    ExamResponse scheduleExam(UUID examId, String authorizationHeader);
+
+    ExamResponse startMarking(UUID examId, String authorizationHeader);
+
     ExamResponse completeExam(UUID examId, String authorizationHeader);
 }

@@ -81,6 +81,22 @@ public class ExamController {
                 examService.cancelExam(examId, authorizationHeader));
     }
 
+    @PostMapping("/{examId}/schedule")
+    public ResponseEntity<ApiResponse<ExamResponse>> scheduleExam(
+            @PathVariable UUID examId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Exam scheduled successfully",
+                examService.scheduleExam(examId, authorizationHeader));
+    }
+
+    @PostMapping("/{examId}/start-marking")
+    public ResponseEntity<ApiResponse<ExamResponse>> startMarking(
+            @PathVariable UUID examId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Exam moved to marking successfully",
+                examService.startMarking(examId, authorizationHeader));
+    }
+
     @PostMapping("/{examId}/complete")
     public ResponseEntity<ApiResponse<ExamResponse>> completeExam(
             @PathVariable UUID examId,
