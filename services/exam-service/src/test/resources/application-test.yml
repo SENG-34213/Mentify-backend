@@ -1,0 +1,29 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:examtestdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/mentify
+
+eureka:
+  client:
+    enabled: false
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+  clients:
+    course-service:
+      url: ""
+    enrollment-service:
+      url: ""

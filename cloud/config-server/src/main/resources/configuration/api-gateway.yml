@@ -47,6 +47,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: exam-service
+          uri: lb://exam-service
+          predicates:
+            - Path=/api/v1/exams/**
+          filters:
+            - StripPrefix=0
+
         - id: course-service
           uri: lb://course-service
           predicates:
