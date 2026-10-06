@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Added exam management APIs (MENT-#40) under `/api/v1/exams`: `POST /` (create, status DRAFT, `createdBy` from JWT), `GET /{examId}`, `GET /courses/{courseId}`, `PUT /{examId}` (DRAFT/SCHEDULED only), `POST /{examId}/cancel` (DRAFT/SCHEDULED only). Responses use `ApiResponse<ExamResponse>`; lifecycle violations return 409. SUPER_ADMIN/ADMIN have full access, TEACHER only for courses assigned to them (verified via Course Service Feign lookup, fails closed with 503 when unavailable), STUDENT is denied (403). Marks/time rules validated by bean validation and the service layer.
+
 - Added the physical Exam persistence model (#39): UUID-backed Exam entity, type/status enums, Flyway schema with integrity constraints and course/date indexes, repository query methods, and persistence tests.
 - Added exam-service foundation (#38): Keycloak JWT security via common-lib, JWT-derived user identity/roles, safe global exception handling, health checks, env-based config in config-server (exam-service.yml, port 8089), gateway route /api/v1/exams/**, CI/docker/env wiring. Schema is managed by Flyway (db/migration, same setup as user-service) with Hibernate ddl-auto: validate.
 - Added the user-service Keycloak login bridge at `POST /api/v1/auth/login`.
