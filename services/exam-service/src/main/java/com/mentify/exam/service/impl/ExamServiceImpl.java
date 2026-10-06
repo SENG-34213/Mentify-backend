@@ -8,6 +8,7 @@ import com.mentify.exam.entity.ExamResult;
 import com.mentify.exam.enums.AttendanceStatus;
 import com.mentify.exam.enums.ResultStatus;
 import com.mentify.exam.repository.ExamResultRepository;
+import com.mentify.exam.service.ExamResultService;
 import com.mentify.exam.enums.ExamStatus;
 import com.mentify.exam.exception.ExamDomainException;
 import com.mentify.exam.mapper.ExamMapper;
@@ -38,6 +39,7 @@ public class ExamServiceImpl implements ExamService {
     private final ExamMapper examMapper;
     private final CourseAccessService courseAccessService;
     private final CurrentUserService currentUserService;
+    private final ExamResultService examResultService;
 
     @Override
     @Transactional
@@ -89,6 +91,35 @@ public class ExamServiceImpl implements ExamService {
                     "Exam in status " + exam.getStatus() + " cannot be cancelled");
         }
         exam.setStatus(ExamStatus.CANCELLED);
+        return examMapper.toResponse(examRepository.save(exam));
+    }
+
+    @Override
+    @Transactional
+    public ExamResponse scheduleExam(UUID examId, String authorizationHeader) {
+        Exam exam = findExam(examId);
+        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        if (exam.getStatus() != ExamStatus.DRAFT) {
+            throw new ExamDomainException(HttpStatus.CONFLICT,
+                    "Exam in status " + exam.getStatus() + " cannot be scheduled");
+        }
+        examResultService.initializeResults(examId, authorizationHeader);
+        exam.setStatus(ExamStatus.SCHEDULED);
+        return examMapper.toResponse(examRepository.save(exam));
+    }
+
+    @Override
+    @Transactional
+    public ExamResponse startMarking(UUID examId, String authorizationHeader) {
+        Exam exam = findExam(examId);
+        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        if (exam.getStatus() != ExamStatus.SCHEDULED) {
+            throw new ExamDomainException(HttpStatus.CONFLICT,
+                    "Exam in status " + exam.getStatus() + " cannot be moved to marking");
+        }
+        // Picks up students who enrolled after scheduling; existing rows are untouched.
+        examResultService.initializeResults(examId, authorizationHeader);
+        exam.setStatus(ExamStatus.MARKING);
         return examMapper.toResponse(examRepository.save(exam));
     }
 
