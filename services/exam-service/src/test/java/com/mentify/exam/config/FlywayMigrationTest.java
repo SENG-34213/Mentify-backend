@@ -52,4 +52,23 @@ class FlywayMigrationTest {
         assertTrue(indexNames.contains("idx_exams_course_id"));
         assertTrue(indexNames.contains("idx_exams_exam_date"));
     }
+
+    @Test
+    void examResultMigrationCreatesIndexesAndUniqueConstraint() throws SQLException {
+        assertTrue(Arrays.stream(flyway.info().applied())
+                .anyMatch(migration -> migration.getVersion() != null
+                        && "3".equals(migration.getVersion().getVersion())));
+
+        Set<String> indexNames = new HashSet<>();
+        try (Connection connection = dataSource.getConnection();
+             ResultSet indexes = connection.getMetaData().getIndexInfo(null, null, "EXAM_RESULTS", false, false)) {
+            while (indexes.next()) {
+                indexNames.add(indexes.getString("INDEX_NAME").toLowerCase(Locale.ROOT));
+            }
+        }
+
+        assertTrue(indexNames.contains("idx_exam_results_exam_id"));
+        assertTrue(indexNames.contains("idx_exam_results_student_id"));
+        assertTrue(indexNames.stream().anyMatch(name -> name.contains("uq_exam_results_exam_student")));
+    }
 }
