@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Standardized exam-service error handling (MENT-#47): duplicate/unique-constraint violations now return 409 and unhandled downstream (Feign) failures return 503, both with safe generic messages that never expose SQL, URLs or tokens; added handler tests.
 - Added `GET /api/v1/exams/{examId}/summary` (exam-service, MENT-#46): read-only staff exam summary (total/present/absent/passed/failed counts, average/highest/lowest marks over PRESENT results with numeric marks only, average rounded to 2 dp HALF_UP, null when no numeric marks); admins or the course's assigned teacher only; COMPLETED and MARKING allowed, CANCELLED returns 409.
 - Added `GET /api/v1/exams/me` (exam-service, MENT-#45): student self-service results; student identity taken from the JWT subject only; returns only results of COMPLETED exams (exam context, attendance, marks, PASS/FAIL, grade, remarks, no marker metadata); empty list when none; staff roles get 403; read-only, single joined query.
 - Added `GET /api/v1/exams/{examId}/results` (exam-service, MENT-#44): read-only staff result sheet with exam context and all stored results (marks, attendance, PASS/FAIL/NOT_MARKED, grade, remarks, marker metadata); admins or the course's assigned teacher only; works in MARKING and COMPLETED; nothing is recalculated.

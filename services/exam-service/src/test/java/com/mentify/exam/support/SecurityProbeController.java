@@ -39,6 +39,20 @@ public class SecurityProbeController {
                 "jdbc:postgresql://db:5432/exam_db?user=postgres&password=super-secret at org.hibernate.Foo");
     }
 
+    @GetMapping("/duplicate")
+    public String duplicate() {
+        throw new org.springframework.dao.DataIntegrityViolationException(
+                "duplicate key value violates unique constraint uk_exam_student jdbc:postgresql://db/exam");
+    }
+
+    @GetMapping("/dependency")
+    public String dependency() {
+        feign.Request request = feign.Request.create(feign.Request.HttpMethod.GET,
+                "http://course-service/internal?token=secret-token", java.util.Map.of(), null,
+                java.nio.charset.StandardCharsets.UTF_8, null);
+        throw new feign.FeignException.InternalServerError("secret-token failure", request, null, null);
+    }
+
     @GetMapping("/denied")
     public String denied() {
         throw new AccessDeniedException("internal detail");
