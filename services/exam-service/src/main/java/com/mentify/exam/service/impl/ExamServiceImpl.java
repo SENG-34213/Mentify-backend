@@ -4,6 +4,10 @@ import com.mentify.exam.dto.request.CreateExamRequest;
 import com.mentify.exam.dto.request.UpdateExamRequest;
 import com.mentify.exam.dto.response.ExamResponse;
 import com.mentify.exam.entity.Exam;
+import com.mentify.exam.entity.ExamResult;
+import com.mentify.exam.enums.AttendanceStatus;
+import com.mentify.exam.enums.ResultStatus;
+import com.mentify.exam.repository.ExamResultRepository;
 import com.mentify.exam.enums.ExamStatus;
 import com.mentify.exam.exception.ExamDomainException;
 import com.mentify.exam.mapper.ExamMapper;
@@ -30,6 +34,7 @@ public class ExamServiceImpl implements ExamService {
     private static final Set<ExamStatus> CANCELLABLE = EnumSet.of(ExamStatus.DRAFT, ExamStatus.SCHEDULED);
 
     private final ExamRepository examRepository;
+    private final ExamResultRepository examResultRepository;
     private final ExamMapper examMapper;
     private final CourseAccessService courseAccessService;
     private final CurrentUserService currentUserService;
@@ -85,6 +90,44 @@ public class ExamServiceImpl implements ExamService {
         }
         exam.setStatus(ExamStatus.CANCELLED);
         return examMapper.toResponse(examRepository.save(exam));
+    }
+
+    @Override
+    @Transactional
+    public ExamResponse completeExam(UUID examId, String authorizationHeader) {
+        Exam exam = findExam(examId);
+        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        if (exam.getStatus() != ExamStatus.MARKING) {
+            throw new ExamDomainException(HttpStatus.CONFLICT,
+                    "Exam in status " + exam.getStatus() + " cannot be completed");
+        }
+        List<ExamResult> results = examResultRepository.findByExamId(examId);
+        if (results.isEmpty()) {
+            throw new ExamDomainException(HttpStatus.CONFLICT,
+                    "Exam cannot be completed because no student results are initialized");
+        }
+        long unresolved = results.stream().filter(r -> !isResolved(r, exam)).count();
+        if (unresolved > 0) {
+            throw new ExamDomainException(HttpStatus.CONFLICT,
+                    "Exam cannot be completed: " + unresolved + " student result(s) are unresolved");
+        }
+        exam.setStatus(ExamStatus.COMPLETED);
+        return examMapper.toResponse(examRepository.save(exam));
+    }
+
+    private boolean isResolved(ExamResult result, Exam exam) {
+        if (result.getAttendanceStatus() == AttendanceStatus.ABSENT) {
+            return result.getMarksObtained() == null;
+        }
+        if (result.getAttendanceStatus() == AttendanceStatus.PRESENT) {
+            java.math.BigDecimal marks = result.getMarksObtained();
+            return marks != null
+                    && marks.signum() >= 0
+                    && marks.compareTo(exam.getTotalMarks()) <= 0
+                    && (result.getResultStatus() == ResultStatus.PASS
+                    || result.getResultStatus() == ResultStatus.FAIL);
+        }
+        return false;
     }
 
     private Exam findExam(UUID examId) {
