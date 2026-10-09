@@ -22,5 +22,6 @@
         <module>attendance-service</module>
         <module>ai-service</module>
         <module>exam-service</module>
+        <module>payment-service</module>
     </modules>
 </project>

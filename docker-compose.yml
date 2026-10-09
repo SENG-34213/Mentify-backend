@@ -17,6 +17,7 @@ services:
       ATTENDANCE_DB_NAME: ${ATTENDANCE_DB_NAME:-attendance_db}
       EXAM_DB_NAME: ${EXAM_DB_NAME:-exam_db}
       AI_DB_NAME: ${AI_DB_NAME:-ai_db}
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
     volumes:
       - postgres:/data/postgres
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
