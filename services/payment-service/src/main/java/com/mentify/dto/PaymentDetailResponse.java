@@ -31,6 +31,8 @@ public class PaymentDetailResponse {
 
     private LocalDateTime paidAt;
 
+    private LocalDateTime refundedAt;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

@@ -28,5 +28,7 @@ public class PaymentSummaryResponse {
 
     private LocalDateTime paidAt;
 
+    private LocalDateTime refundedAt;
+
     private LocalDateTime createdAt;
 }

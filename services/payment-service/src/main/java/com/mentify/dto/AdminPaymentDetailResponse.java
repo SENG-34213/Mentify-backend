@@ -33,7 +33,13 @@ public class AdminPaymentDetailResponse {
 
     private String stripePaymentIntentId;
 
+    private String stripeRefundId;
+
+    private String refundReason;
+
     private LocalDateTime paidAt;
+
+    private LocalDateTime refundedAt;
 
     private LocalDateTime createdAt;
 

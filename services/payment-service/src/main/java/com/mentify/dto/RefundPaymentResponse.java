@@ -13,15 +13,13 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaymentStatusResponse {
+public class RefundPaymentResponse {
 
     private UUID paymentId;
 
     private PaymentStatus status;
 
-    private LocalDateTime paidAt;
+    private String stripeRefundId;
 
     private LocalDateTime refundedAt;
-
-    private LocalDateTime updatedAt;
 }
