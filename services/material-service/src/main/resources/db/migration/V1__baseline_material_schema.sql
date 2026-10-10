@@ -1,0 +1,1 @@
+-- Baseline for material-service. Material domain tables are introduced by later tickets.

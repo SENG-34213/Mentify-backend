@@ -1,0 +1,70 @@
+server:
+  port: ${MATERIAL_SERVICE_PORT:8091}
+
+spring:
+  application:
+    name: material-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
+    baseline-version: 0
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+  datasource:
+    url: jdbc:postgresql://${MATERIAL_DB_HOST:localhost}:${MATERIAL_DB_PORT:5434}/${MATERIAL_DB_NAME:material_db}
+    username: ${MATERIAL_DB_USERNAME:postgres}
+    password: ${MATERIAL_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+
+material:
+  storage:
+    s3:
+      bucket: ${MATERIAL_S3_BUCKET:}
+      region: ${AWS_REGION:${AWS_DEFAULT_REGION:us-east-1}}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    db:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.mentify: INFO

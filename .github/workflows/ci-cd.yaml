@@ -72,6 +72,8 @@
               path: services/attendance-service
             - service: exam-service
               path: services/exam-service
+            - service: material-service
+              path: services/material-service
 
       steps:
         - name: Checkout code
@@ -118,6 +120,8 @@
               path: services/attendance-service
             - service: exam-service
               path: services/exam-service
+            - service: material-service
+              path: services/material-service
 
       steps:
         - name: Checkout code
@@ -170,6 +174,8 @@
               path: services/attendance-service
             - service: exam-service
               path: services/exam-service
+            - service: material-service
+              path: services/material-service
 
       steps:
         - name: Checkout code
@@ -258,6 +264,9 @@
             - service: exam-service
               path: services/exam-service
               server_port: "8089"
+            - service: material-service
+              path: services/material-service
+              server_port: "8091"
 
       services:
         postgres-user:
@@ -525,4 +534,3 @@
             fi
             
             echo "All required CI checks passed."
-
