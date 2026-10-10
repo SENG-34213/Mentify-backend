@@ -40,6 +40,66 @@ material:
     s3:
       bucket: ${MATERIAL_S3_BUCKET:}
       region: ${AWS_REGION:${AWS_DEFAULT_REGION:us-east-1}}
+  validation:
+    max-upload-size: ${MATERIAL_MAX_UPLOAD_SIZE:100MB}
+    file-types:
+      - material-type: PDF
+        extensions: [pdf]
+        content-types: [application/pdf]
+      - material-type: DOCUMENT
+        extensions: [doc]
+        content-types: [application/msword]
+      - material-type: DOCUMENT
+        extensions: [docx]
+        content-types: [application/vnd.openxmlformats-officedocument.wordprocessingml.document]
+      - material-type: DOCUMENT
+        extensions: [txt]
+        content-types: [text/plain]
+      - material-type: PRESENTATION
+        extensions: [ppt]
+        content-types: [application/vnd.ms-powerpoint]
+      - material-type: PRESENTATION
+        extensions: [pptx]
+        content-types: [application/vnd.openxmlformats-officedocument.presentationml.presentation]
+      - material-type: SPREADSHEET
+        extensions: [xls]
+        content-types: [application/vnd.ms-excel]
+      - material-type: SPREADSHEET
+        extensions: [xlsx]
+        content-types: [application/vnd.openxmlformats-officedocument.spreadsheetml.sheet]
+      - material-type: IMAGE
+        extensions: [jpg, jpeg]
+        content-types: [image/jpeg]
+      - material-type: IMAGE
+        extensions: [png]
+        content-types: [image/png]
+      - material-type: IMAGE
+        extensions: [gif]
+        content-types: [image/gif]
+      - material-type: IMAGE
+        extensions: [webp]
+        content-types: [image/webp]
+      - material-type: VIDEO
+        extensions: [mp4]
+        content-types: [video/mp4]
+      - material-type: VIDEO
+        extensions: [mov]
+        content-types: [video/quicktime]
+      - material-type: VIDEO
+        extensions: [webm]
+        content-types: [video/webm]
+      - material-type: AUDIO
+        extensions: [mp3]
+        content-types: [audio/mpeg]
+      - material-type: AUDIO
+        extensions: [wav]
+        content-types: [audio/wav, audio/x-wav]
+      - material-type: AUDIO
+        extensions: [m4a]
+        content-types: [audio/mp4]
+      - material-type: AUDIO
+        extensions: [ogg]
+        content-types: [audio/ogg]
 
 eureka:
   instance:
