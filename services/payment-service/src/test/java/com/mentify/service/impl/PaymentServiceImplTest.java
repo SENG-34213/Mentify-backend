@@ -11,6 +11,8 @@ import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.PaymentVerificationResponse;
+import com.mentify.dto.RefundPaymentRequest;
+import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.entity.Payment;
@@ -23,8 +25,11 @@ import com.mentify.repository.PaymentRepository;
 import com.mentify.repository.ProcessedStripeWebhookEventRepository;
 import com.mentify.security.AuthenticatedUserService;
 import com.mentify.service.stripe.CreateStripePaymentIntentRequest;
+import com.mentify.service.stripe.CreateStripeRefundRequest;
 import com.mentify.service.stripe.StripePaymentIntent;
 import com.mentify.service.stripe.StripePaymentIntentGateway;
+import com.mentify.service.stripe.StripeRefund;
+import com.mentify.service.stripe.StripeRefundGateway;
 import com.mentify.service.stripe.StripeWebhookEvent;
 import com.mentify.service.stripe.StripeWebhookVerifier;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +88,9 @@ class PaymentServiceImplTest {
     private StripePaymentIntentGateway stripePaymentIntentGateway;
 
     @Mock
+    private StripeRefundGateway stripeRefundGateway;
+
+    @Mock
     private StripeWebhookVerifier stripeWebhookVerifier;
 
     private StripeProperties stripeProperties;
@@ -99,6 +107,7 @@ class PaymentServiceImplTest {
                 courseServiceClient,
                 currentUserService,
                 stripePaymentIntentGateway,
+                stripeRefundGateway,
                 stripeWebhookVerifier,
                 stripeProperties
         );
@@ -553,6 +562,114 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    void refundPayment_whenPaymentIsSuccessful_createsStripeRefundAndMarksRefunded() {
+        Payment payment = successfulPayment("pi_refundable");
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
+        when(stripeRefundGateway.createRefund(any(CreateStripeRefundRequest.class)))
+                .thenReturn(new StripeRefund("re_123", "succeeded"));
+
+        RefundPaymentResponse response = paymentService.refundPayment(
+                payment.getId(),
+                RefundPaymentRequest.builder().reason("Student changed schedule").build()
+        );
+
+        assertThat(response.getPaymentId()).isEqualTo(payment.getId());
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(response.getStripeRefundId()).isEqualTo("re_123");
+        assertThat(response.getRefundedAt()).isNotNull();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(payment.getStripeRefundId()).isEqualTo("re_123");
+        assertThat(payment.getRefundReason()).isEqualTo("Student changed schedule");
+        assertThat(payment.getRefundedAt()).isNotNull();
+
+        ArgumentCaptor<CreateStripeRefundRequest> refundRequestCaptor =
+                ArgumentCaptor.forClass(CreateStripeRefundRequest.class);
+        verify(stripeRefundGateway).createRefund(refundRequestCaptor.capture());
+        CreateStripeRefundRequest refundRequest = refundRequestCaptor.getValue();
+        assertThat(refundRequest.paymentIntentId()).isEqualTo("pi_refundable");
+        assertThat(refundRequest.paymentId()).isEqualTo(payment.getId());
+        assertThat(refundRequest.idempotencyKey()).isEqualTo("refund:" + payment.getId());
+        assertThat(refundRequest.reason()).isEqualTo("Student changed schedule");
+        verify(paymentRepository).saveAndFlush(payment);
+    }
+
+    @Test
+    void refundPayment_whenPaymentIsPending_rejectsWithoutCallingStripe() {
+        Payment payment = pendingPayment("pi_pending_refund");
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> paymentService.refundPayment(payment.getId(), RefundPaymentRequest.builder().build()))
+                .isInstanceOf(PaymentDomainException.class)
+                .hasMessage("Only successful payments can be refunded");
+
+        verify(stripeRefundGateway, never()).createRefund(any(CreateStripeRefundRequest.class));
+        verify(paymentRepository, never()).saveAndFlush(payment);
+    }
+
+    @Test
+    void refundPayment_whenPaymentIsFailed_rejectsWithoutCallingStripe() {
+        Payment payment = pendingPayment("pi_failed_refund");
+        payment.setStatus(PaymentStatus.FAILED);
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> paymentService.refundPayment(payment.getId(), null))
+                .isInstanceOf(PaymentDomainException.class)
+                .hasMessage("Only successful payments can be refunded");
+
+        verify(stripeRefundGateway, never()).createRefund(any(CreateStripeRefundRequest.class));
+        verify(paymentRepository, never()).saveAndFlush(payment);
+    }
+
+    @Test
+    void refundPayment_whenAlreadyRefunded_rejectsDuplicateRefund() {
+        Payment payment = successfulPayment("pi_already_refunded");
+        payment.setStatus(PaymentStatus.REFUNDED);
+        payment.setStripeRefundId("re_existing");
+        payment.setRefundedAt(LocalDateTime.of(2026, 10, 10, 14, 0));
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> paymentService.refundPayment(payment.getId(), null))
+                .isInstanceOf(PaymentDomainException.class)
+                .hasMessage("Payment has already been refunded");
+
+        verify(stripeRefundGateway, never()).createRefund(any(CreateStripeRefundRequest.class));
+        verify(paymentRepository, never()).saveAndFlush(payment);
+    }
+
+    @Test
+    void refundPayment_whenStripeFails_doesNotMarkPaymentRefunded() {
+        Payment payment = successfulPayment("pi_refund_failure");
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
+        when(stripeRefundGateway.createRefund(any(CreateStripeRefundRequest.class)))
+                .thenThrow(new PaymentProviderException("Stripe refund creation failed"));
+
+        assertThatThrownBy(() -> paymentService.refundPayment(payment.getId(), null))
+                .isInstanceOf(PaymentProviderException.class);
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(payment.getStripeRefundId()).isNull();
+        assertThat(payment.getRefundedAt()).isNull();
+        verify(paymentRepository, never()).saveAndFlush(payment);
+    }
+
+    @Test
+    void refundPayment_whenStripeRefundIsNotSucceeded_doesNotMarkPaymentRefunded() {
+        Payment payment = successfulPayment("pi_refund_pending");
+        when(paymentRepository.findByIdForUpdate(payment.getId())).thenReturn(Optional.of(payment));
+        when(stripeRefundGateway.createRefund(any(CreateStripeRefundRequest.class)))
+                .thenReturn(new StripeRefund("re_pending", "pending"));
+
+        assertThatThrownBy(() -> paymentService.refundPayment(payment.getId(), null))
+                .isInstanceOf(PaymentProviderException.class)
+                .hasMessage("Stripe refund was not confirmed as successful");
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(payment.getStripeRefundId()).isNull();
+        assertThat(payment.getRefundedAt()).isNull();
+        verify(paymentRepository, never()).saveAndFlush(payment);
+    }
+
+    @Test
     void handleStripeWebhook_whenPaymentIntentSucceeded_marksPaymentSuccessfulAndStoresPaidAt() {
         String stripePaymentIntentId = "pi_success_001";
         LocalDateTime paidAt = LocalDateTime.of(2026, 10, 10, 8, 30);
@@ -694,6 +811,13 @@ class PaymentServiceImplTest {
                 .stripePaymentIntentId(stripePaymentIntentId)
                 .build();
         payment.setId(UUID.randomUUID());
+        return payment;
+    }
+
+    private Payment successfulPayment(String stripePaymentIntentId) {
+        Payment payment = pendingPayment(stripePaymentIntentId);
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaidAt(LocalDateTime.of(2026, 10, 10, 12, 0));
         return payment;
     }
 }

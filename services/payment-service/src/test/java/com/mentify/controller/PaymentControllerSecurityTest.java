@@ -5,6 +5,8 @@ import com.mentify.common.security.KeycloakRoleConverter;
 import com.mentify.common.security.SecurityConfig;
 import com.mentify.dto.AdminPaymentDetailResponse;
 import com.mentify.dto.PaymentVerificationResponse;
+import com.mentify.dto.RefundPaymentResponse;
+import com.mentify.enums.PaymentStatus;
 import com.mentify.service.PaymentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
@@ -121,6 +124,62 @@ class PaymentControllerSecurityTest {
         mockMvc.perform(get("/api/v1/payments/internal/students/{studentId}/courses/{courseId}/successful",
                         UUID.randomUUID(),
                         UUID.randomUUID())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TEACHER"))))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    void givenAdminRole_whenRefundingPayment_thenReturnsOk() throws Exception {
+        UUID paymentId = UUID.randomUUID();
+        when(paymentService.refundPayment(org.mockito.ArgumentMatchers.eq(paymentId), any()))
+                .thenReturn(RefundPaymentResponse.builder()
+                        .paymentId(paymentId)
+                        .status(PaymentStatus.REFUNDED)
+                        .stripeRefundId("re_admin")
+                        .build());
+
+        mockMvc.perform(post("/api/v1/payments/admin/{paymentId}/refund", paymentId)
+                        .contentType("application/json")
+                        .content("{\"reason\":\"approved refund\"}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void givenSuperAdminRole_whenRefundingPayment_thenReturnsOk() throws Exception {
+        UUID paymentId = UUID.randomUUID();
+        when(paymentService.refundPayment(org.mockito.ArgumentMatchers.eq(paymentId), any()))
+                .thenReturn(RefundPaymentResponse.builder()
+                        .paymentId(paymentId)
+                        .status(PaymentStatus.REFUNDED)
+                        .stripeRefundId("re_super_admin")
+                        .build());
+
+        mockMvc.perform(post("/api/v1/payments/admin/{paymentId}/refund", paymentId)
+                        .contentType("application/json")
+                        .content("{}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void givenStudentRole_whenRefundingPayment_thenReturnsForbidden() throws Exception {
+        mockMvc.perform(post("/api/v1/payments/admin/{paymentId}/refund", UUID.randomUUID())
+                        .contentType("application/json")
+                        .content("{}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    void givenTeacherRole_whenRefundingPayment_thenReturnsForbidden() throws Exception {
+        mockMvc.perform(post("/api/v1/payments/admin/{paymentId}/refund", UUID.randomUUID())
+                        .contentType("application/json")
+                        .content("{}")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TEACHER"))))
                 .andExpect(status().isForbidden());
 
