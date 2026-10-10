@@ -46,6 +46,8 @@ class PaymentRepositoryIntegrationTest {
                 .status(PaymentStatus.SUCCESS)
                 .provider(PaymentProvider.STRIPE)
                 .stripePaymentIntentId("pi_test_payment_001")
+                .stripeClientSecret("pi_test_payment_001_secret")
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .paidAt(paidAt)
                 .build();
 
@@ -61,6 +63,7 @@ class PaymentRepositoryIntegrationTest {
         assertThat(foundPayment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(foundPayment.getProvider()).isEqualTo(PaymentProvider.STRIPE);
         assertThat(foundPayment.getStripePaymentIntentId()).isEqualTo("pi_test_payment_001");
+        assertThat(foundPayment.getStripeClientSecret()).isEqualTo("pi_test_payment_001_secret");
         assertThat(foundPayment.getPaidAt()).isEqualTo(paidAt);
         assertThat(foundPayment.getCreatedAt()).isNotNull();
         assertThat(foundPayment.getUpdatedAt()).isNotNull();
@@ -73,6 +76,7 @@ class PaymentRepositoryIntegrationTest {
                 .courseId(UUID.randomUUID())
                 .amount(new BigDecimal("500.00"))
                 .currency("USD")
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .build();
 
         Payment savedPayment = paymentRepository.saveAndFlush(payment);
@@ -92,6 +96,7 @@ class PaymentRepositoryIntegrationTest {
                 .amount(new BigDecimal("250.50"))
                 .currency("USD")
                 .stripePaymentIntentId("pi_lookup_001")
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .build();
         paymentRepository.saveAndFlush(payment);
         entityManager.clear();
@@ -114,6 +119,7 @@ class PaymentRepositoryIntegrationTest {
                 .amount(new BigDecimal("100.00"))
                 .currency("USD")
                 .stripePaymentIntentId(stripePaymentIntentId)
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .build());
         entityManager.clear();
 
@@ -123,6 +129,7 @@ class PaymentRepositoryIntegrationTest {
                 .amount(new BigDecimal("200.00"))
                 .currency("USD")
                 .stripePaymentIntentId(stripePaymentIntentId)
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .build();
 
         assertThatThrownBy(() -> paymentRepository.saveAndFlush(duplicatePayment))
@@ -136,6 +143,7 @@ class PaymentRepositoryIntegrationTest {
                 .courseId(UUID.randomUUID())
                 .amount(new BigDecimal("100.00"))
                 .currency("USD")
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .build());
 
         Payment secondPayment = paymentRepository.saveAndFlush(Payment.builder()
@@ -143,6 +151,7 @@ class PaymentRepositoryIntegrationTest {
                 .courseId(UUID.randomUUID())
                 .amount(new BigDecimal("200.00"))
                 .currency("USD")
+                .paymentOperationKey(UUID.randomUUID().toString())
                 .build());
 
         assertThat(secondPayment.getId()).isNotNull();

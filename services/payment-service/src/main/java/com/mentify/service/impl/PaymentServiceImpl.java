@@ -13,6 +13,7 @@ import com.mentify.exception.PaymentProviderException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.PaymentRepository;
+import com.mentify.repository.ProcessedStripeWebhookEventRepository;
 import com.mentify.security.AuthenticatedUserService;
 import com.mentify.service.PaymentService;
 import com.mentify.service.stripe.CreateStripePaymentIntentRequest;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -40,6 +42,7 @@ public class PaymentServiceImpl implements PaymentService {
     private static final String PAYMENT_INTENT_PAYMENT_FAILED = "payment_intent.payment_failed";
 
     private final PaymentRepository paymentRepository;
+    private final ProcessedStripeWebhookEventRepository processedStripeWebhookEventRepository;
     private final CourseServiceClient courseServiceClient;
     private final AuthenticatedUserService currentUserService;
     private final StripePaymentIntentGateway stripePaymentIntentGateway;
@@ -47,22 +50,31 @@ public class PaymentServiceImpl implements PaymentService {
     private final StripeProperties stripeProperties;
 
     @Override
+    @Transactional
     public StartCoursePaymentResponse startCoursePayment(StartCoursePaymentRequest request, String authorizationHeader) {
         UUID studentId = currentUserService.getCurrentUserId();
         CourseLookupResponse course = fetchCourse(request.getCourseId(), authorizationHeader);
         validatePayableCourse(course);
 
         String currency = resolveCurrency();
-        BigDecimal amount = course.getCourseFeeMonthly();
+        BigDecimal amount = resolvePaymentAmount(course);
+        String paymentOperationKey = paymentOperationKey(studentId, course.getId(), currency, amount);
 
-        Payment payment = paymentRepository.saveAndFlush(Payment.builder()
-                .studentId(studentId)
-                .courseId(course.getId())
-                .amount(amount)
-                .currency(currency)
-                .status(PaymentStatus.PENDING)
-                .provider(PaymentProvider.STRIPE)
-                .build());
+        Payment payment = paymentRepository
+                .findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(paymentOperationKey, PaymentStatus.PENDING)
+                .orElseGet(() -> paymentRepository.saveAndFlush(Payment.builder()
+                        .studentId(studentId)
+                        .courseId(course.getId())
+                        .amount(amount)
+                        .currency(currency)
+                        .status(PaymentStatus.PENDING)
+                        .provider(PaymentProvider.STRIPE)
+                        .paymentOperationKey(paymentOperationKey)
+                        .build()));
+
+        if (hasReusableStripeIntent(payment)) {
+            return toStartCoursePaymentResponse(payment);
+        }
 
         try {
             StripePaymentIntent paymentIntent = stripePaymentIntentGateway.createPaymentIntent(
@@ -71,78 +83,76 @@ public class PaymentServiceImpl implements PaymentService {
                             currency,
                             payment.getId(),
                             studentId,
-                            course.getId()
+                            course.getId(),
+                            stripeIdempotencyKey(payment.getId())
                     )
             );
 
+            validateStripePaymentIntentReference(payment, paymentIntent.id());
             payment.setStripePaymentIntentId(paymentIntent.id());
+            payment.setStripeClientSecret(paymentIntent.clientSecret());
             Payment savedPayment = paymentRepository.saveAndFlush(payment);
 
-            return StartCoursePaymentResponse.builder()
-                    .paymentId(savedPayment.getId())
-                    .courseId(savedPayment.getCourseId())
-                    .amount(savedPayment.getAmount())
-                    .currency(savedPayment.getCurrency())
-                    .status(savedPayment.getStatus())
-                    .clientSecret(paymentIntent.clientSecret())
-                    .build();
+            return toStartCoursePaymentResponse(savedPayment);
         } catch (PaymentProviderException ex) {
-            payment.setStatus(PaymentStatus.FAILED);
+            transitionPaymentStatus(payment, PaymentStatus.FAILED, null);
             paymentRepository.saveAndFlush(payment);
             throw ex;
         } catch (ArithmeticException ex) {
-            payment.setStatus(PaymentStatus.FAILED);
+            transitionPaymentStatus(payment, PaymentStatus.FAILED, null);
             paymentRepository.saveAndFlush(payment);
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course price cannot be converted to the configured payment currency");
         }
     }
 
     @Override
+    @Transactional
     public void handleStripeWebhook(String payload, String signatureHeader) {
         StripeWebhookEvent event = stripeWebhookVerifier.verify(payload, signatureHeader);
+        if (!claimWebhookEvent(event)) {
+            log.debug("Ignoring duplicate Stripe webhook event [{}]", event.eventId());
+            return;
+        }
 
         if (PAYMENT_INTENT_SUCCEEDED.equals(event.type())) {
-            markPaymentSuccessful(event.paymentIntentId(), event.createdAt());
+            markPaymentSuccessful(event);
             return;
         }
 
         if (PAYMENT_INTENT_PAYMENT_FAILED.equals(event.type())) {
-            markPaymentFailed(event.paymentIntentId());
+            markPaymentFailed(event);
             return;
         }
 
         log.debug("Ignoring unsupported Stripe webhook event type [{}]", event.type());
     }
 
-    private void markPaymentSuccessful(String stripePaymentIntentId, LocalDateTime paidAt) {
-        paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)
+    private void markPaymentSuccessful(StripeWebhookEvent event) {
+        paymentRepository.findByStripePaymentIntentId(event.paymentIntentId())
                 .ifPresentOrElse(payment -> {
-                    if (payment.getStatus() == PaymentStatus.SUCCESS) {
+                    if (!matchesWebhookPaymentReference(payment, event)) {
                         return;
                     }
-                    if (payment.getStatus() == PaymentStatus.REFUNDED) {
-                        log.warn("Ignoring success webhook for refunded payment [{}]", payment.getId());
+                    if (!transitionPaymentStatus(payment, PaymentStatus.SUCCESS, event.createdAt())) {
+                        log.warn("Ignoring invalid success transition for payment [{}] currently [{}]", payment.getId(), payment.getStatus());
                         return;
                     }
-                    payment.setStatus(PaymentStatus.SUCCESS);
-                    payment.setPaidAt(paidAt);
                     paymentRepository.saveAndFlush(payment);
-                }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", stripePaymentIntentId));
+                }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", event.paymentIntentId()));
     }
 
-    private void markPaymentFailed(String stripePaymentIntentId) {
-        paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)
+    private void markPaymentFailed(StripeWebhookEvent event) {
+        paymentRepository.findByStripePaymentIntentId(event.paymentIntentId())
                 .ifPresentOrElse(payment -> {
-                    if (payment.getStatus() == PaymentStatus.FAILED) {
+                    if (!matchesWebhookPaymentReference(payment, event)) {
                         return;
                     }
-                    if (payment.getStatus() == PaymentStatus.SUCCESS || payment.getStatus() == PaymentStatus.REFUNDED) {
-                        log.warn("Ignoring failure webhook for finalized payment [{}]", payment.getId());
+                    if (!transitionPaymentStatus(payment, PaymentStatus.FAILED, null)) {
+                        log.warn("Ignoring invalid failure transition for payment [{}] currently [{}]", payment.getId(), payment.getStatus());
                         return;
                     }
-                    payment.setStatus(PaymentStatus.FAILED);
                     paymentRepository.saveAndFlush(payment);
-                }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", stripePaymentIntentId));
+                }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", event.paymentIntentId()));
     }
 
     private CourseLookupResponse fetchCourse(UUID courseId, String authorizationHeader) {
@@ -182,5 +192,97 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentDomainException(HttpStatus.INTERNAL_SERVER_ERROR, "Payment currency configuration is invalid");
         }
         return normalizedCurrency;
+    }
+
+    private BigDecimal resolvePaymentAmount(CourseLookupResponse course) {
+        try {
+            return course.getCourseFeeMonthly().setScale(2);
+        } catch (ArithmeticException ex) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course price cannot be converted to the configured payment currency");
+        }
+    }
+
+    private boolean claimWebhookEvent(StripeWebhookEvent event) {
+        if (event.eventId() == null || event.eventId().isBlank()) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Invalid Stripe webhook payload");
+        }
+
+        return processedStripeWebhookEventRepository.insertIfAbsent(
+                event.eventId(),
+                event.type(),
+                event.paymentIntentId(),
+                LocalDateTime.now()
+        ) == 1;
+    }
+
+    private boolean matchesWebhookPaymentReference(Payment payment, StripeWebhookEvent event) {
+        if (event.paymentId() != null && !event.paymentId().equals(payment.getId())) {
+            log.warn("Stripe webhook event [{}] payment_id metadata did not match payment record [{}]",
+                    event.eventId(), payment.getId());
+            return false;
+        }
+
+        if (!event.paymentIntentId().equals(payment.getStripePaymentIntentId())) {
+            log.warn("Stripe webhook event [{}] PaymentIntent reference did not match payment record [{}]",
+                    event.eventId(), payment.getId());
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean transitionPaymentStatus(Payment payment, PaymentStatus targetStatus, LocalDateTime paidAt) {
+        PaymentStatus currentStatus = payment.getStatus();
+        if (currentStatus == targetStatus) {
+            return false;
+        }
+
+        if (currentStatus != PaymentStatus.PENDING) {
+            return false;
+        }
+
+        if (targetStatus != PaymentStatus.SUCCESS && targetStatus != PaymentStatus.FAILED) {
+            return false;
+        }
+
+        payment.setStatus(targetStatus);
+        if (targetStatus == PaymentStatus.SUCCESS) {
+            payment.setPaidAt(paidAt);
+        }
+        return true;
+    }
+
+    private void validateStripePaymentIntentReference(Payment payment, String stripePaymentIntentId) {
+        paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)
+                .filter(existingPayment -> !existingPayment.getId().equals(payment.getId()))
+                .ifPresent(existingPayment -> {
+                    throw new PaymentDomainException(HttpStatus.CONFLICT, "Stripe payment reference is already linked to another payment");
+                });
+    }
+
+    private boolean hasReusableStripeIntent(Payment payment) {
+        return payment.getStripePaymentIntentId() != null
+                && !payment.getStripePaymentIntentId().isBlank()
+                && payment.getStripeClientSecret() != null
+                && !payment.getStripeClientSecret().isBlank();
+    }
+
+    private StartCoursePaymentResponse toStartCoursePaymentResponse(Payment payment) {
+        return StartCoursePaymentResponse.builder()
+                .paymentId(payment.getId())
+                .courseId(payment.getCourseId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .clientSecret(payment.getStripeClientSecret())
+                .build();
+    }
+
+    private String paymentOperationKey(UUID studentId, UUID courseId, String currency, BigDecimal amount) {
+        return studentId + "|" + courseId + "|" + currency + "|" + amount.setScale(2).toPlainString();
+    }
+
+    private String stripeIdempotencyKey(UUID paymentId) {
+        return "payment-intent:" + paymentId;
     }
 }

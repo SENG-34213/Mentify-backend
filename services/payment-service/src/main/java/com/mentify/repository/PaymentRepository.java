@@ -2,6 +2,8 @@ package com.mentify.repository;
 
 import com.mentify.entity.Payment;
 import com.mentify.enums.PaymentStatus;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -19,6 +21,12 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     List<Payment> findAllByStatusOrderByCreatedAtDesc(PaymentStatus status);
 
     Optional<Payment> findByStripePaymentIntentId(String stripePaymentIntentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Payment> findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(
+            String paymentOperationKey,
+            PaymentStatus status
+    );
 
     boolean existsByStripePaymentIntentId(String stripePaymentIntentId);
 }

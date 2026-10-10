@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,7 @@ public class StripeWebhookVerifierImpl implements StripeWebhookVerifier {
                     event.getId(),
                     event.getType(),
                     paymentIntent.getId(),
+                    extractMentifyPaymentId(paymentIntent),
                     toLocalDateTime(event.getCreated())
             );
         } catch (SignatureVerificationException ex) {
@@ -51,6 +54,19 @@ public class StripeWebhookVerifierImpl implements StripeWebhookVerifier {
             throw new IllegalArgumentException("Webhook event does not contain a PaymentIntent");
         }
         return paymentIntent;
+    }
+
+    private UUID extractMentifyPaymentId(PaymentIntent paymentIntent) {
+        Map<String, String> metadata = paymentIntent.getMetadata();
+        if (metadata == null || metadata.get("payment_id") == null || metadata.get("payment_id").isBlank()) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(metadata.get("payment_id"));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Webhook PaymentIntent metadata contains an invalid payment_id", ex);
+        }
     }
 
     private LocalDateTime toLocalDateTime(Long created) {

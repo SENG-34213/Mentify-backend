@@ -7,6 +7,7 @@ public record CreateStripePaymentIntentRequest(
         String currency,
         UUID paymentId,
         UUID studentId,
-        UUID courseId
+        UUID courseId,
+        String idempotencyKey
 ) {
 }

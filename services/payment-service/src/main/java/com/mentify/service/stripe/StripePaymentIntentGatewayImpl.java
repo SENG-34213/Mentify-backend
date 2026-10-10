@@ -38,6 +38,7 @@ public class StripePaymentIntentGatewayImpl implements StripePaymentIntentGatewa
 
         RequestOptions requestOptions = RequestOptions.builder()
                 .setApiKey(stripeProperties.getSecretKey())
+                .setIdempotencyKey(request.idempotencyKey())
                 .build();
 
         try {
