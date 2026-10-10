@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.config.StripeProperties;
+import com.mentify.dto.PaymentDetailResponse;
+import com.mentify.dto.PaymentStatusResponse;
+import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.entity.Payment;
@@ -33,6 +36,7 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -315,6 +319,105 @@ class PaymentServiceImplTest {
 
         assertThat(response.toString()).doesNotContain("sk_test_should_not_be_returned");
         assertThat(response.getClientSecret()).isEqualTo("client_secret_only");
+    }
+
+    @Test
+    void getCurrentStudentPayments_whenStudentHasNoPayments_returnsEmptyList() {
+        UUID studentId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(paymentRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId)).thenReturn(List.of());
+
+        List<PaymentSummaryResponse> response = paymentService.getCurrentStudentPayments();
+
+        assertThat(response).isEmpty();
+    }
+
+    @Test
+    void getCurrentStudentPayments_returnsOnlyRepositoryOrderedSafeDtos() {
+        UUID studentId = UUID.randomUUID();
+        Payment newestPayment = pendingPayment("pi_newest");
+        newestPayment.setStudentId(studentId);
+        newestPayment.setStripeClientSecret("secret_newest");
+        newestPayment.setPaymentOperationKey("operation-newest");
+        newestPayment.setCreatedAt(LocalDateTime.of(2026, 10, 10, 11, 0));
+
+        Payment olderPayment = pendingPayment("pi_older");
+        olderPayment.setStudentId(studentId);
+        olderPayment.setStatus(PaymentStatus.SUCCESS);
+        olderPayment.setStripeClientSecret("secret_older");
+        olderPayment.setPaymentOperationKey("operation-older");
+        olderPayment.setCreatedAt(LocalDateTime.of(2026, 10, 9, 11, 0));
+        olderPayment.setPaidAt(LocalDateTime.of(2026, 10, 9, 11, 5));
+
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(paymentRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId))
+                .thenReturn(List.of(newestPayment, olderPayment));
+
+        List<PaymentSummaryResponse> response = paymentService.getCurrentStudentPayments();
+
+        assertThat(response).extracting(PaymentSummaryResponse::getPaymentId)
+                .containsExactly(newestPayment.getId(), olderPayment.getId());
+        assertThat(response.get(0).getStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(response.get(1).getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(response.toString())
+                .doesNotContain("pi_newest")
+                .doesNotContain("secret_newest")
+                .doesNotContain("operation-newest");
+    }
+
+    @Test
+    void getCurrentStudentPayment_whenOwned_returnsSafeDetails() {
+        UUID studentId = UUID.randomUUID();
+        Payment payment = pendingPayment("pi_detail");
+        payment.setStudentId(studentId);
+        payment.setStripeClientSecret("secret_detail");
+        payment.setPaymentOperationKey("operation-detail");
+        payment.setCreatedAt(LocalDateTime.of(2026, 10, 10, 9, 0));
+        payment.setUpdatedAt(LocalDateTime.of(2026, 10, 10, 9, 5));
+
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(paymentRepository.findByIdAndStudentId(payment.getId(), studentId)).thenReturn(Optional.of(payment));
+
+        PaymentDetailResponse response = paymentService.getCurrentStudentPayment(payment.getId());
+
+        assertThat(response.getPaymentId()).isEqualTo(payment.getId());
+        assertThat(response.getCourseId()).isEqualTo(payment.getCourseId());
+        assertThat(response.getAmount()).isEqualByComparingTo("100.00");
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(response.toString())
+                .doesNotContain("pi_detail")
+                .doesNotContain("secret_detail")
+                .doesNotContain("operation-detail");
+    }
+
+    @Test
+    void getCurrentStudentPayment_whenPaymentIsNotOwned_throwsNotFound() {
+        UUID studentId = UUID.randomUUID();
+        UUID paymentId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(paymentRepository.findByIdAndStudentId(paymentId, studentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.getCurrentStudentPayment(paymentId))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getCurrentStudentPaymentStatus_whenOwned_returnsCurrentStatus() {
+        UUID studentId = UUID.randomUUID();
+        Payment payment = pendingPayment("pi_status");
+        payment.setStudentId(studentId);
+        payment.setStatus(PaymentStatus.REFUNDED);
+        payment.setUpdatedAt(LocalDateTime.of(2026, 10, 10, 12, 0));
+
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(paymentRepository.findByIdAndStudentId(payment.getId(), studentId)).thenReturn(Optional.of(payment));
+
+        PaymentStatusResponse response = paymentService.getCurrentStudentPaymentStatus(payment.getId());
+
+        assertThat(response.getPaymentId()).isEqualTo(payment.getId());
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(response.getUpdatedAt()).isEqualTo(LocalDateTime.of(2026, 10, 10, 12, 0));
+        assertThat(response.toString()).doesNotContain("pi_status");
     }
 
     @Test

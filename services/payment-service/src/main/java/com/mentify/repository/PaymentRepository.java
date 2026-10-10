@@ -22,6 +22,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByStripePaymentIntentId(String stripePaymentIntentId);
 
+    Optional<Payment> findByIdAndStudentId(UUID id, UUID studentId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Payment> findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(
             String paymentOperationKey,

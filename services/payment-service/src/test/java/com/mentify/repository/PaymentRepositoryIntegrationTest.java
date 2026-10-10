@@ -110,6 +110,54 @@ class PaymentRepositoryIntegrationTest {
     }
 
     @Test
+    void findByIdAndStudentId_returnsOnlyOwnedPayment() {
+        UUID studentId = UUID.randomUUID();
+        UUID otherStudentId = UUID.randomUUID();
+        Payment payment = paymentRepository.saveAndFlush(Payment.builder()
+                .studentId(studentId)
+                .courseId(UUID.randomUUID())
+                .amount(new BigDecimal("250.50"))
+                .currency("USD")
+                .paymentOperationKey(UUID.randomUUID().toString())
+                .build());
+        entityManager.clear();
+
+        assertThat(paymentRepository.findByIdAndStudentId(payment.getId(), studentId)).isPresent();
+        assertThat(paymentRepository.findByIdAndStudentId(payment.getId(), otherStudentId)).isEmpty();
+    }
+
+    @Test
+    void findAllByStudentIdOrderByCreatedAtDesc_returnsMostRecentFirst() {
+        UUID studentId = UUID.randomUUID();
+        Payment olderPayment = Payment.builder()
+                .studentId(studentId)
+                .courseId(UUID.randomUUID())
+                .amount(new BigDecimal("100.00"))
+                .currency("USD")
+                .paymentOperationKey(UUID.randomUUID().toString())
+                .build();
+        olderPayment.setCreatedAt(LocalDateTime.of(2026, 10, 9, 10, 0));
+        olderPayment.setUpdatedAt(LocalDateTime.of(2026, 10, 9, 10, 0));
+        paymentRepository.saveAndFlush(olderPayment);
+
+        Payment newestPayment = Payment.builder()
+                .studentId(studentId)
+                .courseId(UUID.randomUUID())
+                .amount(new BigDecimal("200.00"))
+                .currency("USD")
+                .paymentOperationKey(UUID.randomUUID().toString())
+                .build();
+        newestPayment.setCreatedAt(LocalDateTime.of(2026, 10, 10, 10, 0));
+        newestPayment.setUpdatedAt(LocalDateTime.of(2026, 10, 10, 10, 0));
+        paymentRepository.saveAndFlush(newestPayment);
+        entityManager.clear();
+
+        assertThat(paymentRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId))
+                .extracting(Payment::getId)
+                .containsExactly(newestPayment.getId(), olderPayment.getId());
+    }
+
+    @Test
     void savePayment_whenStripePaymentIntentIdDuplicated_throwsDataIntegrityViolationException() {
         String stripePaymentIntentId = "pi_duplicate_001";
 

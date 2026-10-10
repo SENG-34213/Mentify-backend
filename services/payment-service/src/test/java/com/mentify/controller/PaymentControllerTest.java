@@ -1,5 +1,8 @@
 package com.mentify.controller;
 
+import com.mentify.dto.PaymentDetailResponse;
+import com.mentify.dto.PaymentStatusResponse;
+import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.enums.PaymentStatus;
@@ -10,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +52,70 @@ class PaymentControllerTest {
         assertThat(response.getBody().getStatusCode()).isEqualTo(HttpStatus.CREATED.value());
         assertThat(response.getBody().getData()).isEqualTo(serviceResponse);
         verify(paymentService).startCoursePayment(request, authorizationHeader);
+    }
+
+    @Test
+    void getMyPayments_returnsOkApiResponse() {
+        PaymentService paymentService = mock(PaymentService.class);
+        PaymentController controller = new PaymentController(paymentService);
+        PaymentSummaryResponse serviceResponse = PaymentSummaryResponse.builder()
+                .paymentId(UUID.randomUUID())
+                .courseId(UUID.randomUUID())
+                .amount(new BigDecimal("1000.00"))
+                .currency("LKR")
+                .status(PaymentStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(paymentService.getCurrentStudentPayments()).thenReturn(List.of(serviceResponse));
+
+        ResponseEntity<ApiResponse<List<PaymentSummaryResponse>>> response = controller.getMyPayments();
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).containsExactly(serviceResponse);
+        verify(paymentService).getCurrentStudentPayments();
+    }
+
+    @Test
+    void getMyPayment_returnsOkApiResponse() {
+        PaymentService paymentService = mock(PaymentService.class);
+        PaymentController controller = new PaymentController(paymentService);
+        UUID paymentId = UUID.randomUUID();
+        PaymentDetailResponse serviceResponse = PaymentDetailResponse.builder()
+                .paymentId(paymentId)
+                .courseId(UUID.randomUUID())
+                .amount(new BigDecimal("1000.00"))
+                .currency("LKR")
+                .status(PaymentStatus.SUCCESS)
+                .build();
+        when(paymentService.getCurrentStudentPayment(paymentId)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<PaymentDetailResponse>> response = controller.getMyPayment(paymentId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).isEqualTo(serviceResponse);
+        verify(paymentService).getCurrentStudentPayment(paymentId);
+    }
+
+    @Test
+    void getMyPaymentStatus_returnsOkApiResponse() {
+        PaymentService paymentService = mock(PaymentService.class);
+        PaymentController controller = new PaymentController(paymentService);
+        UUID paymentId = UUID.randomUUID();
+        PaymentStatusResponse serviceResponse = PaymentStatusResponse.builder()
+                .paymentId(paymentId)
+                .status(PaymentStatus.FAILED)
+                .updatedAt(LocalDateTime.now())
+                .build();
+        when(paymentService.getCurrentStudentPaymentStatus(paymentId)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<PaymentStatusResponse>> response = controller.getMyPaymentStatus(paymentId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).isEqualTo(serviceResponse);
+        verify(paymentService).getCurrentStudentPaymentStatus(paymentId);
     }
 
     @Test
