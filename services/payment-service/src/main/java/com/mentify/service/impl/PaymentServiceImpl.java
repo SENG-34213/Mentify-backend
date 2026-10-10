@@ -10,6 +10,8 @@ import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.PaymentVerificationResponse;
+import com.mentify.dto.RefundPaymentRequest;
+import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.entity.Payment;
@@ -25,8 +27,11 @@ import com.mentify.repository.ProcessedStripeWebhookEventRepository;
 import com.mentify.security.AuthenticatedUserService;
 import com.mentify.service.PaymentService;
 import com.mentify.service.stripe.CreateStripePaymentIntentRequest;
+import com.mentify.service.stripe.CreateStripeRefundRequest;
 import com.mentify.service.stripe.StripePaymentIntent;
 import com.mentify.service.stripe.StripePaymentIntentGateway;
+import com.mentify.service.stripe.StripeRefund;
+import com.mentify.service.stripe.StripeRefundGateway;
 import com.mentify.service.stripe.StripeWebhookEvent;
 import com.mentify.service.stripe.StripeWebhookVerifier;
 import feign.FeignException;
@@ -54,6 +59,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private static final String PAYMENT_INTENT_SUCCEEDED = "payment_intent.succeeded";
     private static final String PAYMENT_INTENT_PAYMENT_FAILED = "payment_intent.payment_failed";
+    private static final String STRIPE_REFUND_SUCCEEDED = "succeeded";
     private static final int DEFAULT_ADMIN_PAGE_SIZE = 20;
 
     private final PaymentRepository paymentRepository;
@@ -61,6 +67,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final CourseServiceClient courseServiceClient;
     private final AuthenticatedUserService currentUserService;
     private final StripePaymentIntentGateway stripePaymentIntentGateway;
+    private final StripeRefundGateway stripeRefundGateway;
     private final StripeWebhookVerifier stripeWebhookVerifier;
     private final StripeProperties stripeProperties;
 
@@ -179,6 +186,35 @@ public class PaymentServiceImpl implements PaymentService {
                 .courseId(courseId)
                 .successfulPaymentExists(successfulPaymentExists)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public RefundPaymentResponse refundPayment(UUID paymentId, RefundPaymentRequest request) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+
+        validateRefundEligibility(payment);
+
+        String refundReason = normalizeRefundReason(request);
+        StripeRefund stripeRefund = stripeRefundGateway.createRefund(new CreateStripeRefundRequest(
+                payment.getStripePaymentIntentId(),
+                payment.getId(),
+                stripeRefundIdempotencyKey(payment.getId()),
+                refundReason
+        ));
+
+        if (!STRIPE_REFUND_SUCCEEDED.equalsIgnoreCase(stripeRefund.status())) {
+            throw new PaymentProviderException("Stripe refund was not confirmed as successful");
+        }
+
+        payment.setStatus(PaymentStatus.REFUNDED);
+        payment.setStripeRefundId(stripeRefund.id());
+        payment.setRefundedAt(LocalDateTime.now());
+        payment.setRefundReason(refundReason);
+
+        Payment savedPayment = paymentRepository.saveAndFlush(payment);
+        return toRefundPaymentResponse(savedPayment);
     }
 
     @Override
@@ -305,6 +341,31 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    private void validateRefundEligibility(Payment payment) {
+        if (payment.getStatus() == PaymentStatus.REFUNDED || hasText(payment.getStripeRefundId())) {
+            throw new PaymentDomainException(HttpStatus.CONFLICT, "Payment has already been refunded");
+        }
+
+        if (payment.getStatus() != PaymentStatus.SUCCESS) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Only successful payments can be refunded");
+        }
+
+        if (!hasText(payment.getStripePaymentIntentId())) {
+            throw new PaymentDomainException(HttpStatus.CONFLICT, "Payment is missing Stripe payment reference");
+        }
+    }
+
+    private String normalizeRefundReason(RefundPaymentRequest request) {
+        if (request == null || request.getReason() == null || request.getReason().isBlank()) {
+            return null;
+        }
+        return request.getReason().trim();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private Pageable recentFirst(Pageable pageable) {
         Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
         if (pageable == null || pageable.isUnpaged()) {
@@ -384,6 +445,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .currency(payment.getCurrency())
                 .status(payment.getStatus())
                 .paidAt(payment.getPaidAt())
+                .refundedAt(payment.getRefundedAt())
                 .createdAt(payment.getCreatedAt())
                 .build();
     }
@@ -397,6 +459,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .provider(payment.getProvider())
                 .paidAt(payment.getPaidAt())
+                .refundedAt(payment.getRefundedAt())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
@@ -407,6 +470,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentId(payment.getId())
                 .status(payment.getStatus())
                 .paidAt(payment.getPaidAt())
+                .refundedAt(payment.getRefundedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
     }
@@ -421,6 +485,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .stripePaymentIntentId(payment.getStripePaymentIntentId())
                 .paidAt(payment.getPaidAt())
+                .refundedAt(payment.getRefundedAt())
                 .createdAt(payment.getCreatedAt())
                 .build();
     }
@@ -435,9 +500,21 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .provider(payment.getProvider())
                 .stripePaymentIntentId(payment.getStripePaymentIntentId())
+                .stripeRefundId(payment.getStripeRefundId())
+                .refundReason(payment.getRefundReason())
                 .paidAt(payment.getPaidAt())
+                .refundedAt(payment.getRefundedAt())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
+                .build();
+    }
+
+    private RefundPaymentResponse toRefundPaymentResponse(Payment payment) {
+        return RefundPaymentResponse.builder()
+                .paymentId(payment.getId())
+                .status(payment.getStatus())
+                .stripeRefundId(payment.getStripeRefundId())
+                .refundedAt(payment.getRefundedAt())
                 .build();
     }
 
@@ -447,5 +524,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     private String stripeIdempotencyKey(UUID paymentId) {
         return "payment-intent:" + paymentId;
+    }
+
+    private String stripeRefundIdempotencyKey(UUID paymentId) {
+        return "refund:" + paymentId;
     }
 }

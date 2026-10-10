@@ -7,6 +7,8 @@ import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.PaymentVerificationResponse;
+import com.mentify.dto.RefundPaymentRequest;
+import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,8 @@ public interface PaymentService {
     AdminPaymentDetailResponse getAdminPayment(UUID paymentId);
 
     PaymentVerificationResponse verifySuccessfulPayment(UUID studentId, UUID courseId);
+
+    RefundPaymentResponse refundPayment(UUID paymentId, RefundPaymentRequest request);
 
     void handleStripeWebhook(String payload, String signatureHeader);
 }

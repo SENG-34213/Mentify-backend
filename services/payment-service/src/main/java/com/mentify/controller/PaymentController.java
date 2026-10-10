@@ -7,6 +7,8 @@ import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.PaymentVerificationResponse;
+import com.mentify.dto.RefundPaymentRequest;
+import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.enums.PaymentStatus;
@@ -155,6 +157,22 @@ public class PaymentController {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .message("Payment verification completed")
+                .data(data)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/admin/{paymentId}/refund")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<RefundPaymentResponse>> refundPayment(
+            @PathVariable UUID paymentId,
+            @Valid @RequestBody(required = false) RefundPaymentRequest request
+    ) {
+        RefundPaymentResponse data = paymentService.refundPayment(paymentId, request);
+        ApiResponse<RefundPaymentResponse> response = ApiResponse.<RefundPaymentResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Payment refunded successfully")
                 .data(data)
                 .build();
         return ResponseEntity.ok(response);
