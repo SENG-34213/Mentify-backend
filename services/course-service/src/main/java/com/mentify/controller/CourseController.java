@@ -69,7 +69,7 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}/lookup")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> lookupCourseById(@PathVariable UUID courseId) {
         ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
         return new ResponseEntity<>(response, response.getStatus());

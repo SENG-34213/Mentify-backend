@@ -33,12 +33,20 @@ spring:
         order_updates: true
 
 mentify:
+  clients:
+    course-service:
+      url: ${COURSE_SERVICE_URL:}
   security:
     enabled: true
     principal-claim: preferred_username
 
 payment:
   provider: ${PAYMENT_PROVIDER:STRIPE}
+  currency: ${PAYMENT_CURRENCY:LKR}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  currency: ${PAYMENT_CURRENCY:LKR}
 
 eureka:
   instance:

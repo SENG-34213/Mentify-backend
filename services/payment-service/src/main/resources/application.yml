@@ -19,6 +19,11 @@ mentify:
 
 payment:
   provider: ${PAYMENT_PROVIDER:STRIPE}
+  currency: ${PAYMENT_CURRENCY:LKR}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  currency: ${PAYMENT_CURRENCY:LKR}
 
 eureka:
   instance:
