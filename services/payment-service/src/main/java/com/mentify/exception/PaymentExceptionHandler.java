@@ -40,6 +40,11 @@ public class PaymentExceptionHandler extends ResponseEntityExceptionHandler {
         return build(HttpStatus.BAD_GATEWAY, "Payment provider is currently unavailable. Please try again later.");
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleResourceNotFound(ResourceNotFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "Access denied");
