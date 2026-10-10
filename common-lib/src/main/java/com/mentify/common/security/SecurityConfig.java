@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/forgot-password",
                                 "/api/assignments/quizzes/ai/generate",
+                                "/api/v1/payments/stripe/webhook",
                                 "/ws",
                                 "/ws/**",
                                 "/v3/api-docs/**",

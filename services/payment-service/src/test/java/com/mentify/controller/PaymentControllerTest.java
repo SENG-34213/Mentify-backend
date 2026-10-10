@@ -48,4 +48,17 @@ class PaymentControllerTest {
         assertThat(response.getBody().getData()).isEqualTo(serviceResponse);
         verify(paymentService).startCoursePayment(request, authorizationHeader);
     }
+
+    @Test
+    void handleStripeWebhook_returnsAcceptedResponse() {
+        PaymentService paymentService = mock(PaymentService.class);
+        PaymentController controller = new PaymentController(paymentService);
+
+        ResponseEntity<ApiResponse<Object>> response = controller.handleStripeWebhook("payload", "signature");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Stripe webhook accepted");
+        verify(paymentService).handleStripeWebhook("payload", "signature");
+    }
 }

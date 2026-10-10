@@ -38,4 +38,18 @@ public class PaymentController {
                 .build();
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+    @PostMapping("/stripe/webhook")
+    public ResponseEntity<ApiResponse<Object>> handleStripeWebhook(
+            @RequestBody String payload,
+            @RequestHeader("Stripe-Signature") String signatureHeader
+    ) {
+        paymentService.handleStripeWebhook(payload, signatureHeader);
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Stripe webhook accepted")
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }

@@ -6,4 +6,6 @@ import com.mentify.dto.StartCoursePaymentResponse;
 public interface PaymentService {
 
     StartCoursePaymentResponse startCoursePayment(StartCoursePaymentRequest request, String authorizationHeader);
+
+    void handleStripeWebhook(String payload, String signatureHeader);
 }
