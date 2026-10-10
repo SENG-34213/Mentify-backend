@@ -18,23 +18,32 @@ import com.mentify.service.PaymentService;
 import com.mentify.service.stripe.CreateStripePaymentIntentRequest;
 import com.mentify.service.stripe.StripePaymentIntent;
 import com.mentify.service.stripe.StripePaymentIntentGateway;
+import com.mentify.service.stripe.StripeWebhookEvent;
+import com.mentify.service.stripe.StripeWebhookVerifier;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceImpl implements PaymentService {
+
+    private static final String PAYMENT_INTENT_SUCCEEDED = "payment_intent.succeeded";
+    private static final String PAYMENT_INTENT_PAYMENT_FAILED = "payment_intent.payment_failed";
 
     private final PaymentRepository paymentRepository;
     private final CourseServiceClient courseServiceClient;
     private final AuthenticatedUserService currentUserService;
     private final StripePaymentIntentGateway stripePaymentIntentGateway;
+    private final StripeWebhookVerifier stripeWebhookVerifier;
     private final StripeProperties stripeProperties;
 
     @Override
@@ -86,6 +95,54 @@ public class PaymentServiceImpl implements PaymentService {
             paymentRepository.saveAndFlush(payment);
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course price cannot be converted to the configured payment currency");
         }
+    }
+
+    @Override
+    public void handleStripeWebhook(String payload, String signatureHeader) {
+        StripeWebhookEvent event = stripeWebhookVerifier.verify(payload, signatureHeader);
+
+        if (PAYMENT_INTENT_SUCCEEDED.equals(event.type())) {
+            markPaymentSuccessful(event.paymentIntentId(), event.createdAt());
+            return;
+        }
+
+        if (PAYMENT_INTENT_PAYMENT_FAILED.equals(event.type())) {
+            markPaymentFailed(event.paymentIntentId());
+            return;
+        }
+
+        log.debug("Ignoring unsupported Stripe webhook event type [{}]", event.type());
+    }
+
+    private void markPaymentSuccessful(String stripePaymentIntentId, LocalDateTime paidAt) {
+        paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)
+                .ifPresentOrElse(payment -> {
+                    if (payment.getStatus() == PaymentStatus.SUCCESS) {
+                        return;
+                    }
+                    if (payment.getStatus() == PaymentStatus.REFUNDED) {
+                        log.warn("Ignoring success webhook for refunded payment [{}]", payment.getId());
+                        return;
+                    }
+                    payment.setStatus(PaymentStatus.SUCCESS);
+                    payment.setPaidAt(paidAt);
+                    paymentRepository.saveAndFlush(payment);
+                }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", stripePaymentIntentId));
+    }
+
+    private void markPaymentFailed(String stripePaymentIntentId) {
+        paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)
+                .ifPresentOrElse(payment -> {
+                    if (payment.getStatus() == PaymentStatus.FAILED) {
+                        return;
+                    }
+                    if (payment.getStatus() == PaymentStatus.SUCCESS || payment.getStatus() == PaymentStatus.REFUNDED) {
+                        log.warn("Ignoring failure webhook for finalized payment [{}]", payment.getId());
+                        return;
+                    }
+                    payment.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.saveAndFlush(payment);
+                }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", stripePaymentIntentId));
     }
 
     private CourseLookupResponse fetchCourse(UUID courseId, String authorizationHeader) {
