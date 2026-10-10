@@ -89,6 +89,15 @@ public class UserRegistrationService {
         keycloakUserService.sendPasswordSetupEmail(user.getKeycloakUserId());
     }
 
+    @Transactional
+    public void updateUserStatus(UUID userId, boolean active) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        user.setActive(active);
+        userRepository.save(user);
+    }
+
     private void compensateKeycloakUserCreation(String keycloakUserId, Exception originalException) {
         if (keycloakUserId == null) {
             return;

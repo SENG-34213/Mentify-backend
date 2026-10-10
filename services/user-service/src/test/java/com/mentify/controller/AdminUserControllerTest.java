@@ -36,6 +36,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 @WebMvcTest(
         controllers = UserRegistration.class,
@@ -178,6 +179,51 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.message").value("Invitation email sent successfully."));
 
         verify(userRegistrationService).resendInvitation(userId);
+    }
+
+    @Test
+    void updateUserStatus_whenUnauthenticated_returnsUnauthorized() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userRegistrationService);
+    }
+
+    @Test
+    void updateUserStatus_whenStudentRole_returnsForbidden() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("ROLE_STUDENT")
+                        ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(userRegistrationService);
+    }
+
+    @Test
+    void updateUserStatus_whenAdminRole_returnsOk() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("ROLE_ADMIN")
+                        ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("User status updated successfully"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(userRegistrationService).updateUserStatus(userId, false);
     }
 
     @Test
