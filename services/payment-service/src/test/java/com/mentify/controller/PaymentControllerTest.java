@@ -6,6 +6,7 @@ import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
+import com.mentify.dto.PaymentVerificationResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.enums.PaymentStatus;
@@ -193,6 +194,28 @@ class PaymentControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getData()).isEqualTo(serviceResponse);
         verify(paymentService).getAdminPayment(paymentId);
+    }
+
+    @Test
+    void verifySuccessfulPayment_returnsOkApiResponse() {
+        PaymentService paymentService = mock(PaymentService.class);
+        PaymentController controller = new PaymentController(paymentService);
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        PaymentVerificationResponse serviceResponse = PaymentVerificationResponse.builder()
+                .studentId(studentId)
+                .courseId(courseId)
+                .successfulPaymentExists(true)
+                .build();
+        when(paymentService.verifySuccessfulPayment(studentId, courseId)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<PaymentVerificationResponse>> response =
+                controller.verifySuccessfulPayment(studentId, courseId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).isEqualTo(serviceResponse);
+        verify(paymentService).verifySuccessfulPayment(studentId, courseId);
     }
 
     @Test

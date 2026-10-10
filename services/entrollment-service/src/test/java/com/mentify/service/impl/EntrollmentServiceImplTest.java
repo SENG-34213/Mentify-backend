@@ -2,19 +2,25 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.PaymentServiceClient;
 import com.mentify.client.UserServiceClient;
 import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.client.dto.PaymentVerificationResponse;
 import com.mentify.client.dto.UserLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
+import com.mentify.exception.PaymentRequiredException;
+import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.EntrollmentRepository;
+import com.mentify.security.CurrentUserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +60,12 @@ class EntrollmentServiceImplTest {
 
     @Mock
     private UserServiceClient userServiceClient;
+
+    @Mock
+    private PaymentServiceClient paymentServiceClient;
+
+    @Mock
+    private CurrentUserService currentUserService;
 
     @InjectMocks
     private EntrollmentServiceImpl entrollmentService;
@@ -80,6 +94,190 @@ class EntrollmentServiceImplTest {
         verify(communicationServiceClient).addStudentToCourseGroup(eq(courseOne), any(AddStudentToGroupRequest.class), eq("Bearer token"));
         verify(communicationServiceClient).addStudentToCourseGroup(eq(courseTwo), any(AddStudentToGroupRequest.class), eq("Bearer token"));
         verify(communicationServiceClient).addStudentToCourseGroup(eq(courseThree), any(AddStudentToGroupRequest.class), eq("Bearer token"));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenPaidCourseHasSuccessfulPayment_succeeds() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        StudentEntrollmentCreateRequest request = StudentEntrollmentCreateRequest.builder()
+                .courseIds(List.of(courseId))
+                .build();
+
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "1499.99"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer student-token"))
+                .thenReturn(successPaymentVerification(studentId, courseId, true));
+        when(entrollmentRepository.save(any(Entrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiResponse<EntrollmentResponse> response =
+                entrollmentService.createCurrentStudentEntrollment(request, "Bearer student-token");
+
+        assertEquals(HttpStatus.CREATED, response.getStatus());
+        assertEquals(studentId, response.getData().getStudentId());
+        assertEquals(Set.of(courseId), response.getData().getCourseIds());
+        verify(paymentServiceClient).verifySuccessfulPayment(studentId, courseId, "Bearer student-token");
+        verify(entrollmentRepository).save(any(Entrollment.class));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenPaidCoursePaymentIsPending_doesNotEnroll() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "1499.99"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer student-token"))
+                .thenReturn(successPaymentVerification(studentId, courseId, false));
+
+        assertThrows(
+                PaymentRequiredException.class,
+                () -> entrollmentService.createCurrentStudentEntrollment(
+                        StudentEntrollmentCreateRequest.builder().courseIds(List.of(courseId)).build(),
+                        "Bearer student-token"
+                )
+        );
+
+        verify(entrollmentRepository, never()).save(any(Entrollment.class));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenPaidCoursePaymentIsFailed_doesNotEnroll() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "1499.99"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer student-token"))
+                .thenReturn(successPaymentVerification(studentId, courseId, false));
+
+        assertThrows(
+                PaymentRequiredException.class,
+                () -> entrollmentService.createCurrentStudentEntrollment(
+                        StudentEntrollmentCreateRequest.builder().courseIds(List.of(courseId)).build(),
+                        "Bearer student-token"
+                )
+        );
+
+        verify(entrollmentRepository, never()).save(any(Entrollment.class));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenPaymentBelongsToAnotherCourse_doesNotEnroll() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        UUID otherCourseId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "1499.99"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer student-token"))
+                .thenReturn(successPaymentVerification(studentId, otherCourseId, true));
+
+        assertThrows(
+                PaymentRequiredException.class,
+                () -> entrollmentService.createCurrentStudentEntrollment(
+                        StudentEntrollmentCreateRequest.builder().courseIds(List.of(courseId)).build(),
+                        "Bearer student-token"
+                )
+        );
+
+        verify(entrollmentRepository, never()).save(any(Entrollment.class));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenPaymentBelongsToAnotherStudent_doesNotEnroll() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        UUID otherStudentId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "1499.99"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer student-token"))
+                .thenReturn(successPaymentVerification(otherStudentId, courseId, true));
+
+        assertThrows(
+                PaymentRequiredException.class,
+                () -> entrollmentService.createCurrentStudentEntrollment(
+                        StudentEntrollmentCreateRequest.builder().courseIds(List.of(courseId)).build(),
+                        "Bearer student-token"
+                )
+        );
+
+        verify(entrollmentRepository, never()).save(any(Entrollment.class));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenDuplicateEnrollmentExists_doesNotCreateDuplicate() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        Entrollment existing = Entrollment.builder()
+                .studentId(studentId)
+                .courseIds(Set.of(courseId))
+                .build();
+
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "1499.99"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of(existing));
+
+        assertThrows(
+                ResourceAlreadyExistsException.class,
+                () -> entrollmentService.createCurrentStudentEntrollment(
+                        StudentEntrollmentCreateRequest.builder().courseIds(List.of(courseId)).build(),
+                        "Bearer student-token"
+                )
+        );
+
+        verify(paymentServiceClient, never()).verifySuccessfulPayment(any(), any(), any());
+        verify(entrollmentRepository, never()).save(any(Entrollment.class));
+    }
+
+    @Test
+    void createCurrentStudentEnrollment_whenCourseIsFree_doesNotRequirePayment() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer student-token"))
+                .thenReturn(successCourseLookupResponse(courseId, "0.00"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(entrollmentRepository.save(any(Entrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiResponse<EntrollmentResponse> response = entrollmentService.createCurrentStudentEntrollment(
+                StudentEntrollmentCreateRequest.builder().courseIds(List.of(courseId)).build(),
+                "Bearer student-token"
+        );
+
+        assertEquals(HttpStatus.CREATED, response.getStatus());
+        assertEquals(Set.of(courseId), response.getData().getCourseIds());
+        verify(paymentServiceClient, never()).verifySuccessfulPayment(any(), any(), any());
+    }
+
+    @Test
+    void createEnrollment_whenAdminEnrollsPaidCourse_requiresSuccessfulPayment() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        EntrollmentCreateRequest request = EntrollmentCreateRequest.builder()
+                .studentId(studentId)
+                .courseIds(List.of(courseId))
+                .build();
+
+        when(courseServiceClient.getCoursesByIds(any(CourseBulkLookupRequest.class), eq("Bearer admin-token")))
+                .thenReturn(successCourseLookupResponse(List.of(courseId), "2500.00"));
+        when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
+        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer admin-token"))
+                .thenReturn(successPaymentVerification(studentId, courseId, true));
+        when(entrollmentRepository.save(any(Entrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiResponse<EntrollmentResponse> response = entrollmentService.createEntrollment(request, "Bearer admin-token");
+
+        assertEquals(HttpStatus.CREATED, response.getStatus());
+        verify(paymentServiceClient).verifySuccessfulPayment(studentId, courseId, "Bearer admin-token");
     }
 
     @Test
@@ -258,9 +456,16 @@ class EntrollmentServiceImplTest {
     }
 
     private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds) {
+        return successCourseLookupResponse(courseIds, null);
+    }
+
+    private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds, String courseFeeMonthly) {
         List<CourseLookupResponse> responses = courseIds.stream().map(id -> {
             CourseLookupResponse response = new CourseLookupResponse();
             response.setId(id);
+            if (courseFeeMonthly != null) {
+                response.setCourseFeeMonthly(new BigDecimal(courseFeeMonthly));
+            }
             return response;
         }).toList();
 
@@ -269,6 +474,37 @@ class EntrollmentServiceImplTest {
                 .status(HttpStatus.OK)
                 .message("Courses fetched successfully")
                 .data(responses)
+                .build();
+    }
+
+    private ApiResponse<CourseLookupResponse> successCourseLookupResponse(UUID courseId, String courseFeeMonthly) {
+        CourseLookupResponse response = new CourseLookupResponse();
+        response.setId(courseId);
+        response.setCourseFeeMonthly(new BigDecimal(courseFeeMonthly));
+
+        return ApiResponse.<CourseLookupResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Course fetched successfully")
+                .data(response)
+                .build();
+    }
+
+    private ApiResponse<PaymentVerificationResponse> successPaymentVerification(
+            UUID studentId,
+            UUID courseId,
+            boolean successfulPaymentExists
+    ) {
+        PaymentVerificationResponse response = new PaymentVerificationResponse();
+        response.setStudentId(studentId);
+        response.setCourseId(courseId);
+        response.setSuccessfulPaymentExists(successfulPaymentExists);
+
+        return ApiResponse.<PaymentVerificationResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Payment verification completed")
+                .data(response)
                 .build();
     }
 
