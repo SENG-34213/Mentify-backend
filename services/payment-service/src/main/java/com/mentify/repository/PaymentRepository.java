@@ -25,6 +25,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID>, JpaSpec
 
     Optional<Payment> findByIdAndStudentId(UUID id, UUID studentId);
 
+    boolean existsByStudentIdAndCourseIdAndStatus(UUID studentId, UUID courseId, PaymentStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Payment> findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(
             String paymentOperationKey,
