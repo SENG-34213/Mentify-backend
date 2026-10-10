@@ -21,7 +21,7 @@ public class TeacherController {
 
 
     @GetMapping("/all-teachers")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllTeachers(Pageable pageable){
         ApiResponse<Page<UserResponse>> response = teacherService.getAllTeachers(pageable);
         return new ResponseEntity<>(response,response.getStatus());

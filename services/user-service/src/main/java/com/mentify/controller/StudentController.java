@@ -30,7 +30,7 @@ public class StudentController {
     }
 
     @GetMapping("/all-students")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllStudents(Pageable pageable){
         ApiResponse<Page<UserResponse>> response = studentService.getAllStudents(pageable);
 

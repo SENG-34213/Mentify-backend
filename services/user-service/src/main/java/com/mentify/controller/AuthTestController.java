@@ -36,7 +36,7 @@ public class AuthTestController {
     }
 
     @GetMapping("/admin-test")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public Map<String, String> adminTest() {
         return Map.of(
                 "status", "success",

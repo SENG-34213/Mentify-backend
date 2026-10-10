@@ -110,7 +110,7 @@ public class UserRegistration {
     }
 
     @PatchMapping("/{userId}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> updateUserStatus(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserStatusRequest request

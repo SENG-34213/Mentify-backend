@@ -36,7 +36,7 @@ public class CourseContentController {
     private final LearningMaterialService learningMaterialService;
 
     @PostMapping
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ModuleResponse>> createModule(
             @PathVariable UUID courseId,
             @Valid @RequestBody ModuleCreateRequest request
@@ -46,7 +46,7 @@ public class CourseContentController {
     }
 
     @PutMapping("/{moduleId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ModuleResponse>> updateModule(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -57,14 +57,14 @@ public class CourseContentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<ModuleResponse>>> getModules(@PathVariable UUID courseId) {
         ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
     @GetMapping("/{moduleId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ModuleResponse>> getModule(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId
@@ -74,7 +74,7 @@ public class CourseContentController {
     }
 
     @DeleteMapping("/{moduleId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Object>> deleteModule(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId
@@ -84,7 +84,7 @@ public class CourseContentController {
     }
 
     @PostMapping("/{moduleId}/lessons")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LessonResponse>> createLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -95,7 +95,7 @@ public class CourseContentController {
     }
 
     @PutMapping("/{moduleId}/lessons/{lessonId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LessonResponse>> updateLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -107,7 +107,7 @@ public class CourseContentController {
     }
 
     @GetMapping("/{moduleId}/lessons")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<LessonResponse>>> getLessons(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId
@@ -117,7 +117,7 @@ public class CourseContentController {
     }
 
     @GetMapping("/{moduleId}/lessons/{lessonId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LessonResponse>> getLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -128,7 +128,7 @@ public class CourseContentController {
     }
 
     @DeleteMapping("/{moduleId}/lessons/{lessonId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Object>> deleteLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -139,7 +139,7 @@ public class CourseContentController {
     }
 
     @PostMapping("/{moduleId}/learning-materials")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> createLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -151,7 +151,7 @@ public class CourseContentController {
     }
 
     @PutMapping("/{moduleId}/learning-materials/{materialId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> updateLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -164,7 +164,7 @@ public class CourseContentController {
     }
 
         @GetMapping("/{moduleId}/learning-materials")
-        @PreAuthorize("hasRole('TEACHER')")
+        @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
         public ResponseEntity<ApiResponse<List<LearningMaterialResponse>>> getLearningMaterials(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId
@@ -175,7 +175,7 @@ public class CourseContentController {
         }
 
         @GetMapping("/{moduleId}/learning-materials/{materialId}")
-        @PreAuthorize("hasRole('TEACHER')")
+        @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
         public ResponseEntity<ApiResponse<LearningMaterialResponse>> getLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -187,7 +187,7 @@ public class CourseContentController {
         }
 
     @DeleteMapping("/{moduleId}/learning-materials/{materialId}")
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Object>> deleteLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,

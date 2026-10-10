@@ -45,6 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 class CourseContentControllerTest {
 
+    private static final String COURSE_CONTENT_ROLES = "hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -494,7 +496,7 @@ class CourseContentControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
     }
 
     @Test
@@ -509,7 +511,7 @@ class CourseContentControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
     }
 
     @Test
@@ -524,7 +526,7 @@ class CourseContentControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
     }
 
         @Test
@@ -539,7 +541,7 @@ class CourseContentControllerTest {
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -555,7 +557,7 @@ class CourseContentControllerTest {
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -571,7 +573,7 @@ class CourseContentControllerTest {
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
     @Test
@@ -585,7 +587,7 @@ class CourseContentControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
     }
 
     @Test
@@ -600,7 +602,7 @@ class CourseContentControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
     }
 
     @Test
@@ -615,7 +617,7 @@ class CourseContentControllerTest {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+        assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
     }
 
         @Test
@@ -623,7 +625,7 @@ class CourseContentControllerTest {
                 Method method = CourseContentController.class.getDeclaredMethod("getModules", UUID.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -631,7 +633,7 @@ class CourseContentControllerTest {
                 Method method = CourseContentController.class.getDeclaredMethod("getModule", UUID.class, UUID.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -639,7 +641,7 @@ class CourseContentControllerTest {
                 Method method = CourseContentController.class.getDeclaredMethod("getLessons", UUID.class, UUID.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -647,7 +649,7 @@ class CourseContentControllerTest {
                 Method method = CourseContentController.class.getDeclaredMethod("getLesson", UUID.class, UUID.class, UUID.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -655,7 +657,7 @@ class CourseContentControllerTest {
                 Method method = CourseContentController.class.getDeclaredMethod("getLearningMaterials", UUID.class, UUID.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 
         @Test
@@ -663,6 +665,6 @@ class CourseContentControllerTest {
                 Method method = CourseContentController.class.getDeclaredMethod("getLearningMaterial", UUID.class, UUID.class, UUID.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo("hasRole('TEACHER')");
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
         }
 }

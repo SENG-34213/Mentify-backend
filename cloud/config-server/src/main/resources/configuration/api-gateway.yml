@@ -43,7 +43,7 @@ spring:
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/v1/auth/**,/api/v1/users/**
+            - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/users/**,/api/students/**,/api/teachers/**,/api/internal/users/analytics/**
           filters:
             - StripPrefix=0
 
@@ -78,7 +78,14 @@ spring:
         - id: assignment-service
           uri: lb://assignment-service
           predicates:
-            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/submissions/**
+            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/submissions/**,/api/internal/quizzes/analytics/**
+          filters:
+            - StripPrefix=0
+
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
           filters:
             - StripPrefix=0
 

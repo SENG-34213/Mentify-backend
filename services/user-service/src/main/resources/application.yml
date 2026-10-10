@@ -21,6 +21,14 @@ mentify:
   security:
     enabled: true
     principal-claim: preferred_username
+  sample-users:
+    enabled: ${MENTIFY_SAMPLE_USERS_ENABLED:false}
+    users-per-role: ${MENTIFY_SAMPLE_USERS_PER_ROLE:5}
+    email-domain: ${MENTIFY_SAMPLE_USERS_EMAIL_DOMAIN:mentify.test}
+    password: ${MENTIFY_SAMPLE_USERS_PASSWORD:Sample@12345}
+    reset-password-on-startup: ${MENTIFY_SAMPLE_USERS_RESET_PASSWORD:true}
+    retry-attempts: ${MENTIFY_SAMPLE_USERS_RETRY_ATTEMPTS:10}
+    retry-delay-millis: ${MENTIFY_SAMPLE_USERS_RETRY_DELAY_MILLIS:2000}
 
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
