@@ -13,6 +13,7 @@ import com.mentify.exception.PaymentProviderException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.PaymentRepository;
+import com.mentify.repository.ProcessedStripeWebhookEventRepository;
 import com.mentify.security.AuthenticatedUserService;
 import com.mentify.service.stripe.CreateStripePaymentIntentRequest;
 import com.mentify.service.stripe.StripePaymentIntent;
@@ -32,6 +33,7 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,6 +43,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +54,9 @@ class PaymentServiceImplTest {
 
     @Mock
     private PaymentRepository paymentRepository;
+
+    @Mock
+    private ProcessedStripeWebhookEventRepository processedStripeWebhookEventRepository;
 
     @Mock
     private CourseServiceClient courseServiceClient;
@@ -74,6 +80,7 @@ class PaymentServiceImplTest {
         stripeProperties.setCurrency("LKR");
         paymentService = new PaymentServiceImpl(
                 paymentRepository,
+                processedStripeWebhookEventRepository,
                 courseServiceClient,
                 currentUserService,
                 stripePaymentIntentGateway,
@@ -88,6 +95,10 @@ class PaymentServiceImplTest {
             }
             return payment;
         });
+        when(paymentRepository.findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(any(), any()))
+                .thenReturn(Optional.empty());
+        when(paymentRepository.findByStripePaymentIntentId(any())).thenReturn(Optional.empty());
+        when(processedStripeWebhookEventRepository.insertIfAbsent(any(), any(), any(), any())).thenReturn(1);
     }
 
     @Test
@@ -120,6 +131,7 @@ class PaymentServiceImplTest {
         assertThat(finalPayment.getAmount()).isEqualByComparingTo("1499.99");
         assertThat(finalPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
         assertThat(finalPayment.getStripePaymentIntentId()).isEqualTo("pi_123");
+        assertThat(finalPayment.getStripeClientSecret()).isEqualTo("pi_123_secret_abc");
 
         ArgumentCaptor<CreateStripePaymentIntentRequest> stripeRequestCaptor =
                 ArgumentCaptor.forClass(CreateStripePaymentIntentRequest.class);
@@ -130,6 +142,36 @@ class PaymentServiceImplTest {
         assertThat(stripeRequest.studentId()).isEqualTo(studentId);
         assertThat(stripeRequest.courseId()).isEqualTo(courseId);
         assertThat(stripeRequest.paymentId()).isEqualTo(finalPayment.getId());
+        assertThat(stripeRequest.idempotencyKey()).isEqualTo("payment-intent:" + finalPayment.getId());
+    }
+
+    @Test
+    void startCoursePayment_whenMatchingPendingPaymentExists_returnsExistingStripeIntentWithoutCreatingDuplicate() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        Payment existingPayment = pendingPayment("pi_existing_001");
+        existingPayment.setStudentId(studentId);
+        existingPayment.setCourseId(courseId);
+        existingPayment.setAmount(new BigDecimal("1499.99"));
+        existingPayment.setCurrency("LKR");
+        existingPayment.setStripeClientSecret("pi_existing_secret");
+
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(courseServiceClient.getCourseById(courseId, AUTHORIZATION_HEADER))
+                .thenReturn(ApiResponse.success(HttpStatus.OK.value(), "ok", paidCourse(courseId, "1499.99")));
+        when(paymentRepository.findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(any(), any()))
+                .thenReturn(Optional.of(existingPayment));
+
+        StartCoursePaymentResponse response = paymentService.startCoursePayment(
+                StartCoursePaymentRequest.builder().courseId(courseId).build(),
+                AUTHORIZATION_HEADER
+        );
+
+        assertThat(response.getPaymentId()).isEqualTo(existingPayment.getId());
+        assertThat(response.getClientSecret()).isEqualTo("pi_existing_secret");
+        assertThat(response.getAmount()).isEqualByComparingTo("1499.99");
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+        verify(stripePaymentIntentGateway, never()).createPaymentIntent(any(CreateStripePaymentIntentRequest.class));
     }
 
     @Test
@@ -238,6 +280,25 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    void startCoursePayment_whenStripeReferenceBelongsToAnotherPayment_rejectsSafely() {
+        UUID courseId = UUID.randomUUID();
+        Payment otherPayment = pendingPayment("pi_reused_reference");
+        when(currentUserService.getCurrentUserId()).thenReturn(UUID.randomUUID());
+        when(courseServiceClient.getCourseById(courseId, AUTHORIZATION_HEADER))
+                .thenReturn(ApiResponse.success(HttpStatus.OK.value(), "ok", paidCourse(courseId, "100.00")));
+        when(stripePaymentIntentGateway.createPaymentIntent(any(CreateStripePaymentIntentRequest.class)))
+                .thenReturn(new StripePaymentIntent("pi_reused_reference", "client_secret"));
+        when(paymentRepository.findByStripePaymentIntentId("pi_reused_reference")).thenReturn(Optional.of(otherPayment));
+
+        assertThatThrownBy(() -> paymentService.startCoursePayment(
+                StartCoursePaymentRequest.builder().courseId(courseId).build(),
+                AUTHORIZATION_HEADER
+        ))
+                .isInstanceOf(PaymentDomainException.class)
+                .hasMessage("Stripe payment reference is already linked to another payment");
+    }
+
+    @Test
     void startCoursePayment_responseDoesNotExposeStripeSecretConfiguration() {
         UUID courseId = UUID.randomUUID();
         stripeProperties.setSecretKey("sk_test_should_not_be_returned");
@@ -262,7 +323,7 @@ class PaymentServiceImplTest {
         LocalDateTime paidAt = LocalDateTime.of(2026, 10, 10, 8, 30);
         Payment payment = pendingPayment(stripePaymentIntentId);
         when(stripeWebhookVerifier.verify("payload", "signature"))
-                .thenReturn(new StripeWebhookEvent("evt_1", "payment_intent.succeeded", stripePaymentIntentId, paidAt));
+                .thenReturn(new StripeWebhookEvent("evt_1", "payment_intent.succeeded", stripePaymentIntentId, payment.getId(), paidAt));
         when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
 
         paymentService.handleStripeWebhook("payload", "signature");
@@ -277,7 +338,7 @@ class PaymentServiceImplTest {
         String stripePaymentIntentId = "pi_failed_001";
         Payment payment = pendingPayment(stripePaymentIntentId);
         when(stripeWebhookVerifier.verify("payload", "signature"))
-                .thenReturn(new StripeWebhookEvent("evt_2", "payment_intent.payment_failed", stripePaymentIntentId, LocalDateTime.now()));
+                .thenReturn(new StripeWebhookEvent("evt_2", "payment_intent.payment_failed", stripePaymentIntentId, payment.getId(), LocalDateTime.now()));
         when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
 
         paymentService.handleStripeWebhook("payload", "signature");
@@ -291,11 +352,29 @@ class PaymentServiceImplTest {
     void handleStripeWebhook_whenPaymentIntentIsUnknown_doesNotMutatePayments() {
         String stripePaymentIntentId = "pi_unknown_001";
         when(stripeWebhookVerifier.verify("payload", "signature"))
-                .thenReturn(new StripeWebhookEvent("evt_3", "payment_intent.succeeded", stripePaymentIntentId, LocalDateTime.now()));
+                .thenReturn(new StripeWebhookEvent("evt_3", "payment_intent.succeeded", stripePaymentIntentId, UUID.randomUUID(), LocalDateTime.now()));
         when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.empty());
 
         paymentService.handleStripeWebhook("payload", "signature");
 
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void handleStripeWebhook_whenEventWasAlreadyProcessed_doesNotProcessAgain() {
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent(
+                        "evt_duplicate",
+                        "payment_intent.succeeded",
+                        "pi_duplicate",
+                        UUID.randomUUID(),
+                        LocalDateTime.now()
+                ));
+        when(processedStripeWebhookEventRepository.insertIfAbsent(any(), any(), any(), any())).thenReturn(0);
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        verify(paymentRepository, never()).findByStripePaymentIntentId(any());
         verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
     }
 
@@ -306,11 +385,43 @@ class PaymentServiceImplTest {
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setPaidAt(LocalDateTime.of(2026, 10, 10, 8, 30));
         when(stripeWebhookVerifier.verify("payload", "signature"))
-                .thenReturn(new StripeWebhookEvent("evt_4", "payment_intent.succeeded", stripePaymentIntentId, LocalDateTime.now()));
+                .thenReturn(new StripeWebhookEvent("evt_4", "payment_intent.succeeded", stripePaymentIntentId, payment.getId(), LocalDateTime.now()));
         when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
 
         paymentService.handleStripeWebhook("payload", "signature");
 
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void handleStripeWebhook_whenSuccessArrivesAfterFailure_rejectsInvalidTransition() {
+        String stripePaymentIntentId = "pi_failed_then_success";
+        Payment payment = pendingPayment(stripePaymentIntentId);
+        payment.setStatus(PaymentStatus.FAILED);
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent("evt_invalid_transition", "payment_intent.succeeded",
+                        stripePaymentIntentId, payment.getId(), LocalDateTime.now()));
+        when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(Optional.of(payment));
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(payment.getPaidAt()).isNull();
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void handleStripeWebhook_whenPaymentMetadataDoesNotMatchRecord_rejectsReferenceSafely() {
+        String stripePaymentIntentId = "pi_reference_mismatch";
+        Payment payment = pendingPayment(stripePaymentIntentId);
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent("evt_reference_mismatch", "payment_intent.succeeded",
+                        stripePaymentIntentId, UUID.randomUUID(), LocalDateTime.now()));
+        when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(Optional.of(payment));
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
         verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
     }
 
@@ -325,6 +436,7 @@ class PaymentServiceImplTest {
 
         verify(paymentRepository, never()).findByStripePaymentIntentId(any());
         verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+        verifyNoInteractions(processedStripeWebhookEventRepository);
     }
 
     private CourseLookupResponse paidCourse(UUID courseId, String price) {

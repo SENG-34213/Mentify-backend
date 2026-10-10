@@ -18,6 +18,7 @@ class StripeWebhookVerifierImplTest {
 
     private static final String WEBHOOK_SECRET = "whsec_test_secret";
     private static final long EVENT_CREATED = 1791600000L;
+    private static final String PAYMENT_ID = "3a1e0804-2ce8-4be7-9b22-597fd5d1275f";
     private static final String PAYLOAD = """
             {
               "id": "evt_test_001",
@@ -28,11 +29,14 @@ class StripeWebhookVerifierImplTest {
               "data": {
                 "object": {
                   "id": "pi_test_001",
-                  "object": "payment_intent"
+                  "object": "payment_intent",
+                  "metadata": {
+                    "payment_id": "%s"
+                  }
                 }
               }
             }
-            """.formatted(EVENT_CREATED);
+            """.formatted(EVENT_CREATED, PAYMENT_ID);
 
     private StripeWebhookVerifierImpl verifier;
 
@@ -50,6 +54,7 @@ class StripeWebhookVerifierImplTest {
         assertThat(event.eventId()).isEqualTo("evt_test_001");
         assertThat(event.type()).isEqualTo("payment_intent.succeeded");
         assertThat(event.paymentIntentId()).isEqualTo("pi_test_001");
+        assertThat(event.paymentId()).hasToString(PAYMENT_ID);
         assertThat(event.createdAt()).isEqualTo(LocalDateTime.of(2026, 10, 10, 2, 40));
     }
 
