@@ -27,7 +27,8 @@ class MaterialConfigurationTest {
                 "${KEYCLOAK_ISSUER_URI",
                 "${MATERIAL_S3_BUCKET",
                 "${AWS_REGION",
-                "${AWS_DEFAULT_REGION"
+                "${AWS_DEFAULT_REGION",
+                "${MATERIAL_MAX_UPLOAD_SIZE"
         }) {
             assertTrue(yml.contains(placeholder), "Missing placeholder " + placeholder);
         }
