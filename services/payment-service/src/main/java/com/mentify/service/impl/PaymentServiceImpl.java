@@ -3,6 +3,9 @@ package com.mentify.service.impl;
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.config.StripeProperties;
+import com.mentify.dto.PaymentDetailResponse;
+import com.mentify.dto.PaymentStatusResponse;
+import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.entity.Payment;
@@ -30,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -103,6 +107,31 @@ public class PaymentServiceImpl implements PaymentService {
             paymentRepository.saveAndFlush(payment);
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course price cannot be converted to the configured payment currency");
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentSummaryResponse> getCurrentStudentPayments() {
+        UUID studentId = currentUserService.getCurrentUserId();
+        return paymentRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream()
+                .map(this::toPaymentSummaryResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentDetailResponse getCurrentStudentPayment(UUID paymentId) {
+        UUID studentId = currentUserService.getCurrentUserId();
+        Payment payment = findOwnedPayment(paymentId, studentId);
+        return toPaymentDetailResponse(payment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentStatusResponse getCurrentStudentPaymentStatus(UUID paymentId) {
+        UUID studentId = currentUserService.getCurrentUserId();
+        Payment payment = findOwnedPayment(paymentId, studentId);
+        return toPaymentStatusResponse(payment);
     }
 
     @Override
@@ -215,6 +244,11 @@ public class PaymentServiceImpl implements PaymentService {
         ) == 1;
     }
 
+    private Payment findOwnedPayment(UUID paymentId, UUID studentId) {
+        return paymentRepository.findByIdAndStudentId(paymentId, studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+    }
+
     private boolean matchesWebhookPaymentReference(Payment payment, StripeWebhookEvent event) {
         if (event.paymentId() != null && !event.paymentId().equals(payment.getId())) {
             log.warn("Stripe webhook event [{}] payment_id metadata did not match payment record [{}]",
@@ -275,6 +309,41 @@ public class PaymentServiceImpl implements PaymentService {
                 .currency(payment.getCurrency())
                 .status(payment.getStatus())
                 .clientSecret(payment.getStripeClientSecret())
+                .build();
+    }
+
+    private PaymentSummaryResponse toPaymentSummaryResponse(Payment payment) {
+        return PaymentSummaryResponse.builder()
+                .paymentId(payment.getId())
+                .courseId(payment.getCourseId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
+                .build();
+    }
+
+    private PaymentDetailResponse toPaymentDetailResponse(Payment payment) {
+        return PaymentDetailResponse.builder()
+                .paymentId(payment.getId())
+                .courseId(payment.getCourseId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .provider(payment.getProvider())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
+                .updatedAt(payment.getUpdatedAt())
+                .build();
+    }
+
+    private PaymentStatusResponse toPaymentStatusResponse(Payment payment) {
+        return PaymentStatusResponse.builder()
+                .paymentId(payment.getId())
+                .status(payment.getStatus())
+                .paidAt(payment.getPaidAt())
+                .updatedAt(payment.getUpdatedAt())
                 .build();
     }
 
