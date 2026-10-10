@@ -3,6 +3,9 @@ package com.mentify.service.impl;
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.config.StripeProperties;
+import com.mentify.dto.AdminPaymentDetailResponse;
+import com.mentify.dto.AdminPaymentFilter;
+import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
@@ -16,6 +19,7 @@ import com.mentify.exception.PaymentProviderException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.PaymentRepository;
+import com.mentify.repository.PaymentSpecifications;
 import com.mentify.repository.ProcessedStripeWebhookEventRepository;
 import com.mentify.security.AuthenticatedUserService;
 import com.mentify.service.PaymentService;
@@ -27,6 +31,10 @@ import com.mentify.service.stripe.StripeWebhookVerifier;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +52,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private static final String PAYMENT_INTENT_SUCCEEDED = "payment_intent.succeeded";
     private static final String PAYMENT_INTENT_PAYMENT_FAILED = "payment_intent.payment_failed";
+    private static final int DEFAULT_ADMIN_PAGE_SIZE = 20;
 
     private final PaymentRepository paymentRepository;
     private final ProcessedStripeWebhookEventRepository processedStripeWebhookEventRepository;
@@ -132,6 +141,22 @@ public class PaymentServiceImpl implements PaymentService {
         UUID studentId = currentUserService.getCurrentUserId();
         Payment payment = findOwnedPayment(paymentId, studentId);
         return toPaymentStatusResponse(payment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AdminPaymentSummaryResponse> getAdminPayments(AdminPaymentFilter filter, Pageable pageable) {
+        validateAdminPaymentFilter(filter);
+        return paymentRepository.findAll(PaymentSpecifications.adminFilter(filter), recentFirst(pageable))
+                .map(this::toAdminPaymentSummaryResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminPaymentDetailResponse getAdminPayment(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+        return toAdminPaymentDetailResponse(payment);
     }
 
     @Override
@@ -249,6 +274,23 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
     }
 
+    private void validateAdminPaymentFilter(AdminPaymentFilter filter) {
+        if (filter != null
+                && filter.getCreatedFrom() != null
+                && filter.getCreatedTo() != null
+                && filter.getCreatedFrom().isAfter(filter.getCreatedTo())) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "createdFrom must be before or equal to createdTo");
+        }
+    }
+
+    private Pageable recentFirst(Pageable pageable) {
+        Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequest.of(0, DEFAULT_ADMIN_PAGE_SIZE, sort);
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+    }
+
     private boolean matchesWebhookPaymentReference(Payment payment, StripeWebhookEvent event) {
         if (event.paymentId() != null && !event.paymentId().equals(payment.getId())) {
             log.warn("Stripe webhook event [{}] payment_id metadata did not match payment record [{}]",
@@ -343,6 +385,36 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentId(payment.getId())
                 .status(payment.getStatus())
                 .paidAt(payment.getPaidAt())
+                .updatedAt(payment.getUpdatedAt())
+                .build();
+    }
+
+    private AdminPaymentSummaryResponse toAdminPaymentSummaryResponse(Payment payment) {
+        return AdminPaymentSummaryResponse.builder()
+                .paymentId(payment.getId())
+                .studentId(payment.getStudentId())
+                .courseId(payment.getCourseId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .stripePaymentIntentId(payment.getStripePaymentIntentId())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
+                .build();
+    }
+
+    private AdminPaymentDetailResponse toAdminPaymentDetailResponse(Payment payment) {
+        return AdminPaymentDetailResponse.builder()
+                .paymentId(payment.getId())
+                .studentId(payment.getStudentId())
+                .courseId(payment.getCourseId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .provider(payment.getProvider())
+                .stripePaymentIntentId(payment.getStripePaymentIntentId())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
     }

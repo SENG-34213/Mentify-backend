@@ -1,14 +1,21 @@
 package com.mentify.controller;
 
+import com.mentify.dto.AdminPaymentDetailResponse;
+import com.mentify.dto.AdminPaymentFilter;
+import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
+import com.mentify.enums.PaymentStatus;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +26,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,6 +94,50 @@ public class PaymentController {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .message("Student payment status retrieved")
+                .data(data)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Page<AdminPaymentSummaryResponse>>> getAdminPayments(
+            @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) UUID studentId,
+            @RequestParam(required = false) UUID courseId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTo,
+            @RequestParam(required = false) String reference,
+            Pageable pageable
+    ) {
+        AdminPaymentFilter filter = AdminPaymentFilter.builder()
+                .status(status)
+                .studentId(studentId)
+                .courseId(courseId)
+                .createdFrom(createdFrom)
+                .createdTo(createdTo)
+                .reference(reference)
+                .build();
+        Page<AdminPaymentSummaryResponse> data = paymentService.getAdminPayments(filter, pageable);
+        ApiResponse<Page<AdminPaymentSummaryResponse>> response = ApiResponse.<Page<AdminPaymentSummaryResponse>>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Admin payments retrieved")
+                .data(data)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin/{paymentId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AdminPaymentDetailResponse>> getAdminPayment(
+            @PathVariable UUID paymentId
+    ) {
+        AdminPaymentDetailResponse data = paymentService.getAdminPayment(paymentId);
+        ApiResponse<AdminPaymentDetailResponse> response = ApiResponse.<AdminPaymentDetailResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Admin payment retrieved")
                 .data(data)
                 .build();
         return ResponseEntity.ok(response);
