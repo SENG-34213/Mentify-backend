@@ -2,28 +2,35 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.PaymentServiceClient;
 import com.mentify.client.UserServiceClient;
 import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.client.dto.PaymentVerificationResponse;
 import com.mentify.client.dto.UserLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
+import com.mentify.exception.PaymentRequiredException;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.EntrollmentRepository;
+import com.mentify.security.CurrentUserService;
 import com.mentify.service.EntrollmentService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -41,6 +48,8 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     private final CourseServiceClient courseServiceClient;
     private final CommunicationServiceClient communicationServiceClient;
     private final UserServiceClient userServiceClient;
+    private final PaymentServiceClient paymentServiceClient;
+    private final CurrentUserService currentUserService;
 
     @Override
     @Transactional
@@ -48,24 +57,28 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         log.info("Creating enrollment for student [{}]", request.getStudentId());
 
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
-        validateCoursesExist(requestedCourseIds, authorizationHeader);
+        List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
         validateNoDuplicateEnrollment(request.getStudentId(), requestedCourseIds);
+        validateSuccessfulPaymentsForPaidCourses(request.getStudentId(), courses, requestedCourseIds, authorizationHeader);
 
-        Entrollment entrollment = Entrollment.builder()
-                .studentId(request.getStudentId())
-                .courseIds(requestedCourseIds)
-                .enrolledOn(LocalDate.now())
-                .build();
+        return saveEnrollment(request.getStudentId(), requestedCourseIds, authorizationHeader, true);
+    }
 
-        Entrollment savedEntrollment = entrollmentRepository.save(entrollment);
-        syncStudentToCommunicationGroups(savedEntrollment.getStudentId(), savedEntrollment.getCourseIds(), authorizationHeader);
+    @Override
+    @Transactional
+    public ApiResponse<EntrollmentResponse> createCurrentStudentEntrollment(
+            StudentEntrollmentCreateRequest request,
+            String authorizationHeader
+    ) {
+        UUID studentId = currentUserService.getCurrentUserId();
+        log.info("Creating self-service enrollment for student [{}]", studentId);
 
-        return ApiResponse.<EntrollmentResponse>builder()
-                .message("Enrollment created successfully")
-                .data(toResponse(savedEntrollment))
-                .statusCode(HttpStatus.CREATED.value())
-                .status(HttpStatus.CREATED)
-                .build();
+        Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
+        List<CourseLookupResponse> courses = lookupCoursesForStudent(requestedCourseIds, authorizationHeader);
+        validateNoDuplicateEnrollment(studentId, requestedCourseIds);
+        validateSuccessfulPaymentsForPaidCourses(studentId, courses, requestedCourseIds, authorizationHeader);
+
+        return saveEnrollment(studentId, requestedCourseIds, authorizationHeader, false);
     }
 
     @Override
@@ -82,14 +95,20 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
         Set<UUID> existingCourseIds = new HashSet<>(existingEnrollment.getCourseIds());
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
-        validateCoursesExist(requestedCourseIds, authorizationHeader);
-
-        existingEnrollment.setCourseIds(requestedCourseIds);
-        Entrollment savedEnrollment = entrollmentRepository.save(existingEnrollment);
+        List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
         Set<UUID> newlyAddedCourseIds = requestedCourseIds.stream()
                 .filter(courseId -> !existingCourseIds.contains(courseId))
                 .collect(Collectors.toSet());
-        syncStudentToCommunicationGroups(savedEnrollment.getStudentId(), newlyAddedCourseIds, authorizationHeader);
+        validateSuccessfulPaymentsForPaidCourses(
+                existingEnrollment.getStudentId(),
+                courses,
+                newlyAddedCourseIds,
+                authorizationHeader
+        );
+
+        existingEnrollment.setCourseIds(requestedCourseIds);
+        Entrollment savedEnrollment = entrollmentRepository.save(existingEnrollment);
+        syncStudentToCommunicationGroups(savedEnrollment.getStudentId(), newlyAddedCourseIds, authorizationHeader, true);
 
         return ApiResponse.<EntrollmentResponse>builder()
                 .message("Enrollment updated successfully")
@@ -177,7 +196,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         return sanitized;
     }
 
-    private void validateCoursesExist(Set<UUID> courseIds, String authorizationHeader) {
+    private List<CourseLookupResponse> validateCoursesExist(Set<UUID> courseIds, String authorizationHeader) {
         try {
             ApiResponse<List<CourseLookupResponse>> response = courseServiceClient.getCoursesByIds(
                     CourseBulkLookupRequest.builder().ids(courseIds).build(),
@@ -198,10 +217,69 @@ public class EntrollmentServiceImpl implements EntrollmentService {
             if (!missingCourseIds.isEmpty()) {
                 throw new ResourceNotFoundException("Course", "id", missingCourseIds.iterator().next());
             }
+
+            return courses;
         } catch (FeignException.NotFound ex) {
             throw new ResourceNotFoundException("Course", "ids", courseIds);
         } catch (FeignException ex) {
             throw new IllegalStateException("Failed to validate courses", ex);
+        }
+    }
+
+    private List<CourseLookupResponse> lookupCoursesForStudent(Set<UUID> courseIds, String authorizationHeader) {
+        return courseIds.stream()
+                .map(courseId -> lookupCourseForStudent(courseId, authorizationHeader))
+                .toList();
+    }
+
+    private CourseLookupResponse lookupCourseForStudent(UUID courseId, String authorizationHeader) {
+        try {
+            ApiResponse<CourseLookupResponse> response = courseServiceClient.lookupCourseById(courseId, authorizationHeader);
+            CourseLookupResponse course = response != null ? response.getData() : null;
+            if (course == null || course.getId() == null) {
+                throw new ResourceNotFoundException("Course", "id", courseId);
+            }
+            return course;
+        } catch (FeignException.NotFound ex) {
+            throw new ResourceNotFoundException("Course", "id", courseId);
+        } catch (FeignException ex) {
+            throw new IllegalStateException("Failed to validate course " + courseId, ex);
+        }
+    }
+
+    private void validateSuccessfulPaymentsForPaidCourses(
+            UUID studentId,
+            List<CourseLookupResponse> courses,
+            Set<UUID> courseIdsToValidate,
+            String authorizationHeader
+    ) {
+        courses.stream()
+                .filter(course -> courseIdsToValidate.contains(course.getId()))
+                .filter(this::isPaidCourse)
+                .forEach(course -> validateSuccessfulPayment(studentId, course.getId(), authorizationHeader));
+    }
+
+    private boolean isPaidCourse(CourseLookupResponse course) {
+        BigDecimal fee = course.getCourseFeeMonthly();
+        return fee != null && fee.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private void validateSuccessfulPayment(UUID studentId, UUID courseId, String authorizationHeader) {
+        try {
+            ApiResponse<PaymentVerificationResponse> response =
+                    paymentServiceClient.verifySuccessfulPayment(studentId, courseId, authorizationHeader);
+            PaymentVerificationResponse verification = response != null ? response.getData() : null;
+
+            if (verification == null
+                    || !studentId.equals(verification.getStudentId())
+                    || !courseId.equals(verification.getCourseId())
+                    || !verification.isSuccessfulPaymentExists()) {
+                throw new PaymentRequiredException("Successful payment is required before enrolling in paid course " + courseId);
+            }
+        } catch (FeignException.Forbidden ex) {
+            throw new AccessDeniedException("Payment verification is not allowed", ex);
+        } catch (FeignException ex) {
+            throw new IllegalStateException("Failed to verify payment for course " + courseId, ex);
         }
     }
 
@@ -223,7 +301,40 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         }
     }
 
-    private void syncStudentToCommunicationGroups(UUID studentId, Set<UUID> courseIds, String authorizationHeader) {
+    private ApiResponse<EntrollmentResponse> saveEnrollment(
+            UUID studentId,
+            Set<UUID> courseIds,
+            String authorizationHeader,
+            boolean strictCommunicationSync
+    ) {
+        Entrollment entrollment = Entrollment.builder()
+                .studentId(studentId)
+                .courseIds(courseIds)
+                .enrolledOn(LocalDate.now())
+                .build();
+
+        Entrollment savedEntrollment = entrollmentRepository.save(entrollment);
+        syncStudentToCommunicationGroups(
+                savedEntrollment.getStudentId(),
+                savedEntrollment.getCourseIds(),
+                authorizationHeader,
+                strictCommunicationSync
+        );
+
+        return ApiResponse.<EntrollmentResponse>builder()
+                .message("Enrollment created successfully")
+                .data(toResponse(savedEntrollment))
+                .statusCode(HttpStatus.CREATED.value())
+                .status(HttpStatus.CREATED)
+                .build();
+    }
+
+    private void syncStudentToCommunicationGroups(
+            UUID studentId,
+            Set<UUID> courseIds,
+            String authorizationHeader,
+            boolean strictCommunicationSync
+    ) {
         for (UUID courseId : courseIds) {
             try {
                 communicationServiceClient.addStudentToCourseGroup(
@@ -235,6 +346,11 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 );
             } catch (FeignException.NotFound ex) {
                 log.info("No active communication group found for course [{}]; student [{}] will be synced when the group is created", courseId, studentId);
+            } catch (FeignException.Forbidden ex) {
+                if (strictCommunicationSync) {
+                    throw new IllegalStateException("Failed to add student to communication group for course " + courseId, ex);
+                }
+                log.info("Student [{}] enrolled in course [{}]; communication group sync requires elevated permissions", studentId, courseId);
             } catch (FeignException ex) {
                 throw new IllegalStateException("Failed to add student to communication group for course " + courseId, ex);
             }

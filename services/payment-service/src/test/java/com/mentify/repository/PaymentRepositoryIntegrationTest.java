@@ -131,6 +131,47 @@ class PaymentRepositoryIntegrationTest {
     }
 
     @Test
+    void existsByStudentIdAndCourseIdAndStatus_returnsOnlyMatchingSuccessfulPayment() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        persistedPayment(
+                studentId,
+                courseId,
+                PaymentStatus.SUCCESS,
+                "pi_successful_for_enrollment",
+                LocalDateTime.of(2026, 10, 10, 10, 0)
+        );
+        persistedPayment(
+                studentId,
+                UUID.randomUUID(),
+                PaymentStatus.SUCCESS,
+                "pi_successful_other_course",
+                LocalDateTime.of(2026, 10, 10, 11, 0)
+        );
+        persistedPayment(
+                UUID.randomUUID(),
+                courseId,
+                PaymentStatus.SUCCESS,
+                "pi_successful_other_student",
+                LocalDateTime.of(2026, 10, 10, 12, 0)
+        );
+        persistedPayment(
+                studentId,
+                courseId,
+                PaymentStatus.FAILED,
+                "pi_failed_same_student_course",
+                LocalDateTime.of(2026, 10, 10, 13, 0)
+        );
+        entityManager.clear();
+
+        assertThat(paymentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, PaymentStatus.SUCCESS))
+                .isTrue();
+        assertThat(paymentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, PaymentStatus.PENDING))
+                .isFalse();
+    }
+
+
+    @Test
     void findAllByStudentIdOrderByCreatedAtDesc_returnsMostRecentFirst() {
         UUID studentId = UUID.randomUUID();
         Payment olderPayment = Payment.builder()

@@ -10,6 +10,7 @@ import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
+import com.mentify.dto.PaymentVerificationResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.entity.Payment;
@@ -42,6 +43,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -506,6 +508,48 @@ class PaymentServiceImplTest {
 
         assertThatThrownBy(() -> paymentService.getAdminPayment(paymentId))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void verifySuccessfulPayment_whenSuccessExists_returnsTrue() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        when(currentUserService.hasAnyRole("STUDENT")).thenReturn(false);
+        when(paymentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, PaymentStatus.SUCCESS))
+                .thenReturn(true);
+
+        PaymentVerificationResponse response = paymentService.verifySuccessfulPayment(studentId, courseId);
+
+        assertThat(response.getStudentId()).isEqualTo(studentId);
+        assertThat(response.getCourseId()).isEqualTo(courseId);
+        assertThat(response.isSuccessfulPaymentExists()).isTrue();
+    }
+
+    @Test
+    void verifySuccessfulPayment_whenNoSuccessExists_returnsFalse() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        when(currentUserService.hasAnyRole("STUDENT")).thenReturn(false);
+        when(paymentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, PaymentStatus.SUCCESS))
+                .thenReturn(false);
+
+        PaymentVerificationResponse response = paymentService.verifySuccessfulPayment(studentId, courseId);
+
+        assertThat(response.isSuccessfulPaymentExists()).isFalse();
+    }
+
+    @Test
+    void verifySuccessfulPayment_whenStudentVerifiesAnotherStudent_throwsAccessDenied() {
+        UUID authenticatedStudentId = UUID.randomUUID();
+        UUID requestedStudentId = UUID.randomUUID();
+        when(currentUserService.hasAnyRole("STUDENT")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(authenticatedStudentId);
+
+        assertThatThrownBy(() -> paymentService.verifySuccessfulPayment(requestedStudentId, UUID.randomUUID()))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Students can only verify their own payments");
+
+        verify(paymentRepository, never()).existsByStudentIdAndCourseIdAndStatus(any(), any(), any());
     }
 
     @Test

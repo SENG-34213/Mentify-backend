@@ -9,6 +9,7 @@ import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
+import com.mentify.dto.PaymentVerificationResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.entity.Payment;
@@ -36,6 +37,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -157,6 +159,26 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
         return toAdminPaymentDetailResponse(payment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentVerificationResponse verifySuccessfulPayment(UUID studentId, UUID courseId) {
+        if (currentUserService.hasAnyRole("STUDENT") && !currentUserService.getCurrentUserId().equals(studentId)) {
+            throw new AccessDeniedException("Students can only verify their own payments");
+        }
+
+        boolean successfulPaymentExists = paymentRepository.existsByStudentIdAndCourseIdAndStatus(
+                studentId,
+                courseId,
+                PaymentStatus.SUCCESS
+        );
+
+        return PaymentVerificationResponse.builder()
+                .studentId(studentId)
+                .courseId(courseId)
+                .successfulPaymentExists(successfulPaymentExists)
+                .build();
     }
 
     @Override

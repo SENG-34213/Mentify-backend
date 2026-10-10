@@ -4,6 +4,7 @@ import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
 import com.mentify.common.security.KeycloakRoleConverter;
 import com.mentify.common.security.SecurityConfig;
 import com.mentify.dto.AdminPaymentDetailResponse;
+import com.mentify.dto.PaymentVerificationResponse;
 import com.mentify.service.PaymentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,6 +96,32 @@ class PaymentControllerSecurityTest {
     void givenStudentRole_whenGettingAdminPaymentDetail_thenReturnsForbidden() throws Exception {
         mockMvc.perform(get("/api/v1/payments/admin/{paymentId}", UUID.randomUUID())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    void givenStudentRole_whenVerifyingSuccessfulPayment_thenReturnsOk() throws Exception {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        when(paymentService.verifySuccessfulPayment(studentId, courseId)).thenReturn(PaymentVerificationResponse.builder()
+                .studentId(studentId)
+                .courseId(courseId)
+                .successfulPaymentExists(true)
+                .build());
+
+        mockMvc.perform(get("/api/v1/payments/internal/students/{studentId}/courses/{courseId}/successful", studentId, courseId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void givenTeacherRole_whenVerifyingSuccessfulPayment_thenReturnsForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/payments/internal/students/{studentId}/courses/{courseId}/successful",
+                        UUID.randomUUID(),
+                        UUID.randomUUID())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TEACHER"))))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(paymentService);

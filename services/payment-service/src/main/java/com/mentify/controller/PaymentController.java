@@ -6,6 +6,7 @@ import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
+import com.mentify.dto.PaymentVerificationResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.enums.PaymentStatus;
@@ -138,6 +139,22 @@ public class PaymentController {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .message("Admin payment retrieved")
+                .data(data)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/internal/students/{studentId}/courses/{courseId}/successful")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<PaymentVerificationResponse>> verifySuccessfulPayment(
+            @PathVariable UUID studentId,
+            @PathVariable UUID courseId
+    ) {
+        PaymentVerificationResponse data = paymentService.verifySuccessfulPayment(studentId, courseId);
+        ApiResponse<PaymentVerificationResponse> response = ApiResponse.<PaymentVerificationResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Payment verification completed")
                 .data(data)
                 .build();
         return ResponseEntity.ok(response);

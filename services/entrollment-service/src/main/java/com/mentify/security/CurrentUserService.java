@@ -2,23 +2,17 @@ package com.mentify.security;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Component
-public class CurrentUserService implements AuthenticatedUserService {
+public class CurrentUserService {
 
     private static final String LOCAL_USER_ID_CLAIM = "local_user_id";
-    private static final String ROLE_PREFIX = "ROLE_";
 
-    @Override
     public UUID getCurrentUserId() {
         Jwt jwt = getCurrentJwt();
         String resolvedId = jwt.getSubject();
@@ -35,17 +29,6 @@ public class CurrentUserService implements AuthenticatedUserService {
         } catch (IllegalArgumentException ex) {
             throw new AccessDeniedException("Authenticated user identity is invalid");
         }
-    }
-
-    @Override
-    public boolean hasAnyRole(String... roles) {
-        Set<String> requestedRoles = Arrays.stream(roles)
-                .map(role -> role.startsWith(ROLE_PREFIX) ? role : ROLE_PREFIX + role)
-                .collect(Collectors.toSet());
-
-        return getAuthentication().getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(requestedRoles::contains);
     }
 
     private Jwt getCurrentJwt() {
