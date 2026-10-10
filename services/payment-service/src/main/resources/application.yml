@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: payment-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+
+payment:
+  provider: ${PAYMENT_PROVIDER:STRIPE}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
