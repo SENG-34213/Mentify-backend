@@ -13,5 +13,7 @@ public class StripeProperties {
 
     private String secretKey;
 
+    private String webhookSecret;
+
     private String currency = "LKR";
 }
