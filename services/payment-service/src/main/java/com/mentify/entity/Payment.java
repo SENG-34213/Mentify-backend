@@ -84,6 +84,17 @@ public class Payment extends BaseEntity {
 
     private LocalDateTime paidAt;
 
+    @Size(max = 255)
+    @Column(name = "stripe_refund_id", length = 255)
+    private String stripeRefundId;
+
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
+    @Size(max = 500)
+    @Column(name = "refund_reason", length = 500)
+    private String refundReason;
+
     @PrePersist
     @PreUpdate
     protected void ensurePaymentOperationKey() {
