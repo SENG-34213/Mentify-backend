@@ -22,6 +22,7 @@ public class StudentController {
 
     private final StudentService studentService;
 
+
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserResponse>> registerStudent(@Valid @RequestBody StudentRegistrationRequest request) {
         ApiResponse<UserResponse> response = studentService.registerStudent(request);
@@ -32,6 +33,7 @@ public class StudentController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllStudents(Pageable pageable){
         ApiResponse<Page<UserResponse>> response = studentService.getAllStudents(pageable);
+
         return new ResponseEntity<>(response,response.getStatus());
     }
 }
