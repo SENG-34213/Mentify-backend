@@ -32,6 +32,7 @@ public class StudentController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllStudents(Pageable pageable){
         ApiResponse<Page<UserResponse>> response = studentService.getAllStudents(pageable);
+
         return new ResponseEntity<>(response,response.getStatus());
     }
 }
