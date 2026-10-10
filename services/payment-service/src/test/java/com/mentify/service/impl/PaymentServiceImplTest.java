@@ -17,6 +17,8 @@ import com.mentify.security.AuthenticatedUserService;
 import com.mentify.service.stripe.CreateStripePaymentIntentRequest;
 import com.mentify.service.stripe.StripePaymentIntent;
 import com.mentify.service.stripe.StripePaymentIntentGateway;
+import com.mentify.service.stripe.StripeWebhookEvent;
+import com.mentify.service.stripe.StripeWebhookVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +31,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,6 +61,9 @@ class PaymentServiceImplTest {
     @Mock
     private StripePaymentIntentGateway stripePaymentIntentGateway;
 
+    @Mock
+    private StripeWebhookVerifier stripeWebhookVerifier;
+
     private StripeProperties stripeProperties;
 
     private PaymentServiceImpl paymentService;
@@ -71,6 +77,7 @@ class PaymentServiceImplTest {
                 courseServiceClient,
                 currentUserService,
                 stripePaymentIntentGateway,
+                stripeWebhookVerifier,
                 stripeProperties
         );
 
@@ -249,6 +256,77 @@ class PaymentServiceImplTest {
         assertThat(response.getClientSecret()).isEqualTo("client_secret_only");
     }
 
+    @Test
+    void handleStripeWebhook_whenPaymentIntentSucceeded_marksPaymentSuccessfulAndStoresPaidAt() {
+        String stripePaymentIntentId = "pi_success_001";
+        LocalDateTime paidAt = LocalDateTime.of(2026, 10, 10, 8, 30);
+        Payment payment = pendingPayment(stripePaymentIntentId);
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent("evt_1", "payment_intent.succeeded", stripePaymentIntentId, paidAt));
+        when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(payment.getPaidAt()).isEqualTo(paidAt);
+        verify(paymentRepository).saveAndFlush(payment);
+    }
+
+    @Test
+    void handleStripeWebhook_whenPaymentIntentFailed_marksPendingPaymentFailed() {
+        String stripePaymentIntentId = "pi_failed_001";
+        Payment payment = pendingPayment(stripePaymentIntentId);
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent("evt_2", "payment_intent.payment_failed", stripePaymentIntentId, LocalDateTime.now()));
+        when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(payment.getPaidAt()).isNull();
+        verify(paymentRepository).saveAndFlush(payment);
+    }
+
+    @Test
+    void handleStripeWebhook_whenPaymentIntentIsUnknown_doesNotMutatePayments() {
+        String stripePaymentIntentId = "pi_unknown_001";
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent("evt_3", "payment_intent.succeeded", stripePaymentIntentId, LocalDateTime.now()));
+        when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.empty());
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void handleStripeWebhook_whenSuccessEventIsDeliveredAgain_doesNotSaveAgain() {
+        String stripePaymentIntentId = "pi_success_duplicate";
+        Payment payment = pendingPayment(stripePaymentIntentId);
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaidAt(LocalDateTime.of(2026, 10, 10, 8, 30));
+        when(stripeWebhookVerifier.verify("payload", "signature"))
+                .thenReturn(new StripeWebhookEvent("evt_4", "payment_intent.succeeded", stripePaymentIntentId, LocalDateTime.now()));
+        when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
+
+        paymentService.handleStripeWebhook("payload", "signature");
+
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void handleStripeWebhook_whenVerifierRejectsSignature_propagatesControlledExceptionWithoutMutation() {
+        when(stripeWebhookVerifier.verify("payload", "bad-signature"))
+                .thenThrow(new PaymentDomainException(HttpStatus.BAD_REQUEST, "Invalid Stripe webhook signature"));
+
+        assertThatThrownBy(() -> paymentService.handleStripeWebhook("payload", "bad-signature"))
+                .isInstanceOf(PaymentDomainException.class)
+                .hasMessage("Invalid Stripe webhook signature");
+
+        verify(paymentRepository, never()).findByStripePaymentIntentId(any());
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
     private CourseLookupResponse paidCourse(UUID courseId, String price) {
         return new CourseLookupResponse(
                 courseId,
@@ -257,5 +335,18 @@ class PaymentServiceImplTest {
                 true,
                 true
         );
+    }
+
+    private Payment pendingPayment(String stripePaymentIntentId) {
+        Payment payment = Payment.builder()
+                .studentId(UUID.randomUUID())
+                .courseId(UUID.randomUUID())
+                .amount(new BigDecimal("100.00"))
+                .currency("LKR")
+                .status(PaymentStatus.PENDING)
+                .stripePaymentIntentId(stripePaymentIntentId)
+                .build();
+        payment.setId(UUID.randomUUID());
+        return payment;
     }
 }
