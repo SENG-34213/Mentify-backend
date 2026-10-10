@@ -23,5 +23,6 @@
         <module>ai-service</module>
         <module>exam-service</module>
         <module>payment-service</module>
+        <module>material-service</module>
     </modules>
 </project>
