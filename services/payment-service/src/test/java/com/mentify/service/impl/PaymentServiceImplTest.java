@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
 import com.mentify.config.StripeProperties;
+import com.mentify.dto.AdminPaymentDetailResponse;
+import com.mentify.dto.AdminPaymentFilter;
+import com.mentify.dto.AdminPaymentSummaryResponse;
 import com.mentify.dto.PaymentDetailResponse;
 import com.mentify.dto.PaymentStatusResponse;
 import com.mentify.dto.PaymentSummaryResponse;
@@ -32,6 +35,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.quality.Strictness;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -418,6 +427,85 @@ class PaymentServiceImplTest {
         assertThat(response.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
         assertThat(response.getUpdatedAt()).isEqualTo(LocalDateTime.of(2026, 10, 10, 12, 0));
         assertThat(response.toString()).doesNotContain("pi_status");
+    }
+
+    @Test
+    void getAdminPayments_returnsPagedSafeDtosAndForcesRecentFirstOrdering() {
+        Payment payment = pendingPayment("pi_admin_safe");
+        payment.setStripeClientSecret("secret_admin");
+        payment.setPaymentOperationKey("operation-admin");
+        payment.setCreatedAt(LocalDateTime.of(2026, 10, 10, 12, 0));
+        PageRequest requestedPageable = PageRequest.of(2, 5, Sort.by("createdAt").ascending());
+        when(paymentRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Payment>>any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(payment), requestedPageable, 1));
+
+        Page<AdminPaymentSummaryResponse> response = paymentService.getAdminPayments(
+                AdminPaymentFilter.builder()
+                        .status(PaymentStatus.PENDING)
+                        .reference("pi_admin_safe")
+                        .build(),
+                requestedPageable
+        );
+
+        assertThat(response.getContent()).hasSize(1);
+        AdminPaymentSummaryResponse dto = response.getContent().get(0);
+        assertThat(dto.getPaymentId()).isEqualTo(payment.getId());
+        assertThat(dto.getStudentId()).isEqualTo(payment.getStudentId());
+        assertThat(dto.getCourseId()).isEqualTo(payment.getCourseId());
+        assertThat(dto.getStripePaymentIntentId()).isEqualTo("pi_admin_safe");
+        assertThat(dto.toString())
+                .doesNotContain("secret_admin")
+                .doesNotContain("operation-admin");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(paymentRepository).findAll(org.mockito.ArgumentMatchers.<Specification<Payment>>any(), pageableCaptor.capture());
+        Pageable actualPageable = pageableCaptor.getValue();
+        assertThat(actualPageable.getPageNumber()).isEqualTo(2);
+        assertThat(actualPageable.getPageSize()).isEqualTo(5);
+        assertThat(actualPageable.getSort().getOrderFor("createdAt").getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(actualPageable.getSort().getOrderFor("id").getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    void getAdminPayments_whenDateRangeIsInvalid_throwsDomainException() {
+        AdminPaymentFilter filter = AdminPaymentFilter.builder()
+                .createdFrom(LocalDateTime.of(2026, 10, 11, 0, 0))
+                .createdTo(LocalDateTime.of(2026, 10, 10, 0, 0))
+                .build();
+
+        assertThatThrownBy(() -> paymentService.getAdminPayments(filter, PageRequest.of(0, 10)))
+                .isInstanceOf(PaymentDomainException.class)
+                .hasMessage("createdFrom must be before or equal to createdTo");
+
+        verify(paymentRepository, never()).findAll(org.mockito.ArgumentMatchers.<Specification<Payment>>any(), any(Pageable.class));
+    }
+
+    @Test
+    void getAdminPayment_whenPaymentExists_returnsSafeDetails() {
+        Payment payment = pendingPayment("pi_admin_detail");
+        payment.setStripeClientSecret("secret_detail");
+        payment.setPaymentOperationKey("operation-detail");
+        payment.setUpdatedAt(LocalDateTime.of(2026, 10, 10, 13, 0));
+        when(paymentRepository.findById(payment.getId())).thenReturn(Optional.of(payment));
+
+        AdminPaymentDetailResponse response = paymentService.getAdminPayment(payment.getId());
+
+        assertThat(response.getPaymentId()).isEqualTo(payment.getId());
+        assertThat(response.getStudentId()).isEqualTo(payment.getStudentId());
+        assertThat(response.getCourseId()).isEqualTo(payment.getCourseId());
+        assertThat(response.getStripePaymentIntentId()).isEqualTo("pi_admin_detail");
+        assertThat(response.toString())
+                .doesNotContain("secret_detail")
+                .doesNotContain("operation-detail");
+    }
+
+    @Test
+    void getAdminPayment_whenPaymentIsMissing_throwsNotFound() {
+        UUID paymentId = UUID.randomUUID();
+        when(paymentRepository.findById(paymentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.getAdminPayment(paymentId))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

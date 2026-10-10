@@ -1,9 +1,13 @@
 package com.mentify.repository;
 
+import com.mentify.dto.AdminPaymentFilter;
 import com.mentify.entity.Payment;
 import com.mentify.enums.PaymentProvider;
 import com.mentify.enums.PaymentStatus;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -158,6 +162,142 @@ class PaymentRepositoryIntegrationTest {
     }
 
     @Test
+    void adminFilter_filtersByStatusStudentCourseAndDateRange() {
+        UUID matchingStudentId = UUID.randomUUID();
+        UUID matchingCourseId = UUID.randomUUID();
+        Payment matchingPayment = persistedPayment(
+                matchingStudentId,
+                matchingCourseId,
+                PaymentStatus.SUCCESS,
+                "pi_filter_match",
+                LocalDateTime.of(2026, 10, 10, 10, 0)
+        );
+        persistedPayment(
+                matchingStudentId,
+                matchingCourseId,
+                PaymentStatus.PENDING,
+                "pi_filter_wrong_status",
+                LocalDateTime.of(2026, 10, 10, 11, 0)
+        );
+        persistedPayment(
+                UUID.randomUUID(),
+                matchingCourseId,
+                PaymentStatus.SUCCESS,
+                "pi_filter_wrong_student",
+                LocalDateTime.of(2026, 10, 10, 12, 0)
+        );
+        persistedPayment(
+                matchingStudentId,
+                UUID.randomUUID(),
+                PaymentStatus.SUCCESS,
+                "pi_filter_wrong_course",
+                LocalDateTime.of(2026, 10, 10, 13, 0)
+        );
+        entityManager.clear();
+
+        Page<Payment> result = paymentRepository.findAll(
+                PaymentSpecifications.adminFilter(AdminPaymentFilter.builder()
+                        .status(PaymentStatus.SUCCESS)
+                        .studentId(matchingStudentId)
+                        .courseId(matchingCourseId)
+                        .createdFrom(LocalDateTime.of(2026, 10, 10, 9, 0))
+                        .createdTo(LocalDateTime.of(2026, 10, 10, 10, 30))
+                        .build()),
+                PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent())
+                .extracting(Payment::getId)
+                .containsExactly(matchingPayment.getId());
+    }
+
+    @Test
+    void adminFilter_filtersBySafeReferenceForStripePaymentIntentOrPaymentId() {
+        Payment stripeReferencedPayment = persistedPayment(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                PaymentStatus.PENDING,
+                "pi_reference_lookup",
+                LocalDateTime.of(2026, 10, 10, 10, 0)
+        );
+        Payment idReferencedPayment = persistedPayment(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                PaymentStatus.SUCCESS,
+                "pi_other_reference",
+                LocalDateTime.of(2026, 10, 10, 11, 0)
+        );
+        entityManager.clear();
+
+        Page<Payment> stripeReferenceResult = paymentRepository.findAll(
+                PaymentSpecifications.adminFilter(AdminPaymentFilter.builder()
+                        .reference("pi_reference_lookup")
+                        .build()),
+                PageRequest.of(0, 10)
+        );
+        Page<Payment> paymentIdReferenceResult = paymentRepository.findAll(
+                PaymentSpecifications.adminFilter(AdminPaymentFilter.builder()
+                        .reference(idReferencedPayment.getId().toString())
+                        .build()),
+                PageRequest.of(0, 10)
+        );
+
+        assertThat(stripeReferenceResult.getContent())
+                .extracting(Payment::getId)
+                .containsExactly(stripeReferencedPayment.getId());
+        assertThat(paymentIdReferenceResult.getContent())
+                .extracting(Payment::getId)
+                .containsExactly(idReferencedPayment.getId());
+    }
+
+    @Test
+    void adminPaymentQuery_supportsPaginationAndMostRecentFirstOrdering() {
+        Payment oldestPayment = persistedPayment(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                PaymentStatus.SUCCESS,
+                "pi_admin_oldest",
+                LocalDateTime.of(2026, 10, 8, 10, 0)
+        );
+        Payment middlePayment = persistedPayment(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                PaymentStatus.SUCCESS,
+                "pi_admin_middle",
+                LocalDateTime.of(2026, 10, 9, 10, 0)
+        );
+        Payment newestPayment = persistedPayment(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                PaymentStatus.SUCCESS,
+                "pi_admin_newest",
+                LocalDateTime.of(2026, 10, 10, 10, 0)
+        );
+        entityManager.clear();
+
+        Page<Payment> firstPage = paymentRepository.findAll(
+                PaymentSpecifications.adminFilter(AdminPaymentFilter.builder()
+                        .status(PaymentStatus.SUCCESS)
+                        .build()),
+                PageRequest.of(0, 2, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+        );
+        Page<Payment> secondPage = paymentRepository.findAll(
+                PaymentSpecifications.adminFilter(AdminPaymentFilter.builder()
+                        .status(PaymentStatus.SUCCESS)
+                        .build()),
+                PageRequest.of(1, 2, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+        );
+
+        assertThat(firstPage.getTotalElements()).isEqualTo(3);
+        assertThat(firstPage.getContent())
+                .extracting(Payment::getId)
+                .containsExactly(newestPayment.getId(), middlePayment.getId());
+        assertThat(secondPage.getContent())
+                .extracting(Payment::getId)
+                .containsExactly(oldestPayment.getId());
+    }
+
+    @Test
     void savePayment_whenStripePaymentIntentIdDuplicated_throwsDataIntegrityViolationException() {
         String stripePaymentIntentId = "pi_duplicate_001";
 
@@ -203,5 +343,26 @@ class PaymentRepositoryIntegrationTest {
                 .build());
 
         assertThat(secondPayment.getId()).isNotNull();
+    }
+
+    private Payment persistedPayment(
+            UUID studentId,
+            UUID courseId,
+            PaymentStatus status,
+            String stripePaymentIntentId,
+            LocalDateTime createdAt
+    ) {
+        Payment payment = Payment.builder()
+                .studentId(studentId)
+                .courseId(courseId)
+                .amount(new BigDecimal("100.00"))
+                .currency("USD")
+                .status(status)
+                .stripePaymentIntentId(stripePaymentIntentId)
+                .paymentOperationKey(UUID.randomUUID().toString())
+                .build();
+        payment.setCreatedAt(createdAt);
+        payment.setUpdatedAt(createdAt);
+        return paymentRepository.saveAndFlush(payment);
     }
 }
