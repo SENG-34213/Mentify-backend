@@ -6,6 +6,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.DecimalMin;
@@ -71,5 +73,26 @@ public class Payment extends BaseEntity {
     @Column(name = "stripe_payment_intent_id", length = 255)
     private String stripePaymentIntentId;
 
+    @Size(max = 500)
+    @Column(name = "stripe_client_secret", length = 500)
+    private String stripeClientSecret;
+
+    @NotNull
+    @Size(max = 255)
+    @Column(name = "payment_operation_key", nullable = false, length = 255)
+    private String paymentOperationKey;
+
     private LocalDateTime paidAt;
+
+    @PrePersist
+    @PreUpdate
+    protected void ensurePaymentOperationKey() {
+        if (paymentOperationKey == null
+                && studentId != null
+                && courseId != null
+                && currency != null
+                && amount != null) {
+            paymentOperationKey = studentId + "|" + courseId + "|" + currency + "|" + amount.setScale(2).toPlainString();
+        }
+    }
 }
