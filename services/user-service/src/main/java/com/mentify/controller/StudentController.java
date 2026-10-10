@@ -22,6 +22,7 @@ public class StudentController {
 
     private final StudentService studentService;
 
+
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserResponse>> registerStudent(@Valid @RequestBody StudentRegistrationRequest request) {
         ApiResponse<UserResponse> response = studentService.registerStudent(request);
