@@ -3,6 +3,7 @@ package com.mentify.controller;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.EntrollmentService;
@@ -44,6 +45,17 @@ public class EntrollmentController {
     ) {
         ApiResponse<EntrollmentResponse> response =
                 entrollmentService.createEntrollment(request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping("/me")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<EntrollmentResponse>> createCurrentStudentEntrollment(
+            @Valid @RequestBody StudentEntrollmentCreateRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<EntrollmentResponse> response =
+                entrollmentService.createCurrentStudentEntrollment(request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
