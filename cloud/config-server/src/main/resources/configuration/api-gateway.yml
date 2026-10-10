@@ -1,6 +1,32 @@
 server:
   port: ${SERVER_PORT:8080}
 
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+mentify:
+  gateway:
+    cors:
+      allowed-origin-patterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+      allowed-methods: ${GATEWAY_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      allowed-headers: ${GATEWAY_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,Origin,X-Requested-With}
+      exposed-headers: ${GATEWAY_CORS_EXPOSED_HEADERS:Location}
+      allow-credentials: ${GATEWAY_CORS_ALLOW_CREDENTIALS:true}
+      max-age-seconds: ${GATEWAY_CORS_MAX_AGE_SECONDS:3600}
+
 spring:
   security:
     oauth2:
@@ -21,6 +47,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: exam-service
+          uri: lb://exam-service
+          predicates:
+            - Path=/api/v1/exams/**
+          filters:
+            - StripPrefix=0
+
         - id: course-service
           uri: lb://course-service
           predicates:
@@ -35,10 +68,43 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: communication-service
+          uri: lb://communication-service
+          predicates:
+            - Path=/api/communication/**
+          filters:
+            - StripPrefix=0
+
         - id: assignment-service
           uri: lb://assignment-service
           predicates:
-            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/v1/assignments/**, /api/v1/submissions/**
+            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/submissions/**
+          filters:
+            - StripPrefix=0
+
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - StripPrefix=0
+
+        - id: ai-service-v1-compat
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/v1/ai/**
+          filters:
+            - RewritePath=/api/v1/ai/(?<segment>.*), /api/ai/$\{segment}
+
+        - id: ai-service-websocket
+          uri: lb:ws://ai-service
+          predicates:
+            - Path=/ws/ai,/ws/ai/**
+
+        - id: attendance-service
+          uri: lb://attendance-service
+          predicates:
+            - Path=/api/v1/attendance/**
           filters:
             - StripPrefix=0
 

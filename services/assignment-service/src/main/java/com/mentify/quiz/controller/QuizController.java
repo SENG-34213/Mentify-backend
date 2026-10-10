@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -52,6 +53,20 @@ public class QuizController {
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<QuizResponse>> getTeacherQuiz(@PathVariable UUID quizId) {
         ApiResponse<QuizResponse> response = quizService.getTeacherQuiz(quizId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/api/quizzes/teacher")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<QuizResponse>>> getTeacherQuizzes() {
+        ApiResponse<List<QuizResponse>> response = quizService.getTeacherQuizzes();
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @DeleteMapping("/api/quizzes/{quizId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Object>> deleteQuiz(@PathVariable UUID quizId) {
+        ApiResponse<Object> response = quizService.deleteQuiz(quizId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

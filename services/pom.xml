@@ -18,5 +18,9 @@
         <module>user-service</module>
         <module>entrollment-service</module>
         <module>assignment-service</module>
+        <module>communication-service</module>
+        <module>attendance-service</module>
+        <module>ai-service</module>
+        <module>exam-service</module>
     </modules>
 </project>

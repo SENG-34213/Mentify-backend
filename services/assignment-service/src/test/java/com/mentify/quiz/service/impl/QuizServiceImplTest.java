@@ -1,7 +1,6 @@
 package com.mentify.quiz.service.impl;
 
 import com.mentify.payload.response.ApiResponse;
-import com.mentify.quiz.client.CourseServiceClient;
 import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.client.dto.CourseLookupResponse;
 import com.mentify.quiz.dto.request.CreateQuizRequest;
@@ -12,11 +11,13 @@ import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizQuestion;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.mapper.QuizMapper;
 import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
+import com.mentify.quiz.service.CourseQuizAuthorizationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,13 +48,13 @@ class QuizServiceImplTest {
     private QuizQuestionRepository quizQuestionRepository;
 
     @Mock
-    private CourseServiceClient courseServiceClient;
-
-    @Mock
     private EnrollmentServiceClient enrollmentServiceClient;
 
     @Mock
     private CurrentUserService currentUserService;
+
+    @Mock
+    private CourseQuizAuthorizationService courseQuizAuthorizationService;
 
     private QuizServiceImpl quizService;
 
@@ -62,9 +63,9 @@ class QuizServiceImplTest {
         quizService = new QuizServiceImpl(
                 quizRepository,
                 quizQuestionRepository,
-                courseServiceClient,
                 enrollmentServiceClient,
-                currentUserService
+                currentUserService,
+                courseQuizAuthorizationService
         );
     }
 
@@ -82,10 +83,9 @@ class QuizServiceImplTest {
                 .showResultImmediately(true)
                 .build();
 
-        when(courseServiceClient.getCourseById(courseId, AUTH_HEADER)).thenReturn(courseResponse(courseId, teacherId));
-        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
-        when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
-        when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
+        CourseLookupResponse course = course(courseId, teacherId);
+        when(courseQuizAuthorizationService.assertCanCreateQuizForCourse(courseId, AUTH_HEADER)).thenReturn(course);
+        when(courseQuizAuthorizationService.resolveTeacherId(course)).thenReturn(teacherId);
         when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> {
             Quiz quiz = invocation.getArgument(0);
             quiz.setId(UUID.randomUUID());
@@ -96,6 +96,7 @@ class QuizServiceImplTest {
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getData().getStatus()).isEqualTo(QuizStatus.DRAFT);
+        assertThat(response.getData().getCreationMethod()).isEqualTo(QuizCreationMethod.MANUAL);
         assertThat(response.getData().getTitle()).isEqualTo("Java Basics Quiz");
         assertThat(response.getData().getTeacherId()).isEqualTo(teacherId);
         assertThat(response.getData().getTotalMarks()).isEqualByComparingTo("0.00");
@@ -104,6 +105,38 @@ class QuizServiceImplTest {
         verify(quizRepository).save(quizCaptor.capture());
         assertThat(quizCaptor.getValue().getCourseId()).isEqualTo(courseId);
         assertThat(quizCaptor.getValue().getTeacherId()).isEqualTo(teacherId);
+        assertThat(quizCaptor.getValue().getCreationMethod()).isEqualTo(QuizCreationMethod.MANUAL);
+    }
+
+    @Test
+    void teacherCanCreateQuizFromAiDraft() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        CreateQuizRequest request = CreateQuizRequest.builder()
+                .courseId(courseId)
+                .title("AI Java Basics Quiz")
+                .durationMinutes(15)
+                .passMark(new BigDecimal("10.00"))
+                .maxAttempts(1)
+                .creationMethod(QuizCreationMethod.AI_GENERATED)
+                .build();
+
+        CourseLookupResponse course = course(courseId, teacherId);
+        when(courseQuizAuthorizationService.assertCanCreateQuizForCourse(courseId, AUTH_HEADER)).thenReturn(course);
+        when(courseQuizAuthorizationService.resolveTeacherId(course)).thenReturn(teacherId);
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> {
+            Quiz quiz = invocation.getArgument(0);
+            quiz.setId(UUID.randomUUID());
+            return quiz;
+        });
+
+        ApiResponse<QuizResponse> response = quizService.createQuiz(request, AUTH_HEADER);
+
+        assertThat(response.getData().getCreationMethod()).isEqualTo(QuizCreationMethod.AI_GENERATED);
+
+        ArgumentCaptor<Quiz> quizCaptor = ArgumentCaptor.forClass(Quiz.class);
+        verify(quizRepository).save(quizCaptor.capture());
+        assertThat(quizCaptor.getValue().getCreationMethod()).isEqualTo(QuizCreationMethod.AI_GENERATED);
     }
 
     @Test
@@ -148,17 +181,12 @@ class QuizServiceImplTest {
                 .doesNotContain("correct", "isCorrect", "correctAnswer");
     }
 
-    private ApiResponse<CourseLookupResponse> courseResponse(UUID courseId, UUID teacherId) {
+    private CourseLookupResponse course(UUID courseId, UUID teacherId) {
         CourseLookupResponse course = new CourseLookupResponse();
         course.setId(courseId);
         course.setAssignedTeacherId(teacherId);
         course.setPublished(true);
         course.setVisible(true);
-
-        return ApiResponse.<CourseLookupResponse>builder()
-                .status(HttpStatus.OK)
-                .statusCode(HttpStatus.OK.value())
-                .data(course)
-                .build();
+        return course;
     }
 }

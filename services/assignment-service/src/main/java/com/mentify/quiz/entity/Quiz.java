@@ -1,6 +1,7 @@
 package com.mentify.quiz.entity;
 
 import com.mentify.entity.BaseEntity;
+import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -49,6 +50,11 @@ public class Quiz extends BaseEntity {
     @Column(nullable = false, precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal totalMarks = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'MANUAL'")
+    @Builder.Default
+    private QuizCreationMethod creationMethod = QuizCreationMethod.MANUAL;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal passMark;

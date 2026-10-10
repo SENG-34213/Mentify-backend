@@ -9,6 +9,7 @@ import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.mapper.CourseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
+import com.mentify.repository.GradeRepository;
 import com.mentify.service.CourseService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
+    private final GradeRepository gradeRepository;
     private final UserServiceClient userServiceClient;
 
     @Override
@@ -42,6 +44,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
+        validateGradeExists(request.getGradeId());
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
@@ -77,6 +80,7 @@ public class CourseServiceImpl implements CourseService {
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
         }
 
+        validateGradeExists(request.getGradeId());
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         existingCourse.setCourseName(request.getCourseName().trim());
@@ -126,6 +130,12 @@ public class CourseServiceImpl implements CourseService {
         }
     }
 
+    private void validateGradeExists(UUID gradeId) {
+        if (gradeId == null || !gradeRepository.existsById(gradeId)) {
+            throw new ResourceNotFoundException("Grade", "id", gradeId);
+        }
+    }
+
     @Override
     @Transactional
     public ApiResponse<CourseResponse> getCourseById(UUID courseId) {
@@ -139,6 +149,38 @@ public class CourseServiceImpl implements CourseService {
         return ApiResponse.<CourseResponse>builder()
                 .message("Course fetched successfully")
                 .data(courseResponse)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getAllCourses() {
+        List<CourseResponse> courses = courseRepository.findAll().stream()
+                .map(CourseMapper::toCourseResponse)
+                .collect(Collectors.toList());
+
+        return ApiResponse.<List<CourseResponse>>builder()
+                .message("Courses fetched successfully")
+                .data(courses)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId) {
+        List<CourseResponse> courses = courseRepository
+                .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId)
+                .stream()
+                .map(CourseMapper::toCourseResponse)
+                .collect(Collectors.toList());
+
+        return ApiResponse.<List<CourseResponse>>builder()
+                .message("Teacher courses fetched successfully")
+                .data(courses)
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();

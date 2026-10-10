@@ -1,0 +1,72 @@
+server:
+  port: ${EXAM_SERVICE_PORT:8089}
+
+spring:
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
+    baseline-version: 0
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+
+  datasource:
+    url: jdbc:postgresql://${EXAM_DB_HOST:localhost}:${EXAM_DB_PORT:5434}/${EXAM_DB_NAME:exam_db}
+    username: ${EXAM_DB_USERNAME:postgres}
+    password: ${EXAM_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+  clients:
+    # Leave empty to resolve the service through Eureka; set to override with a fixed base URL.
+    course-service:
+      url: ${COURSE_SERVICE_URL:}
+    enrollment-service:
+      url: ${ENROLLMENT_SERVICE_URL:}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 5000
+
+logging:
+  level:
+    root: INFO
+    com.mentify: INFO

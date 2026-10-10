@@ -4,6 +4,7 @@ import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.entity.User;
 import com.mentify.enums.AccountStatus;
+import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.ResourceNotFoundException;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -54,6 +57,20 @@ public class UserRegistrationService {
             compensateKeycloakUserCreation(keycloakUserId, exception);
             throw exception;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserRegistrationResponse> getUsersByRole(Role role) {
+        return userRepository.findAllByRoleOrderByCreatedAtDesc(role).stream()
+                .map(UserRegistrationResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public UserRegistrationResponse getCurrentUser(String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return UserRegistrationResponse.from(user);
     }
 
     @Transactional(readOnly = true)

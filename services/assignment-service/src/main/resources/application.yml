@@ -3,11 +3,31 @@ spring:
     name: assignment-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  cloud:
+    openfeign:
+      client:
+        config:
+          ai-service:
+            connectTimeout: ${AI_SERVICE_FEIGN_CONNECT_TIMEOUT:5000}
+            readTimeout: ${AI_SERVICE_FEIGN_READ_TIMEOUT:120000}
 
 eureka:
   instance:
     prefer-ip-address: true
-    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
   client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+quiz:
+  ai-generation:
+    max-question-count: ${QUIZ_AI_MAX_QUESTION_COUNT:20}
+    default-question-marks: ${QUIZ_AI_DEFAULT_QUESTION_MARKS:1.00}
