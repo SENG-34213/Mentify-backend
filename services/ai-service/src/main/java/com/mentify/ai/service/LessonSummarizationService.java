@@ -6,4 +6,6 @@ import java.util.UUID;
 
 public interface LessonSummarizationService {
     LessonSummaryResponse summarizeLesson(UUID lessonId, String authorizationHeader);
+
+    LessonSummaryResponse summarizeMaterial(UUID materialId, String authorizationHeader);
 }
