@@ -9,11 +9,12 @@ import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
 import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
+import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.service.impl.MaterialRetrievalServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -39,8 +40,16 @@ class MaterialRetrievalServiceImplTest {
     @Mock
     private MaterialStorageService storageService;
 
-    @InjectMocks
     private MaterialRetrievalServiceImpl retrievalService;
+
+    @BeforeEach
+    void setUp() {
+        retrievalService = new MaterialRetrievalServiceImpl(
+                materialRepository,
+                storageService,
+                new MaterialMapper()
+        );
+    }
 
     @Test
     void existingMaterialMetadataCanBeRetrievedWithoutStorageKeyExposure() {
