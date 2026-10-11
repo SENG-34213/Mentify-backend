@@ -60,6 +60,12 @@ mentify:
     enrollment-service:
       url: ${ENROLLMENT_SERVICE_URL:}
 
+calendar:
+  query:
+    max-range-days: ${CALENDAR_QUERY_MAX_RANGE_DAYS:31}
+    default-upcoming-limit: ${CALENDAR_QUERY_DEFAULT_LIMIT:20}
+    max-upcoming-limit: ${CALENDAR_QUERY_MAX_LIMIT:100}
+
 management:
   endpoints:
     web:

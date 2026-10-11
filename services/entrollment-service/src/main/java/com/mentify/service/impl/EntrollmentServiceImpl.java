@@ -124,6 +124,20 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     }
 
     @Override
+    public ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId) {
+        List<UUID> courseIds = entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId).stream()
+                .flatMap(enrollment -> enrollment.getCourseIds().stream())
+                .distinct()
+                .toList();
+        return ApiResponse.<List<UUID>>builder()
+                .message("Student course scope fetched successfully")
+                .data(courseIds)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
     public ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId) {
         List<UUID> studentIds = entrollmentRepository.findActiveStudentIdsByCourseId(courseId);
 

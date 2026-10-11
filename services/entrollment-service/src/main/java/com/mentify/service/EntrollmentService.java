@@ -20,6 +20,8 @@ public interface EntrollmentService {
 
     boolean isStudentEnrolledInCourse(UUID studentId, UUID courseId);
 
+    ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId);
+
     ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId);
 
     ApiResponse<List<EntrollmentResponse>> getActiveEntrollments();
