@@ -4,6 +4,7 @@ import com.mentify.ai.client.LessonServiceClient;
 import com.mentify.ai.config.AiProviderProperties;
 import com.mentify.ai.dto.internal.AiExecutionContext;
 import com.mentify.ai.dto.internal.AiExecutionRequest;
+import com.mentify.ai.dto.internal.MaterialDocument;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.response.InternalLessonResponse;
 import com.mentify.ai.dto.response.LessonSummaryResponse;
@@ -20,7 +21,9 @@ import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
+import com.mentify.ai.service.DocumentContentService;
 import com.mentify.ai.service.LessonSummarizationService;
+import com.mentify.ai.service.MaterialDocumentService;
 import com.mentify.payload.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +45,8 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
     private final AiUsageGuardService usageGuardService;
     private final AiContentGuardService contentGuardService;
     private final AiAuditService auditService;
+    private final MaterialDocumentService materialDocumentService;
+    private final DocumentContentService documentContentService;
 
     @Override
     public LessonSummaryResponse summarizeLesson(UUID lessonId, String authorizationHeader) {
@@ -124,6 +129,75 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
                 auditService.recordBlocked(traceId, featureType, userId, courseId, lessonId, ex.getClass().getSimpleName());
             } else {
                 auditService.recordFailed(traceId, featureType, userId, courseId, lessonId, ex.getClass().getSimpleName());
+            }
+            throw ex;
+        }
+    }
+
+    @Override
+    public LessonSummaryResponse summarizeMaterial(UUID materialId, String authorizationHeader) {
+        log.info("Starting summarization for material ID: {}", materialId);
+        String traceId = UUID.randomUUID().toString();
+        UUID userId = authenticatedUserService.getCurrentUserId();
+        AiFeatureType featureType = AiFeatureType.LESSON_SUMMARIZATION;
+        UUID courseId = null;
+
+        try {
+            usageGuardService.assertAllowed(userId, featureType);
+
+            MaterialDocument material = materialDocumentService.loadMaterial(materialId, authorizationHeader);
+            courseId = material.courseId();
+            String title = material.title() == null || material.title().isBlank()
+                    ? material.originalFilename()
+                    : material.title();
+            String content = documentContentService.extractReadableText(material);
+            if (content == null || content.isBlank()) {
+                log.warn("Material ID: {} has no usable text content", materialId);
+                throw new AiEmptyResponseException("Material has no usable text content for summarization");
+            }
+
+            String guardedTitle = contentGuardService.sanitizeForPrompt(featureType, "material_title", title);
+            String guardedContent = contentGuardService.sanitizeForPrompt(featureType, "material_content", content);
+            auditService.recordAllowed(traceId, featureType, userId, courseId, null);
+
+            AiPromptTemplate prompt = promptRegistry.get(AiPromptRegistry.LESSON_SUMMARY, AiPromptRegistry.V1);
+            AiExecutionRequest generateRequest = AiExecutionRequest.builder()
+                    .featureType(featureType)
+                    .userId(userId)
+                    .context(AiExecutionContext.builder()
+                            .courseId(courseId)
+                            .build())
+                    .systemPrompt(prompt.systemPrompt())
+                    .userInput(prompt.renderUserInput(guardedTitle, guardedContent))
+                    .responseFormat(AiResponseFormat.TEXT)
+                    .traceId(traceId)
+                    .build();
+
+            AiProvider provider = getProvider();
+            log.info("Summarizing material using provider: {} prompt={} traceId={}",
+                    provider.getProviderName(), prompt.promptId(), traceId);
+            AiGenerateResponse generateResponse = provider.generate(generateRequest);
+            auditService.recordCompleted(traceId, featureType, userId, courseId, null, generateResponse);
+
+            return LessonSummaryResponse.builder()
+                    .lessonId(null)
+                    .summary(generateResponse.getContent())
+                    .provider(generateResponse.getProvider())
+                    .model(generateResponse.getModel())
+                    .generatedAt(generateResponse.getGeneratedAt())
+                    .inputTokens(generateResponse.getInputTokens())
+                    .outputTokens(generateResponse.getOutputTokens())
+                    .totalTokens(generateResponse.getTotalTokens())
+                    .estimatedCost(generateResponse.getEstimatedCost())
+                    .latencyMs(generateResponse.getLatencyMs())
+                    .finishReason(generateResponse.getFinishReason())
+                    .providerRequestId(generateResponse.getProviderRequestId())
+                    .build();
+        } catch (RuntimeException ex) {
+            if (isGuardrailBlock(ex)) {
+                auditService.recordBlocked(traceId, featureType, userId, courseId, null, ex.getClass().getSimpleName());
+            } else {
+                auditService.recordFailed(traceId, featureType, userId, courseId, null, ex.getClass().getSimpleName());
             }
             throw ex;
         }

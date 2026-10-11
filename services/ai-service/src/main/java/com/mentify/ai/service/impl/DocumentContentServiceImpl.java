@@ -2,6 +2,7 @@ package com.mentify.ai.service.impl;
 
 import com.mentify.ai.config.QuizGenerationProperties;
 import com.mentify.ai.document.DocumentTextExtractor;
+import com.mentify.ai.dto.internal.MaterialDocument;
 import com.mentify.ai.exception.AiInvalidDocumentException;
 import com.mentify.ai.service.DocumentContentService;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +28,47 @@ public class DocumentContentServiceImpl implements DocumentContentService {
                 .orElseThrow(() -> new AiInvalidDocumentException("Unsupported document type. Upload PDF, DOCX, or TXT"));
 
         byte[] content = readFile(file);
+        return extractReadableText(content, file.getContentType(), file.getOriginalFilename(), requestedQuestionCount, true);
+    }
+
+    @Override
+    public String extractReadableText(MaterialDocument document, int requestedQuestionCount) {
+        validateDocument(document);
+        return extractReadableText(
+                document.content(),
+                document.contentType(),
+                document.originalFilename(),
+                requestedQuestionCount,
+                true
+        );
+    }
+
+    @Override
+    public String extractReadableText(MaterialDocument document) {
+        validateDocument(document);
+        return extractReadableText(
+                document.content(),
+                document.contentType(),
+                document.originalFilename(),
+                1,
+                false
+        );
+    }
+
+    private String extractReadableText(
+            byte[] content,
+            String contentType,
+            String filename,
+            int requestedQuestionCount,
+            boolean enforceQuestionTextMinimum
+    ) {
+        DocumentTextExtractor extractor = extractors.stream()
+                .filter(candidate -> candidate.supports(contentType, filename))
+                .findFirst()
+                .orElseThrow(() -> new AiInvalidDocumentException("Unsupported document type. Upload PDF, DOCX, or TXT"));
+
         String normalized = normalize(extractor.extract(content));
-        validateReadableContent(normalized, requestedQuestionCount);
+        validateReadableContent(normalized, requestedQuestionCount, enforceQuestionTextMinimum);
         return boundContent(normalized);
     }
 
@@ -49,6 +89,15 @@ public class DocumentContentServiceImpl implements DocumentContentService {
         }
     }
 
+    private void validateDocument(MaterialDocument document) {
+        if (document == null || document.content() == null || document.content().length == 0) {
+            throw new AiInvalidDocumentException("Document file is required");
+        }
+        if (document.content().length > properties.getMaxFileSizeBytes()) {
+            throw new AiInvalidDocumentException("Document exceeds the maximum allowed file size");
+        }
+    }
+
     private String normalize(String text) {
         if (text == null) {
             return "";
@@ -58,9 +107,12 @@ public class DocumentContentServiceImpl implements DocumentContentService {
                 .trim();
     }
 
-    private void validateReadableContent(String text, int requestedQuestionCount) {
+    private void validateReadableContent(String text, int requestedQuestionCount, boolean enforceQuestionTextMinimum) {
         if (text.isBlank()) {
             throw new AiInvalidDocumentException("No readable text could be extracted from the document");
+        }
+        if (!enforceQuestionTextMinimum) {
+            return;
         }
         int requiredCharacters = Math.max(1, requestedQuestionCount) * properties.getMinDocumentCharactersPerQuestion();
         if (text.length() < requiredCharacters) {
