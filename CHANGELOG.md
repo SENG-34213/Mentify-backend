@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Documented MENT-#89 Communication-to-Calendar source review: the current Communication Service has no explicit schedulable meeting or dated-announcement record, so ordinary messages and message timestamps are intentionally not projected; added the future `COMMUNICATION` mapping contract and test register.
 - Refined scheduled Attendance session Calendar integration (MENT-#88): use `ATTENDANCE` source projections, project only future `OPEN` sessions, exclude attendance records/outcomes, retain cancellation tombstones, and add eligibility/recovery documentation and tests.
 - Added Course class schedule Calendar projection integration (MENT-#87): AttendanceSession source ownership, `COURSE_CLASS` mapping, lifecycle projection/cancellation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
 - Added Assignment and Quiz Calendar projection integration (MENT-#86): published-source mapping, deadline and availability-window projection, retained cancellation, idempotent source-type isolation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
