@@ -54,6 +54,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: calender-service
+          uri: lb://calender-service
+          predicates:
+            - Path=/api/v1/calendar/**
+          filters:
+            - StripPrefix=0
+
         - id: course-service
           uri: lb://course-service
           predicates:
