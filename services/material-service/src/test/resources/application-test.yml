@@ -29,3 +29,4 @@ material:
     s3:
       bucket: material-service-test-bucket
       region: us-east-1
+      download-url-expiration: PT2M
