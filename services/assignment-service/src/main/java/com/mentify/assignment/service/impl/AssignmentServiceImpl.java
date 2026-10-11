@@ -7,6 +7,7 @@ import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.enums.AssignmentStatus;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.service.AssignmentService;
+import com.mentify.assignment.service.CalendarProjectionService;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.CourseServiceClient;
 import com.mentify.quiz.client.dto.CourseLookupResponse;
@@ -27,6 +28,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final CourseServiceClient courseServiceClient;
     private final CurrentUserService currentUserService;
+    private final CalendarProjectionService calendarProjectionService;
 
     @Override
     @Transactional
@@ -77,7 +79,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setAllowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()));
         assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage());
 
-        return response(HttpStatus.OK, "Assignment updated successfully", mapToResponse(assignmentRepository.save(assignment)));
+        Assignment saved = assignmentRepository.save(assignment);
+        calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
+        return response(HttpStatus.OK, "Assignment updated successfully", mapToResponse(saved));
     }
 
     @Override
@@ -103,7 +107,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         assertTeacherCanManageAssignment(assignment);
         getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
         assignment.setActive(false);
-        assignmentRepository.save(assignment);
+        Assignment saved = assignmentRepository.save(assignment);
+        calendarProjectionService.cancelAssignment(saved, authorizationHeader);
         return response(HttpStatus.OK, "Assignment deleted successfully", null);
     }
 
@@ -119,7 +124,9 @@ public class AssignmentServiceImpl implements AssignmentService {
 
         assignment.setStatus(AssignmentStatus.PUBLISHED);
         assignment.setPublishedAt(LocalDateTime.now());
-        return response(HttpStatus.OK, "Assignment published successfully", mapToResponse(assignmentRepository.save(assignment)));
+        Assignment saved = assignmentRepository.save(assignment);
+        calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
+        return response(HttpStatus.OK, "Assignment published successfully", mapToResponse(saved));
     }
 
     @Override
@@ -129,7 +136,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         assertTeacherCanManageAssignment(assignment);
         getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
         assignment.setStatus(AssignmentStatus.CLOSED);
-        return response(HttpStatus.OK, "Assignment closed successfully", mapToResponse(assignmentRepository.save(assignment)));
+        Assignment saved = assignmentRepository.save(assignment);
+        calendarProjectionService.cancelAssignment(saved, authorizationHeader);
+        return response(HttpStatus.OK, "Assignment closed successfully", mapToResponse(saved));
     }
 
     private Assignment getAssignmentOrThrow(UUID assignmentId) {

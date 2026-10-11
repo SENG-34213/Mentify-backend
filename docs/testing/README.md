@@ -101,6 +101,7 @@ docs/testing/CALENDAR_EVENT_DOMAIN_TEST_REGISTER.md
 docs/testing/CALENDAR_EVENT_MANAGEMENT_API_TEST_REGISTER.md
 docs/testing/CALENDAR_ROLE_BASED_QUERY_TEST_REGISTER.md
 docs/testing/CALENDAR_EXAM_PROJECTION_TEST_REGISTER.md
+docs/testing/ASSIGNMENT_QUIZ_CALENDAR_PROJECTION_TEST_REGISTER.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:
