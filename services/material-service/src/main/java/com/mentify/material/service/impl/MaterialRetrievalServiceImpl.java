@@ -7,6 +7,7 @@ import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
+import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.service.MaterialRetrievalService;
 import com.mentify.material.service.MaterialStorageService;
@@ -27,11 +28,12 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
 
     private final MaterialRepository materialRepository;
     private final MaterialStorageService storageService;
+    private final MaterialMapper materialMapper;
 
     @Override
     public MaterialDetailsResponse getMaterial(UUID materialId) {
         Material material = loadVisibleMaterial(materialId);
-        return toDetailsResponse(material);
+        return materialMapper.toDetailsResponse(material);
     }
 
     @Override
@@ -47,23 +49,7 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
                 material.getContentType()
         );
 
-        return new MaterialDownloadResponse(
-                material.getId(),
-                material.getTitle(),
-                material.getDescription(),
-                material.getOriginalFilename(),
-                material.getContentType(),
-                material.getFileSize(),
-                material.getType(),
-                material.getPurpose(),
-                material.getStatus(),
-                material.getUploadedBy(),
-                material.getChecksum(),
-                material.getCreatedAt(),
-                material.getUpdatedAt(),
-                download.downloadUrl(),
-                download.expiresAt()
-        );
+        return materialMapper.toDownloadResponse(material, download);
     }
 
     private Material loadVisibleMaterial(UUID materialId) {
@@ -79,23 +65,5 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
         }
 
         return material;
-    }
-
-    private MaterialDetailsResponse toDetailsResponse(Material material) {
-        return new MaterialDetailsResponse(
-                material.getId(),
-                material.getTitle(),
-                material.getDescription(),
-                material.getOriginalFilename(),
-                material.getContentType(),
-                material.getFileSize(),
-                material.getType(),
-                material.getPurpose(),
-                material.getStatus(),
-                material.getUploadedBy(),
-                material.getChecksum(),
-                material.getCreatedAt(),
-                material.getUpdatedAt()
-        );
     }
 }
