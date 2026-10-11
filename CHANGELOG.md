@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added calendar event domain and persistence (MENT-#82): enum-backed `CalendarEvent` model, bean/database validation, audit timestamps, cancellation preservation, source uniqueness, Flyway V2 schema, overlap/filter repository queries, concurrency protection, integration tests, and documented time-zone/query conventions.
 - Added the Calendar Service foundation (MENT-#81): Maven module, shared Keycloak security, Config Server/Eureka integration, PostgreSQL/Flyway bootstrap, database-aware readiness, protected actuator defaults, CI matrix coverage, foundation security/health tests, and local/staging operational documentation. Calendar event persistence and APIs remain separate follow-up tickets.
 - Standardized exam-service error handling (MENT-#47): duplicate/unique-constraint violations now return 409 and unhandled downstream (Feign) failures return 503, both with safe generic messages that never expose SQL, URLs or tokens; added handler tests.
 - Added `GET /api/v1/exams/{examId}/summary` (exam-service, MENT-#46): read-only staff exam summary (total/present/absent/passed/failed counts, average/highest/lowest marks over PRESENT results with numeric marks only, average rounded to 2 dp HALF_UP, null when no numeric marks); admins or the course's assigned teacher only; COMPLETED and MARKING allowed, CANCELLED returns 409.
