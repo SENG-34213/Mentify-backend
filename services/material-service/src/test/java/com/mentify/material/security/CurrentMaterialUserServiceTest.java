@@ -32,6 +32,32 @@ class CurrentMaterialUserServiceTest {
     }
 
     @Test
+    void resolvesRolesFromAuthenticatedJwtAuthorities() {
+        UUID userId = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(authentication(userId.toString()));
+
+        AuthenticatedMaterialUser currentUser = currentUserService.getCurrentUser();
+
+        assertThat(currentUser.userId()).isEqualTo(userId);
+        assertThat(currentUser.isTeacher()).isTrue();
+        assertThat(currentUser.isAdmin()).isFalse();
+    }
+
+    @Test
+    void fallsBackToLocalUserIdClaimWhenSubjectIsMissing() {
+        UUID userId = UUID.randomUUID();
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("local_user_id", userId.toString())
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("ROLE_STUDENT")))
+        );
+
+        assertThat(currentUserService.getCurrentUserId()).isEqualTo(userId);
+    }
+
+    @Test
     void rejectsInvalidJwtSubject() {
         SecurityContextHolder.getContext().setAuthentication(authentication("not-a-uuid"));
 

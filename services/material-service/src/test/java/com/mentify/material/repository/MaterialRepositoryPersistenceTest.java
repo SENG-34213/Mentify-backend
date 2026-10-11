@@ -183,6 +183,7 @@ class MaterialRepositoryPersistenceTest {
                 "idx_materials_status",
                 "idx_materials_type",
                 "idx_materials_purpose",
+                "idx_materials_course_id",
                 "idx_materials_checksum",
                 "idx_materials_created_at"
         );
