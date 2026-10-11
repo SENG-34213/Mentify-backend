@@ -1,5 +1,6 @@
 package com.mentify.material.controller;
 
+import com.mentify.material.dto.request.MaterialSearchCriteria;
 import com.mentify.material.dto.request.UpdateMaterialRequest;
 import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.dto.response.MaterialDownloadResponse;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 @RestController
 @RequiredArgsConstructor
@@ -72,20 +75,35 @@ public class MaterialController {
     @GetMapping
     @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Page<MaterialDetailsResponse>>> listMaterials(
+            @RequestParam(name = "search", required = false) String search,
             @RequestParam(required = false) MaterialType type,
             @RequestParam(required = false) MaterialPurpose purpose,
             @RequestParam(required = false) MaterialStatus status,
             @RequestParam(required = false) UUID uploadedBy,
             @RequestParam(required = false) UUID courseId,
+            @RequestParam(required = false) UUID moduleId,
+            @RequestParam(required = false) UUID lessonId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdFrom,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTo,
             @RequestHeader("Authorization") String authorizationHeader,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<MaterialDetailsResponse> response = materialManagementService.listMaterials(
-                type,
-                purpose,
-                status,
-                uploadedBy,
-                courseId,
+                new MaterialSearchCriteria(
+                        search,
+                        type,
+                        purpose,
+                        status,
+                        uploadedBy,
+                        courseId,
+                        moduleId,
+                        lessonId,
+                        createdFrom,
+                        createdTo,
+                        null
+                ),
                 authorizationHeader,
                 pageable
         );

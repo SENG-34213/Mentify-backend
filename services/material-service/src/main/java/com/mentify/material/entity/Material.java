@@ -37,7 +37,10 @@ import java.util.UUID;
                 @Index(name = "idx_materials_purpose", columnList = "material_purpose"),
                 @Index(name = "idx_materials_course_id", columnList = "course_id"),
                 @Index(name = "idx_materials_checksum", columnList = "checksum"),
-                @Index(name = "idx_materials_created_at", columnList = "created_at")
+                @Index(name = "idx_materials_created_at", columnList = "created_at"),
+                @Index(name = "idx_materials_title", columnList = "title"),
+                @Index(name = "idx_materials_original_filename", columnList = "original_filename"),
+                @Index(name = "idx_materials_course_status_created", columnList = "course_id, status, created_at")
         }
 )
 @Getter

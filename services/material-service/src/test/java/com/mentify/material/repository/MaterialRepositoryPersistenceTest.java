@@ -1,5 +1,6 @@
 package com.mentify.material.repository;
 
+import com.mentify.material.dto.request.MaterialSearchCriteria;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
@@ -7,6 +8,9 @@ import com.mentify.material.enums.MaterialType;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -185,7 +189,10 @@ class MaterialRepositoryPersistenceTest {
                 "idx_materials_purpose",
                 "idx_materials_course_id",
                 "idx_materials_checksum",
-                "idx_materials_created_at"
+                "idx_materials_created_at",
+                "idx_materials_title",
+                "idx_materials_original_filename",
+                "idx_materials_course_status_created"
         );
 
         Set<String> constraints = jdbcTemplate.queryForList(
@@ -208,6 +215,113 @@ class MaterialRepositoryPersistenceTest {
         );
     }
 
+    @Test
+    void specificationSearchMatchesTitleOrOriginalFilenameCaseInsensitively() {
+        Material algebra = newMaterial("materials/algebra.pdf", UUID.randomUUID());
+        algebra.setTitle("Introduction to Algebra");
+        algebra.setOriginalFilename("week-one-intro.pdf");
+        Material savedAlgebra = materialRepository.saveAndFlush(algebra);
+
+        Material geometry = newMaterial("materials/geometry.pdf", UUID.randomUUID());
+        geometry.setTitle("Geometry Notes");
+        geometry.setOriginalFilename("polygons.pdf");
+        materialRepository.saveAndFlush(geometry);
+        entityManager.clear();
+
+        MaterialSearchCriteria byTitle = criteria("ALGEBRA", null, null, null, null, null, null, null, null);
+        assertThat(materialRepository.findAll(MaterialSpecifications.visibleFilter(byTitle)))
+                .extracting(Material::getId)
+                .containsExactly(savedAlgebra.getId());
+
+        MaterialSearchCriteria byFilename = criteria("WEEK-ONE", null, null, null, null, null, null, null, null);
+        assertThat(materialRepository.findAll(MaterialSpecifications.visibleFilter(byFilename)))
+                .extracting(Material::getId)
+                .containsExactly(savedAlgebra.getId());
+    }
+
+    @Test
+    void specificationFiltersByTypePurposeStatusUploaderCourseAndCreatedDate() {
+        UUID uploaderId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+
+        Material matching = newMaterial("materials/matching.pdf", uploaderId);
+        matching.setStatus(MaterialStatus.AVAILABLE);
+        matching.setCourseId(courseId);
+        Material savedMatching = materialRepository.saveAndFlush(matching);
+
+        Material wrongPurpose = newMaterial("materials/wrong-purpose.pdf", uploaderId);
+        wrongPurpose.setStatus(MaterialStatus.AVAILABLE);
+        wrongPurpose.setPurpose(MaterialPurpose.AI_SOURCE);
+        wrongPurpose.setCourseId(courseId);
+        Material savedWrongPurpose = materialRepository.saveAndFlush(wrongPurpose);
+
+        Material outsideDate = newMaterial("materials/outside-date.pdf", uploaderId);
+        outsideDate.setStatus(MaterialStatus.AVAILABLE);
+        outsideDate.setCourseId(courseId);
+        Material savedOutsideDate = materialRepository.saveAndFlush(outsideDate);
+        updateTimestamps(savedMatching.getId(), LocalDateTime.of(2026, 10, 11, 9, 0));
+        updateTimestamps(savedWrongPurpose.getId(), LocalDateTime.of(2026, 10, 11, 9, 30));
+        updateTimestamps(savedOutsideDate.getId(), LocalDateTime.of(2026, 10, 12, 9, 0));
+        entityManager.clear();
+
+        MaterialSearchCriteria criteria = criteria(
+                null,
+                MaterialType.PDF,
+                MaterialPurpose.LEARNING_MATERIAL,
+                MaterialStatus.AVAILABLE,
+                uploaderId,
+                courseId,
+                LocalDateTime.of(2026, 10, 11, 0, 0),
+                LocalDateTime.of(2026, 10, 11, 23, 59),
+                null
+        );
+
+        assertThat(materialRepository.findAll(MaterialSpecifications.visibleFilter(criteria)))
+                .extracting(Material::getId)
+                .containsExactly(savedMatching.getId());
+    }
+
+    @Test
+    void specificationSupportsPaginationSortingAndMaterialIdScope() {
+        Material first = newMaterial("materials/scope-first.pdf", UUID.randomUUID());
+        first.setTitle("Alpha");
+        first.setStatus(MaterialStatus.AVAILABLE);
+        Material savedFirst = materialRepository.saveAndFlush(first);
+
+        Material second = newMaterial("materials/scope-second.pdf", UUID.randomUUID());
+        second.setTitle("Beta");
+        second.setStatus(MaterialStatus.AVAILABLE);
+        Material savedSecond = materialRepository.saveAndFlush(second);
+
+        Material outsideScope = newMaterial("materials/scope-third.pdf", UUID.randomUUID());
+        outsideScope.setTitle("Gamma");
+        outsideScope.setStatus(MaterialStatus.AVAILABLE);
+        materialRepository.saveAndFlush(outsideScope);
+        entityManager.clear();
+
+        MaterialSearchCriteria scopedCriteria = criteria(
+                null,
+                null,
+                null,
+                MaterialStatus.AVAILABLE,
+                null,
+                null,
+                null,
+                null,
+                Set.of(savedFirst.getId(), savedSecond.getId())
+        );
+
+        Page<Material> firstPage = materialRepository.findAll(
+                MaterialSpecifications.visibleFilter(scopedCriteria),
+                PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "title"))
+        );
+
+        assertThat(firstPage.getTotalElements()).isEqualTo(2);
+        assertThat(firstPage.getContent())
+                .extracting(Material::getId)
+                .containsExactly(savedSecond.getId());
+    }
+
     private Material newMaterial(String storageKey, UUID uploadedBy) {
         return Material.builder()
                 .title("Introduction to Algebra")
@@ -221,5 +335,40 @@ class MaterialRepositoryPersistenceTest {
                 .uploadedBy(uploadedBy)
                 .checksum("sha256:abc123")
                 .build();
+    }
+
+    private MaterialSearchCriteria criteria(
+            String search,
+            MaterialType type,
+            MaterialPurpose purpose,
+            MaterialStatus status,
+            UUID uploadedBy,
+            UUID courseId,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo,
+            Set<UUID> materialIds
+    ) {
+        return new MaterialSearchCriteria(
+                search,
+                type,
+                purpose,
+                status,
+                uploadedBy,
+                courseId,
+                null,
+                null,
+                createdFrom,
+                createdTo,
+                materialIds
+        );
+    }
+
+    private void updateTimestamps(UUID materialId, LocalDateTime timestamp) {
+        jdbcTemplate.update(
+                "UPDATE materials SET created_at = ?, updated_at = ? WHERE id = ?",
+                timestamp,
+                timestamp,
+                materialId
+        );
     }
 }
