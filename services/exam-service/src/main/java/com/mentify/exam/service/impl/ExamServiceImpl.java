@@ -16,6 +16,7 @@ import com.mentify.exam.repository.ExamRepository;
 import com.mentify.exam.security.CurrentUserService;
 import com.mentify.exam.service.CourseAccessService;
 import com.mentify.exam.service.ExamService;
+import com.mentify.exam.service.ExamCalendarProjectionService;
 import com.mentify.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,7 @@ public class ExamServiceImpl implements ExamService {
     private final CourseAccessService courseAccessService;
     private final CurrentUserService currentUserService;
     private final ExamResultService examResultService;
+    private final ExamCalendarProjectionService calendarProjectionService;
 
     @Override
     @Transactional
@@ -78,7 +80,9 @@ public class ExamServiceImpl implements ExamService {
         validateMarksAndTimes(request.getTotalMarks(), request.getPassMarks(),
                 request.getStartTime(), request.getEndTime());
         examMapper.applyUpdate(exam, request);
-        return examMapper.toResponse(examRepository.save(exam));
+        Exam saved = examRepository.save(exam);
+        calendarProjectionService.projectIfEligible(saved, authorizationHeader);
+        return examMapper.toResponse(saved);
     }
 
     @Override
@@ -91,7 +95,9 @@ public class ExamServiceImpl implements ExamService {
                     "Exam in status " + exam.getStatus() + " cannot be cancelled");
         }
         exam.setStatus(ExamStatus.CANCELLED);
-        return examMapper.toResponse(examRepository.save(exam));
+        Exam saved = examRepository.save(exam);
+        calendarProjectionService.cancel(saved, authorizationHeader);
+        return examMapper.toResponse(saved);
     }
 
     @Override
@@ -105,7 +111,9 @@ public class ExamServiceImpl implements ExamService {
         }
         examResultService.initializeResults(examId, authorizationHeader);
         exam.setStatus(ExamStatus.SCHEDULED);
-        return examMapper.toResponse(examRepository.save(exam));
+        Exam saved = examRepository.save(exam);
+        calendarProjectionService.projectIfEligible(saved, authorizationHeader);
+        return examMapper.toResponse(saved);
     }
 
     @Override

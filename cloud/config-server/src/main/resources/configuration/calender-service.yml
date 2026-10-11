@@ -65,6 +65,8 @@ calendar:
     max-range-days: ${CALENDAR_QUERY_MAX_RANGE_DAYS:31}
     default-upcoming-limit: ${CALENDAR_QUERY_DEFAULT_LIMIT:20}
     max-upcoming-limit: ${CALENDAR_QUERY_MAX_LIMIT:100}
+  integration:
+    internal-service-token: ${CALENDAR_INTERNAL_SERVICE_TOKEN:}
 
 management:
   endpoints:

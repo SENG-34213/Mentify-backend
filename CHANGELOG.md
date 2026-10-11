@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added Exam-to-Calendar projection integration (MENT-#85): scheduled Exam mapping, idempotent source upserts, retained cancellation, internal service authorization, failure recording, reconciliation, source-managed protection, migration, tests, and operational documentation.
 - Added role-based Calendar query APIs (MENT-#84): date-range and upcoming feeds with JWT-derived visibility, course assignment/enrollment scoping, private/role/global policy enforcement, half-open overlap semantics, deterministic ordering, cancelled-event policy, bounded limits/ranges, safe dependency failure handling, student course-scope contract, documentation, and tests.
 - Added Calendar Event Management APIs (MENT-#83): authenticated create/retrieve/update/cancel endpoints with DTOs, JWT-derived creator identity, role/ownership/visibility enforcement, Course and Enrollment Service authorization, projected-event protection, structured safe errors, gateway routing, API documentation, and endpoint tests.
 - Added calendar event domain and persistence (MENT-#82): enum-backed `CalendarEvent` model, bean/database validation, audit timestamps, cancellation preservation, source uniqueness, Flyway V2 schema, overlap/filter repository queries, concurrency protection, integration tests, and documented time-zone/query conventions.
