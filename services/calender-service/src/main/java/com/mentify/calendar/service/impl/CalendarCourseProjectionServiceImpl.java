@@ -33,11 +33,18 @@ public class CalendarCourseProjectionServiceImpl implements CalendarCourseProjec
     public synchronized CalendarEventResponse upsert(CalendarSourceType sourceType,
                                                      CalendarEventType eventType,
                                                      CourseCalendarProjectionRequest request) {
-        if (sourceType != CalendarSourceType.ASSIGNMENT && sourceType != CalendarSourceType.QUIZ) {
+        if (sourceType != CalendarSourceType.ASSIGNMENT && sourceType != CalendarSourceType.QUIZ
+                && sourceType != CalendarSourceType.COURSE_CLASS) {
             throw new CalendarDomainException(HttpStatus.BAD_REQUEST, "Unsupported course projection source type");
         }
-        if (eventType != CalendarEventType.ASSIGNMENT && eventType != CalendarEventType.QUIZ) {
+        if (eventType != CalendarEventType.ASSIGNMENT && eventType != CalendarEventType.QUIZ
+                && eventType != CalendarEventType.CLASS) {
             throw new CalendarDomainException(HttpStatus.BAD_REQUEST, "Unsupported course projection event type");
+        }
+        if ((sourceType == CalendarSourceType.ASSIGNMENT && eventType != CalendarEventType.ASSIGNMENT)
+                || (sourceType == CalendarSourceType.QUIZ && eventType != CalendarEventType.QUIZ)
+                || (sourceType == CalendarSourceType.COURSE_CLASS && eventType != CalendarEventType.CLASS)) {
+            throw new CalendarDomainException(HttpStatus.BAD_REQUEST, "Projection source and event types must match");
         }
         if (!request.getEndDateTime().isAfter(request.getStartDateTime())) {
             throw new CalendarDomainException(HttpStatus.BAD_REQUEST,

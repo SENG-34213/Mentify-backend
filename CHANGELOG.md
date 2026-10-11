@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added Course class schedule Calendar projection integration (MENT-#87): AttendanceSession source ownership, `COURSE_CLASS` mapping, lifecycle projection/cancellation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
 - Added Assignment and Quiz Calendar projection integration (MENT-#86): published-source mapping, deadline and availability-window projection, retained cancellation, idempotent source-type isolation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
 - Added Exam-to-Calendar projection integration (MENT-#85): scheduled Exam mapping, idempotent source upserts, retained cancellation, internal service authorization, failure recording, reconciliation, source-managed protection, migration, tests, and operational documentation.
 - Added role-based Calendar query APIs (MENT-#84): date-range and upcoming feeds with JWT-derived visibility, course assignment/enrollment scoping, private/role/global policy enforcement, half-open overlap semantics, deterministic ordering, cancelled-event policy, bounded limits/ranges, safe dependency failure handling, student course-scope contract, documentation, and tests.
