@@ -24,5 +24,6 @@
         <module>exam-service</module>
         <module>payment-service</module>
         <module>material-service</module>
+        <module>calender-service</module>
     </modules>
 </project>
