@@ -11,12 +11,14 @@ import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
 import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
+import com.mentify.material.security.MaterialAuthorizationService;
 import com.mentify.material.service.impl.MaterialRetrievalServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.lang.reflect.RecordComponent;
 import java.time.Instant;
@@ -29,16 +31,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MaterialRetrievalServiceImplTest {
+
+    private static final String AUTH_HEADER = "Bearer token";
 
     @Mock
     private MaterialRepository materialRepository;
 
     @Mock
     private MaterialStorageService storageService;
+
+    @Mock
+    private MaterialAuthorizationService authorizationService;
 
     private MaterialRetrievalServiceImpl retrievalService;
 
@@ -47,7 +55,8 @@ class MaterialRetrievalServiceImplTest {
         retrievalService = new MaterialRetrievalServiceImpl(
                 materialRepository,
                 storageService,
-                new MaterialMapper()
+                new MaterialMapper(),
+                authorizationService
         );
     }
 
@@ -56,7 +65,7 @@ class MaterialRetrievalServiceImplTest {
         Material material = material(MaterialStatus.AVAILABLE);
         when(materialRepository.findById(material.getId())).thenReturn(Optional.of(material));
 
-        MaterialDetailsResponse response = retrievalService.getMaterial(material.getId());
+        MaterialDetailsResponse response = retrievalService.getMaterial(material.getId(), AUTH_HEADER);
 
         assertThat(response.id()).isEqualTo(material.getId());
         assertThat(response.title()).isEqualTo("Algebra intro");
@@ -65,6 +74,7 @@ class MaterialRetrievalServiceImplTest {
         assertThat(response.fileSize()).isEqualTo(12L);
         assertThat(response.status()).isEqualTo(MaterialStatus.AVAILABLE);
         assertThat(recordComponentNames(MaterialDetailsResponse.class)).doesNotContain("storageKey", "downloadUrl");
+        verify(authorizationService).assertCanView(material, AUTH_HEADER);
         verifyNoInteractions(storageService);
     }
 
@@ -79,13 +89,28 @@ class MaterialRetrievalServiceImplTest {
                         expiresAt
                 ));
 
-        MaterialDownloadResponse response = retrievalService.createDownload(material.getId());
+        MaterialDownloadResponse response = retrievalService.createDownload(material.getId(), AUTH_HEADER);
 
         assertThat(response.downloadUrl()).isEqualTo("https://downloads.example.test/materials/object.pdf?X-Amz-Signature=fake");
         assertThat(response.expiresAt()).isEqualTo(expiresAt);
         assertThat(response.downloadUrl()).doesNotContain("secret");
         assertThat(recordComponentNames(MaterialDownloadResponse.class)).doesNotContain("storageKey");
+        verify(authorizationService).assertCanDownload(material, AUTH_HEADER);
         verify(storageService).createPresignedDownload("materials/object.pdf", "intro.pdf", "application/pdf");
+    }
+
+    @Test
+    void materialIdGuessingDoesNotBypassAuthorization() {
+        Material material = material(MaterialStatus.AVAILABLE);
+        when(materialRepository.findById(material.getId())).thenReturn(Optional.of(material));
+        doThrow(new AccessDeniedException("User is not authorized to download this material"))
+                .when(authorizationService).assertCanDownload(material, AUTH_HEADER);
+
+        assertThatThrownBy(() -> retrievalService.createDownload(material.getId(), AUTH_HEADER))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("User is not authorized to download this material");
+
+        verifyNoInteractions(storageService);
     }
 
     @Test
@@ -95,7 +120,7 @@ class MaterialRetrievalServiceImplTest {
         when(storageService.createPresignedDownload("materials/object.pdf", "intro.pdf", "application/pdf"))
                 .thenReturn(new S3DownloadResult("https://downloads.example.test/object", Instant.now()));
 
-        MaterialDownloadResponse response = retrievalService.createDownload(material.getId());
+        MaterialDownloadResponse response = retrievalService.createDownload(material.getId(), AUTH_HEADER);
 
         assertThat(response.status()).isEqualTo(MaterialStatus.UPLOADED);
     }
@@ -105,7 +130,7 @@ class MaterialRetrievalServiceImplTest {
         UUID materialId = UUID.randomUUID();
         when(materialRepository.findById(materialId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> retrievalService.getMaterial(materialId))
+        assertThatThrownBy(() -> retrievalService.getMaterial(materialId, AUTH_HEADER))
                 .isInstanceOf(MaterialNotFoundException.class)
                 .hasMessage("Material not found");
 
@@ -117,10 +142,10 @@ class MaterialRetrievalServiceImplTest {
         Material material = material(MaterialStatus.DELETED);
         when(materialRepository.findById(material.getId())).thenReturn(Optional.of(material));
 
-        assertThatThrownBy(() -> retrievalService.getMaterial(material.getId()))
+        assertThatThrownBy(() -> retrievalService.getMaterial(material.getId(), AUTH_HEADER))
                 .isInstanceOf(MaterialNotFoundException.class)
                 .hasMessage("Material not found");
-        assertThatThrownBy(() -> retrievalService.createDownload(material.getId()))
+        assertThatThrownBy(() -> retrievalService.createDownload(material.getId(), AUTH_HEADER))
                 .isInstanceOf(MaterialNotFoundException.class)
                 .hasMessage("Material not found");
 
@@ -133,7 +158,7 @@ class MaterialRetrievalServiceImplTest {
         material.setActive(false);
         when(materialRepository.findById(material.getId())).thenReturn(Optional.of(material));
 
-        assertThatThrownBy(() -> retrievalService.createDownload(material.getId()))
+        assertThatThrownBy(() -> retrievalService.createDownload(material.getId(), AUTH_HEADER))
                 .isInstanceOf(MaterialNotFoundException.class)
                 .hasMessage("Material not found");
 
@@ -145,7 +170,7 @@ class MaterialRetrievalServiceImplTest {
         Material material = material(MaterialStatus.FAILED);
         when(materialRepository.findById(material.getId())).thenReturn(Optional.of(material));
 
-        assertThatThrownBy(() -> retrievalService.createDownload(material.getId()))
+        assertThatThrownBy(() -> retrievalService.createDownload(material.getId(), AUTH_HEADER))
                 .isInstanceOf(MaterialUnavailableException.class)
                 .hasMessage("Material is not available for download");
 

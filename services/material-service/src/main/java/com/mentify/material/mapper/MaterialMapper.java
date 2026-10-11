@@ -21,6 +21,7 @@ public class MaterialMapper {
                 material.getPurpose(),
                 material.getStatus(),
                 material.getUploadedBy(),
+                material.getCourseId(),
                 material.getChecksum(),
                 material.getCreatedAt(),
                 material.getUpdatedAt()
@@ -39,6 +40,7 @@ public class MaterialMapper {
                 material.getPurpose(),
                 material.getStatus(),
                 material.getUploadedBy(),
+                material.getCourseId(),
                 material.getChecksum(),
                 material.getCreatedAt(),
                 material.getUpdatedAt(),

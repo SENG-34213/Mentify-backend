@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,14 +51,18 @@ public class MaterialController {
             @RequestParam String title,
             @RequestParam(required = false) String description,
             @RequestParam(defaultValue = "LEARNING_MATERIAL") MaterialPurpose purpose,
-            @RequestParam MultipartFile file
+            @RequestParam UUID courseId,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
         MaterialResponse response = materialUploadService.upload(
                 title,
                 description,
                 purpose,
                 file,
-                currentUserService.getCurrentUserId()
+                currentUserService.getCurrentUserId(),
+                courseId,
+                authorizationHeader
         );
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -71,6 +76,8 @@ public class MaterialController {
             @RequestParam(required = false) MaterialPurpose purpose,
             @RequestParam(required = false) MaterialStatus status,
             @RequestParam(required = false) UUID uploadedBy,
+            @RequestParam(required = false) UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<MaterialDetailsResponse> response = materialManagementService.listMaterials(
@@ -78,6 +85,8 @@ public class MaterialController {
                 purpose,
                 status,
                 uploadedBy,
+                courseId,
+                authorizationHeader,
                 pageable
         );
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Materials retrieved successfully", response));
@@ -85,15 +94,21 @@ public class MaterialController {
 
     @GetMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<MaterialDetailsResponse>> getMaterial(@PathVariable UUID materialId) {
-        MaterialDetailsResponse response = materialRetrievalService.getMaterial(materialId);
+    public ResponseEntity<ApiResponse<MaterialDetailsResponse>> getMaterial(
+            @PathVariable UUID materialId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        MaterialDetailsResponse response = materialRetrievalService.getMaterial(materialId, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Material retrieved successfully", response));
     }
 
     @GetMapping("/{materialId}/download")
     @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<MaterialDownloadResponse>> createDownload(@PathVariable UUID materialId) {
-        MaterialDownloadResponse response = materialRetrievalService.createDownload(materialId);
+    public ResponseEntity<ApiResponse<MaterialDownloadResponse>> createDownload(
+            @PathVariable UUID materialId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        MaterialDownloadResponse response = materialRetrievalService.createDownload(materialId, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Material download URL generated", response));
     }
 
@@ -101,23 +116,30 @@ public class MaterialController {
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<MaterialDetailsResponse>> updateMaterial(
             @PathVariable UUID materialId,
-            @RequestBody UpdateMaterialRequest request
+            @RequestBody UpdateMaterialRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
-        MaterialDetailsResponse response = materialManagementService.updateMaterial(materialId, request);
+        MaterialDetailsResponse response = materialManagementService.updateMaterial(materialId, request, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Material updated successfully", response));
     }
 
     @PostMapping("/{materialId}/archive")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<MaterialDetailsResponse>> archiveMaterial(@PathVariable UUID materialId) {
-        MaterialDetailsResponse response = materialManagementService.archiveMaterial(materialId);
+    public ResponseEntity<ApiResponse<MaterialDetailsResponse>> archiveMaterial(
+            @PathVariable UUID materialId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        MaterialDetailsResponse response = materialManagementService.archiveMaterial(materialId, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Material archived successfully", response));
     }
 
     @DeleteMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<MaterialDetailsResponse>> deleteMaterial(@PathVariable UUID materialId) {
-        MaterialDetailsResponse response = materialManagementService.deleteMaterial(materialId);
+    public ResponseEntity<ApiResponse<MaterialDetailsResponse>> deleteMaterial(
+            @PathVariable UUID materialId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        MaterialDetailsResponse response = materialManagementService.deleteMaterial(materialId, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Material deleted successfully", response));
     }
 }

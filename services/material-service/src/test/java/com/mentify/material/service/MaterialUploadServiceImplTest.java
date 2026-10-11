@@ -10,6 +10,7 @@ import com.mentify.material.enums.MaterialType;
 import com.mentify.material.exception.MaterialStorageException;
 import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.material.repository.MaterialRepository;
+import com.mentify.material.security.MaterialAuthorizationService;
 import com.mentify.material.service.impl.MaterialUploadServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MaterialUploadServiceImplTest {
 
+    private static final String AUTH_HEADER = "Bearer token";
+
     @Mock
     private MaterialFileValidationService validationService;
 
@@ -44,14 +47,19 @@ class MaterialUploadServiceImplTest {
     @Mock
     private MaterialRepository materialRepository;
 
+    @Mock
+    private MaterialAuthorizationService authorizationService;
+
     @InjectMocks
     private MaterialUploadServiceImpl uploadService;
 
     @Test
     void validFileUploadsToS3AndPersistsMetadataWithUploaderId() {
         UUID uploaderId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
         MultipartFile file = file();
         ValidatedMaterialFile validatedFile = validatedFile();
+        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenReturn(new S3UploadResult("materials/object.pdf"));
         when(materialRepository.saveAndFlush(any(Material.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
@@ -61,7 +69,9 @@ class MaterialUploadServiceImplTest {
                 "  Week 1 handout.  ",
                 MaterialPurpose.LEARNING_MATERIAL,
                 file,
-                uploaderId
+                uploaderId,
+                courseId,
+                AUTH_HEADER
         );
 
         ArgumentCaptor<Material> materialCaptor = ArgumentCaptor.forClass(Material.class);
@@ -77,6 +87,7 @@ class MaterialUploadServiceImplTest {
         assertThat(saved.getPurpose()).isEqualTo(MaterialPurpose.LEARNING_MATERIAL);
         assertThat(saved.getStatus()).isEqualTo(MaterialStatus.UPLOADED);
         assertThat(saved.getUploadedBy()).isEqualTo(uploaderId);
+        assertThat(saved.getCourseId()).isEqualTo(courseId);
 
         assertThat(response.storageKey()).isEqualTo("materials/object.pdf");
         assertThat(response.storageKey()).doesNotStartWith("http://").doesNotStartWith("https://");
@@ -93,7 +104,9 @@ class MaterialUploadServiceImplTest {
                 null,
                 MaterialPurpose.LEARNING_MATERIAL,
                 file,
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                AUTH_HEADER
         )).isInstanceOf(MaterialValidationException.class);
 
         verifyNoInteractions(storageService);
@@ -103,7 +116,9 @@ class MaterialUploadServiceImplTest {
     @Test
     void s3FailureDoesNotCreateMaterialRecord() {
         MultipartFile file = file();
+        UUID courseId = UUID.randomUUID();
         ValidatedMaterialFile validatedFile = validatedFile();
+        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenThrow(new MaterialStorageException("Material file upload failed"));
 
@@ -112,7 +127,9 @@ class MaterialUploadServiceImplTest {
                 null,
                 MaterialPurpose.LEARNING_MATERIAL,
                 file,
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                courseId,
+                AUTH_HEADER
         )).isInstanceOf(MaterialStorageException.class);
 
         verifyNoInteractions(materialRepository);
@@ -121,7 +138,9 @@ class MaterialUploadServiceImplTest {
     @Test
     void databaseFailureAfterS3UploadCleansUpUploadedObject() {
         MultipartFile file = file();
+        UUID courseId = UUID.randomUUID();
         ValidatedMaterialFile validatedFile = validatedFile();
+        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenReturn(new S3UploadResult("materials/object.pdf"));
         when(materialRepository.saveAndFlush(any(Material.class)))
@@ -132,7 +151,9 @@ class MaterialUploadServiceImplTest {
                 null,
                 MaterialPurpose.LEARNING_MATERIAL,
                 file,
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                courseId,
+                AUTH_HEADER
         )).isInstanceOf(DataIntegrityViolationException.class);
 
         verify(storageService).delete("materials/object.pdf");
@@ -145,7 +166,9 @@ class MaterialUploadServiceImplTest {
                 null,
                 MaterialPurpose.LEARNING_MATERIAL,
                 file(),
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                AUTH_HEADER
         )).isInstanceOf(MaterialValidationException.class)
                 .hasMessage("Material title is required");
 
@@ -157,13 +180,15 @@ class MaterialUploadServiceImplTest {
     @Test
     void successfulPersistenceDoesNotDeleteUploadedObject() {
         UUID uploaderId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
         MultipartFile file = file();
         ValidatedMaterialFile validatedFile = validatedFile();
+        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenReturn(new S3UploadResult("materials/object.pdf"));
         when(materialRepository.saveAndFlush(any(Material.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
 
-        uploadService.upload("Notes", null, null, file, uploaderId);
+        uploadService.upload("Notes", null, null, file, uploaderId, courseId, AUTH_HEADER);
 
         verify(storageService, never()).delete(any());
     }

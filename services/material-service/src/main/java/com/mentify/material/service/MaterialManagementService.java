@@ -17,12 +17,14 @@ public interface MaterialManagementService {
             MaterialPurpose purpose,
             MaterialStatus status,
             UUID uploadedBy,
+            UUID courseId,
+            String authorizationHeader,
             Pageable pageable
     );
 
-    MaterialDetailsResponse updateMaterial(UUID materialId, UpdateMaterialRequest request);
+    MaterialDetailsResponse updateMaterial(UUID materialId, UpdateMaterialRequest request, String authorizationHeader);
 
-    MaterialDetailsResponse archiveMaterial(UUID materialId);
+    MaterialDetailsResponse archiveMaterial(UUID materialId, String authorizationHeader);
 
-    MaterialDetailsResponse deleteMaterial(UUID materialId);
+    MaterialDetailsResponse deleteMaterial(UUID materialId, String authorizationHeader);
 }
