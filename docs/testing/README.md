@@ -98,6 +98,7 @@ docs/testing/COMMUNICATION_POSTMAN_TESTS.md
 docs/testing/ATTENDANCE_POSTMAN_TESTS.md
 docs/testing/CALENDAR_SERVICE_FOUNDATION_TEST_REGISTER.md
 docs/testing/CALENDAR_EVENT_DOMAIN_TEST_REGISTER.md
+docs/testing/CALENDAR_EVENT_MANAGEMENT_API_TEST_REGISTER.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:

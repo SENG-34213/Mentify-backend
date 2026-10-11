@@ -41,6 +41,12 @@ class CalendarFoundationIntegrationTest {
     }
 
     @Test
+    void givenNoToken_whenCalendarEventIsRequested_thenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/calendar/events/{eventId}", java.util.UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void givenStudentRole_whenAdminResourceIsRequested_thenReturnsForbidden() throws Exception {
         mockMvc.perform(get("/test/calendar/protected")
                         .with(jwt().authorities(AuthorityUtils.createAuthorityList("ROLE_STUDENT"))))

@@ -53,6 +53,13 @@ feign:
         connect-timeout: 5000
         read-timeout: 5000
 
+mentify:
+  clients:
+    course-service:
+      url: ${COURSE_SERVICE_URL:}
+    enrollment-service:
+      url: ${ENROLLMENT_SERVICE_URL:}
+
 management:
   endpoints:
     web:
