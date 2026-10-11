@@ -17,7 +17,8 @@ public final class MaterialSpecifications {
             MaterialType type,
             MaterialPurpose purpose,
             MaterialStatus status,
-            UUID uploadedBy
+            UUID uploadedBy,
+            UUID courseId
     ) {
         return Specification
                 .where(isActive())
@@ -25,7 +26,8 @@ public final class MaterialSpecifications {
                 .and(hasType(type))
                 .and(hasPurpose(purpose))
                 .and(hasStatus(status))
-                .and(hasUploadedBy(uploadedBy));
+                .and(hasUploadedBy(uploadedBy))
+                .and(hasCourseId(courseId));
     }
 
     private static Specification<Material> isActive() {
@@ -50,5 +52,9 @@ public final class MaterialSpecifications {
 
     private static Specification<Material> hasUploadedBy(UUID uploadedBy) {
         return uploadedBy == null ? null : (root, query, cb) -> cb.equal(root.get("uploadedBy"), uploadedBy);
+    }
+
+    private static Specification<Material> hasCourseId(UUID courseId) {
+        return courseId == null ? null : (root, query, cb) -> cb.equal(root.get("courseId"), courseId);
     }
 }

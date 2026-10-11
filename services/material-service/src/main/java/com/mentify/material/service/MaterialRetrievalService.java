@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public interface MaterialRetrievalService {
 
-    MaterialDetailsResponse getMaterial(UUID materialId);
+    MaterialDetailsResponse getMaterial(UUID materialId, String authorizationHeader);
 
-    MaterialDownloadResponse createDownload(UUID materialId);
+    MaterialDownloadResponse createDownload(UUID materialId, String authorizationHeader);
 }

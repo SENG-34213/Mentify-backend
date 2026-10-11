@@ -35,6 +35,7 @@ import java.util.UUID;
                 @Index(name = "idx_materials_status", columnList = "status"),
                 @Index(name = "idx_materials_type", columnList = "material_type"),
                 @Index(name = "idx_materials_purpose", columnList = "material_purpose"),
+                @Index(name = "idx_materials_course_id", columnList = "course_id"),
                 @Index(name = "idx_materials_checksum", columnList = "checksum"),
                 @Index(name = "idx_materials_created_at", columnList = "created_at")
         }
@@ -95,6 +96,9 @@ public class Material extends BaseEntity {
     @NotNull
     @Column(name = "uploaded_by", nullable = false, columnDefinition = "uuid")
     private UUID uploadedBy;
+
+    @Column(name = "course_id", columnDefinition = "uuid")
+    private UUID courseId;
 
     @Size(max = 128)
     @Column(length = 128)

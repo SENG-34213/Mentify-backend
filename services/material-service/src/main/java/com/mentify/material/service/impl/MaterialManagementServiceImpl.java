@@ -12,12 +12,14 @@ import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.repository.MaterialSpecifications;
+import com.mentify.material.security.MaterialAuthorizationService;
 import com.mentify.material.service.MaterialManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +46,7 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
 
     private final MaterialRepository materialRepository;
     private final MaterialMapper materialMapper;
+    private final MaterialAuthorizationService authorizationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -52,10 +55,24 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
             MaterialPurpose purpose,
             MaterialStatus status,
             UUID uploadedBy,
+            UUID courseId,
+            String authorizationHeader,
             Pageable pageable
     ) {
+        Specification<Material> visibleMaterials = MaterialSpecifications.visibleFilter(
+                type,
+                purpose,
+                status,
+                uploadedBy,
+                courseId
+        );
+        Specification<Material> authorizedMaterials = authorizationService.visibilitySpecification(authorizationHeader);
+        if (authorizedMaterials != null) {
+            visibleMaterials = visibleMaterials.and(authorizedMaterials);
+        }
+
         return materialRepository.findAll(
-                        MaterialSpecifications.visibleFilter(type, purpose, status, uploadedBy),
+                        visibleMaterials,
                         normalizePageable(pageable)
                 )
                 .map(materialMapper::toDetailsResponse);
@@ -63,8 +80,13 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
 
     @Override
     @Transactional
-    public MaterialDetailsResponse updateMaterial(UUID materialId, UpdateMaterialRequest request) {
+    public MaterialDetailsResponse updateMaterial(
+            UUID materialId,
+            UpdateMaterialRequest request,
+            String authorizationHeader
+    ) {
         Material material = loadVisibleMaterial(materialId);
+        authorizationService.assertCanManage(material, authorizationHeader);
         validateUpdateRequest(request);
 
         if (request.title() != null) {
@@ -79,8 +101,9 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
 
     @Override
     @Transactional
-    public MaterialDetailsResponse archiveMaterial(UUID materialId) {
+    public MaterialDetailsResponse archiveMaterial(UUID materialId, String authorizationHeader) {
         Material material = loadVisibleMaterial(materialId);
+        authorizationService.assertCanManage(material, authorizationHeader);
         if (!ARCHIVABLE_STATUSES.contains(material.getStatus())) {
             throw new MaterialUnavailableException("Material cannot be archived from status " + material.getStatus());
         }
@@ -91,8 +114,9 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
 
     @Override
     @Transactional
-    public MaterialDetailsResponse deleteMaterial(UUID materialId) {
+    public MaterialDetailsResponse deleteMaterial(UUID materialId, String authorizationHeader) {
         Material material = loadVisibleMaterial(materialId);
+        authorizationService.assertCanManage(material, authorizationHeader);
         if (!SOFT_DELETABLE_STATUSES.contains(material.getStatus())) {
             throw new MaterialUnavailableException("Material cannot be deleted from status " + material.getStatus());
         }

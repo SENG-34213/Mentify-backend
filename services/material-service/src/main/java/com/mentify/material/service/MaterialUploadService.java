@@ -8,5 +8,13 @@ import java.util.UUID;
 
 public interface MaterialUploadService {
 
-    MaterialResponse upload(String title, String description, MaterialPurpose purpose, MultipartFile file, UUID uploadedBy);
+    MaterialResponse upload(
+            String title,
+            String description,
+            MaterialPurpose purpose,
+            MultipartFile file,
+            UUID uploadedBy,
+            UUID courseId,
+            String authorizationHeader
+    );
 }

@@ -8,6 +8,7 @@ import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.material.repository.MaterialRepository;
+import com.mentify.material.security.MaterialAuthorizationService;
 import com.mentify.material.service.MaterialFileValidationService;
 import com.mentify.material.service.MaterialStorageService;
 import com.mentify.material.service.MaterialUploadService;
@@ -24,6 +25,7 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
     private final MaterialFileValidationService validationService;
     private final MaterialStorageService storageService;
     private final MaterialRepository materialRepository;
+    private final MaterialAuthorizationService authorizationService;
 
     @Override
     public MaterialResponse upload(
@@ -31,9 +33,12 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
             String description,
             MaterialPurpose purpose,
             MultipartFile file,
-            UUID uploadedBy
+            UUID uploadedBy,
+            UUID courseId,
+            String authorizationHeader
     ) {
         validateMetadata(title, description, uploadedBy);
+        UUID authorizedCourseId = authorizationService.requireUploadCourseAccess(courseId, authorizationHeader);
         ValidatedMaterialFile validatedFile = validationService.validate(file);
         S3UploadResult uploadResult = storageService.upload(file, validatedFile);
 
@@ -49,6 +54,7 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
                     .purpose(requirePurpose(purpose))
                     .status(MaterialStatus.UPLOADED)
                     .uploadedBy(uploadedBy)
+                    .courseId(authorizedCourseId)
                     .build();
 
             return toResponse(materialRepository.saveAndFlush(material));
@@ -104,6 +110,7 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
                 material.getPurpose(),
                 material.getStatus(),
                 material.getUploadedBy(),
+                material.getCourseId(),
                 material.getChecksum(),
                 material.getCreatedAt(),
                 material.getUpdatedAt()

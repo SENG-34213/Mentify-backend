@@ -9,6 +9,7 @@ import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
 import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
+import com.mentify.material.security.MaterialAuthorizationService;
 import com.mentify.material.service.MaterialRetrievalService;
 import com.mentify.material.service.MaterialStorageService;
 import lombok.RequiredArgsConstructor;
@@ -29,16 +30,19 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
     private final MaterialRepository materialRepository;
     private final MaterialStorageService storageService;
     private final MaterialMapper materialMapper;
+    private final MaterialAuthorizationService authorizationService;
 
     @Override
-    public MaterialDetailsResponse getMaterial(UUID materialId) {
+    public MaterialDetailsResponse getMaterial(UUID materialId, String authorizationHeader) {
         Material material = loadVisibleMaterial(materialId);
+        authorizationService.assertCanView(material, authorizationHeader);
         return materialMapper.toDetailsResponse(material);
     }
 
     @Override
-    public MaterialDownloadResponse createDownload(UUID materialId) {
+    public MaterialDownloadResponse createDownload(UUID materialId, String authorizationHeader) {
         Material material = loadVisibleMaterial(materialId);
+        authorizationService.assertCanDownload(material, authorizationHeader);
         if (!DOWNLOADABLE_STATUSES.contains(material.getStatus())) {
             throw new MaterialUnavailableException("Material is not available for download");
         }
