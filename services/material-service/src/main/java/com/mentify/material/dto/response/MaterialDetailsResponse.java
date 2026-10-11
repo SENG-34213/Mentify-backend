@@ -18,6 +18,7 @@ public record MaterialDetailsResponse(
         MaterialPurpose purpose,
         MaterialStatus status,
         UUID uploadedBy,
+        UUID courseId,
         String checksum,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
