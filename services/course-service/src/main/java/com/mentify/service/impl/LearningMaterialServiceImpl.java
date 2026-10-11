@@ -1,19 +1,24 @@
 package com.mentify.service.impl;
 
+import com.mentify.client.MaterialServiceClient;
+import com.mentify.client.dto.MaterialLookupResponse;
 import com.mentify.dto.LearningMaterialCreateRequest;
 import com.mentify.dto.LearningMaterialResponse;
 import com.mentify.entity.LearningMaterial;
 import com.mentify.entity.Lesson;
 import com.mentify.entity.Module;
+import com.mentify.enums.MaterialType;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.LearningMaterialRepository;
 import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.LearningMaterialService;
+import feign.FeignException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,18 +35,23 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
     private final LessonRepository lessonRepository;
     private final LearningMaterialRepository learningMaterialRepository;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
+    private final CourseContentAccessGuard courseContentAccessGuard;
+    private final MaterialServiceClient materialServiceClient;
 
     @Override
     @Transactional
     public ApiResponse<LearningMaterialResponse> createLearningMaterial(
             UUID courseId,
             UUID moduleId,
-            LearningMaterialCreateRequest request
+            LearningMaterialCreateRequest request,
+            String authorizationHeader
     ) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
         teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        MaterialLookupResponse materialReference = validateMaterialReference(courseId, request.getMaterialId(), authorizationHeader);
+        validateRequest(request, materialReference);
 
         Lesson lesson = null;
         if (request.getLessonId() != null) {
@@ -51,8 +61,9 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
 
         LearningMaterial material = LearningMaterial.builder()
                 .title(request.getTitle().trim())
-                .type(request.getType())
-                .fileUrl(request.getFileUrl().trim())
+                .type(resolveType(request, materialReference))
+                .fileUrl(resolveFileUrl(request, materialReference))
+                .materialId(request.getMaterialId())
                 .module(module)
                 .lesson(lesson)
                 .build();
@@ -73,12 +84,15 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
             UUID courseId,
             UUID moduleId,
             UUID materialId,
-            LearningMaterialCreateRequest request
+            LearningMaterialCreateRequest request,
+            String authorizationHeader
     ) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
         teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        MaterialLookupResponse materialReference = validateMaterialReference(courseId, request.getMaterialId(), authorizationHeader);
+        validateRequest(request, materialReference);
 
         LearningMaterial material = learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("LearningMaterial", "id", materialId));
@@ -90,8 +104,9 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
         }
 
         material.setTitle(request.getTitle().trim());
-        material.setType(request.getType());
-        material.setFileUrl(request.getFileUrl().trim());
+        material.setType(resolveType(request, materialReference));
+        material.setFileUrl(resolveFileUrl(request, materialReference));
+        material.setMaterialId(request.getMaterialId());
         material.setLesson(lesson);
 
         LearningMaterial savedMaterial = learningMaterialRepository.save(material);
@@ -106,11 +121,16 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
 
     @Override
     @Transactional
-    public ApiResponse<LearningMaterialResponse> getLearningMaterial(UUID courseId, UUID moduleId, UUID materialId) {
+    public ApiResponse<LearningMaterialResponse> getLearningMaterial(
+            UUID courseId,
+            UUID moduleId,
+            UUID materialId,
+            String authorizationHeader
+    ) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
-        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        courseContentAccessGuard.assertCanReadCourseContent(module.getCourse(), authorizationHeader);
 
         LearningMaterial material = learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("LearningMaterial", "id", materialId));
@@ -125,11 +145,15 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
 
     @Override
     @Transactional
-    public ApiResponse<List<LearningMaterialResponse>> getLearningMaterials(UUID courseId, UUID moduleId) {
+    public ApiResponse<List<LearningMaterialResponse>> getLearningMaterials(
+            UUID courseId,
+            UUID moduleId,
+            String authorizationHeader
+    ) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
-        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        courseContentAccessGuard.assertCanReadCourseContent(module.getCourse(), authorizationHeader);
 
         List<LearningMaterialResponse> materials = learningMaterialRepository.findAllByModule_Id(moduleId)
                 .stream()
@@ -170,6 +194,7 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .title(material.getTitle())
                 .type(material.getType())
                 .fileUrl(material.getFileUrl())
+                .materialId(material.getMaterialId())
                 .moduleId(material.getModule().getId())
                 .lessonId(material.getLesson() != null ? material.getLesson().getId() : null)
                 .createdBy(material.getCreatedBy())
@@ -177,5 +202,79 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .createdAt(material.getCreatedAt())
                 .updatedAt(material.getUpdatedAt())
                 .build();
+    }
+
+    private void validateRequest(LearningMaterialCreateRequest request, MaterialLookupResponse materialReference) {
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            throw new IllegalArgumentException("Learning material title is required");
+        }
+        if (request.getTitle().trim().length() > 150) {
+            throw new IllegalArgumentException("Learning material title must not exceed 150 characters");
+        }
+        if (materialReference == null && (request.getFileUrl() == null || request.getFileUrl().isBlank())) {
+            throw new IllegalArgumentException("Either materialId or fileUrl is required");
+        }
+        if (materialReference == null && request.getType() == null) {
+            throw new IllegalArgumentException("Learning material type is required for legacy fileUrl materials");
+        }
+    }
+
+    private MaterialLookupResponse validateMaterialReference(
+            UUID courseId,
+            UUID materialId,
+            String authorizationHeader
+    ) {
+        if (materialId == null) {
+            return null;
+        }
+
+        MaterialLookupResponse material = loadMaterial(materialId, authorizationHeader);
+        if (material.courseId() == null || !material.courseId().equals(courseId)) {
+            throw new AccessDeniedException("Material does not belong to the target course");
+        }
+        return material;
+    }
+
+    private MaterialLookupResponse loadMaterial(UUID materialId, String authorizationHeader) {
+        try {
+            ApiResponse<MaterialLookupResponse> response = materialServiceClient.getMaterial(materialId, authorizationHeader);
+            if (response == null || response.getData() == null) {
+                throw new ResourceNotFoundException("Material", "id", materialId);
+            }
+            return response.getData();
+        } catch (FeignException.NotFound ex) {
+            throw new ResourceNotFoundException("Material", "id", materialId);
+        } catch (FeignException.Forbidden | FeignException.Unauthorized ex) {
+            throw new AccessDeniedException("Material access denied", ex);
+        }
+    }
+
+    private MaterialType resolveType(LearningMaterialCreateRequest request, MaterialLookupResponse materialReference) {
+        if (request.getType() != null) {
+            return request.getType();
+        }
+        return mapMaterialType(materialReference.type());
+    }
+
+    private String resolveFileUrl(LearningMaterialCreateRequest request, MaterialLookupResponse materialReference) {
+        if (materialReference != null) {
+            return null;
+        }
+        return request.getFileUrl().trim();
+    }
+
+    private MaterialType mapMaterialType(String materialServiceType) {
+        if (materialServiceType == null || materialServiceType.isBlank()) {
+            throw new IllegalArgumentException("Material type is required");
+        }
+        return switch (materialServiceType) {
+            case "PDF" -> MaterialType.PDF;
+            case "VIDEO" -> MaterialType.VIDEO;
+            case "IMAGE" -> MaterialType.IMAGE;
+            case "AUDIO" -> MaterialType.AUDIO;
+            case "DOCUMENT" -> MaterialType.DOC;
+            case "PRESENTATION" -> MaterialType.PPT;
+            default -> throw new IllegalArgumentException("Unsupported material type: " + materialServiceType);
+        };
     }
 }

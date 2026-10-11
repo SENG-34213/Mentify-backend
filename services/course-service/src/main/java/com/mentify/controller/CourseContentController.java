@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -143,10 +144,11 @@ public class CourseContentController {
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> createLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
-            @Valid @RequestBody LearningMaterialCreateRequest request
+            @Valid @RequestBody LearningMaterialCreateRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
         ApiResponse<LearningMaterialResponse> response =
-            learningMaterialService.createLearningMaterial(courseId, moduleId, request);
+            learningMaterialService.createLearningMaterial(courseId, moduleId, request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -156,33 +158,36 @@ public class CourseContentController {
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
             @PathVariable UUID materialId,
-            @Valid @RequestBody LearningMaterialCreateRequest request
+            @Valid @RequestBody LearningMaterialCreateRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
         ApiResponse<LearningMaterialResponse> response =
-                learningMaterialService.updateLearningMaterial(courseId, moduleId, materialId, request);
+                learningMaterialService.updateLearningMaterial(courseId, moduleId, materialId, request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
         @GetMapping("/{moduleId}/learning-materials")
-        @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+        @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
         public ResponseEntity<ApiResponse<List<LearningMaterialResponse>>> getLearningMaterials(
             @PathVariable UUID courseId,
-            @PathVariable UUID moduleId
+            @PathVariable UUID moduleId,
+            @RequestHeader("Authorization") String authorizationHeader
         ) {
         ApiResponse<List<LearningMaterialResponse>> response =
-            learningMaterialService.getLearningMaterials(courseId, moduleId);
+            learningMaterialService.getLearningMaterials(courseId, moduleId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
         }
 
         @GetMapping("/{moduleId}/learning-materials/{materialId}")
-        @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+        @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
         public ResponseEntity<ApiResponse<LearningMaterialResponse>> getLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
-            @PathVariable UUID materialId
+            @PathVariable UUID materialId,
+            @RequestHeader("Authorization") String authorizationHeader
         ) {
         ApiResponse<LearningMaterialResponse> response =
-            learningMaterialService.getLearningMaterial(courseId, moduleId, materialId);
+            learningMaterialService.getLearningMaterial(courseId, moduleId, materialId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
         }
 
