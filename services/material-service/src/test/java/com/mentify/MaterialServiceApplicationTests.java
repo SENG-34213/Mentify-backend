@@ -9,6 +9,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -37,12 +38,16 @@ class MaterialServiceApplicationTests {
     private S3Client s3Client;
 
     @Autowired
+    private S3Presigner s3Presigner;
+
+    @Autowired
     private SecurityFilterChain securityFilterChain;
 
     @Test
     void contextLoads() {
         assertNotNull(dataSource);
         assertNotNull(s3Client);
+        assertNotNull(s3Presigner);
         assertNotNull(securityFilterChain);
     }
 

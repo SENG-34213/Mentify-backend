@@ -26,6 +26,7 @@ class MaterialConfigurationTest {
                 "${MATERIAL_DB_PASSWORD",
                 "${KEYCLOAK_ISSUER_URI",
                 "${MATERIAL_S3_BUCKET",
+                "${MATERIAL_DOWNLOAD_URL_EXPIRATION",
                 "${AWS_REGION",
                 "${AWS_DEFAULT_REGION",
                 "${MATERIAL_MAX_UPLOAD_SIZE"
