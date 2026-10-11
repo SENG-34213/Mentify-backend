@@ -15,8 +15,10 @@ import java.util.UUID;
 public class SubmissionFileResponse {
     private UUID id;
     private UUID submissionId;
+    private UUID materialId;
     private String originalFilename;
     private String contentType;
     private long fileSize;
+    private boolean materialBacked;
     private LocalDateTime createdAt;
 }
