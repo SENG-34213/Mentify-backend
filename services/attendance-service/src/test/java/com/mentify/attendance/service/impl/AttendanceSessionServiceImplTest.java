@@ -15,6 +15,7 @@ import com.mentify.attendance.repository.AttendanceRecordRepository;
 import com.mentify.attendance.repository.AttendanceSessionRepository;
 import com.mentify.attendance.security.CurrentUserService;
 import com.mentify.attendance.service.AttendanceSessionService;
+import com.mentify.attendance.service.CalendarProjectionService;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
@@ -58,6 +59,9 @@ class AttendanceSessionServiceImplTest {
     @Mock
     private CurrentUserService currentUserService;
 
+    @Mock
+    private CalendarProjectionService calendarProjectionService;
+
     private AttendanceSessionService attendanceSessionService;
 
     @BeforeEach
@@ -67,7 +71,8 @@ class AttendanceSessionServiceImplTest {
                 attendanceRecordRepository,
                 courseServiceClient,
                 enrollmentServiceClient,
-                currentUserService
+                currentUserService,
+                calendarProjectionService
         );
     }
 

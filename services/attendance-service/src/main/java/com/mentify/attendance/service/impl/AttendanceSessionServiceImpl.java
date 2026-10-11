@@ -17,6 +17,7 @@ import com.mentify.attendance.repository.AttendanceRecordRepository;
 import com.mentify.attendance.repository.AttendanceSessionRepository;
 import com.mentify.attendance.security.CurrentUserService;
 import com.mentify.attendance.service.AttendanceSessionService;
+import com.mentify.attendance.service.CalendarProjectionService;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
@@ -43,6 +44,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private final CourseServiceClient courseServiceClient;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final CurrentUserService currentUserService;
+    private final CalendarProjectionService calendarProjectionService;
 
     @Override
     @Transactional
@@ -78,6 +80,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                     .build());
         }
         records = attendanceRecordRepository.saveAll(records);
+        calendarProjectionService.projectIfEligible(session, authorizationHeader);
 
         return response(HttpStatus.CREATED, "Attendance session created successfully", mapToResponse(session, records));
     }
@@ -161,6 +164,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
         session.setStatus(AttendanceSessionStatus.COMPLETED);
         session = attendanceSessionRepository.save(session);
+        calendarProjectionService.projectIfEligible(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
         return response(HttpStatus.OK, "Attendance session completed successfully", mapToResponse(session, records));
@@ -179,6 +183,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
         session.setStatus(AttendanceSessionStatus.CANCELLED);
         session = attendanceSessionRepository.save(session);
+        calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
         return response(HttpStatus.OK, "Attendance session cancelled successfully", mapToResponse(session, records));

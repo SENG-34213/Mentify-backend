@@ -22,6 +22,10 @@ public class InternalServiceAuthorization {
         requireService("assignment-service", serviceName, token);
     }
 
+    public void requireAttendanceService(String serviceName, String token) {
+        requireService("attendance-service", serviceName, token);
+    }
+
     private void requireService(String expectedService, String serviceName, String token) {
         if (!expectedService.equals(serviceName)
                 || expectedToken == null || expectedToken.isBlank()

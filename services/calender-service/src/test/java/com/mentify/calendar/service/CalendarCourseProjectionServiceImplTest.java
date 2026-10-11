@@ -71,6 +71,20 @@ class CalendarCourseProjectionServiceImplTest {
         verify(repository, never()).save(any(CalendarEvent.class));
     }
 
+    @Test
+    void classScheduleProjectionUsesCourseClassSourceType() {
+        UUID sourceId = UUID.randomUUID();
+        CourseCalendarProjectionRequest request = request(sourceId);
+        when(repository.findBySourceTypeAndSourceId(CalendarSourceType.COURSE_CLASS, sourceId))
+                .thenReturn(java.util.Optional.empty());
+        when(repository.save(any(CalendarEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.upsert(CalendarSourceType.COURSE_CLASS, CalendarEventType.CLASS, request);
+
+        verify(repository).findBySourceTypeAndSourceId(CalendarSourceType.COURSE_CLASS, sourceId);
+        verify(repository).save(any(CalendarEvent.class));
+    }
+
     private CourseCalendarProjectionRequest request(UUID sourceId) {
         CourseCalendarProjectionRequest request = new CourseCalendarProjectionRequest();
         request.setSourceId(sourceId);
