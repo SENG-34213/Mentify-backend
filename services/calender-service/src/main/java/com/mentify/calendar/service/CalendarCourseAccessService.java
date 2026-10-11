@@ -12,6 +12,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
+import java.util.Collections;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class CalendarCourseAccessService {
@@ -54,6 +57,44 @@ public class CalendarCourseAccessService {
         } catch (FeignException ex) {
             throw new CalendarDomainException(HttpStatus.SERVICE_UNAVAILABLE,
                     "A dependent service is currently unavailable. Please try again later.");
+        }
+    }
+
+    public Set<UUID> getVisibleCourseIds(String authorizationHeader) {
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return Collections.emptySet();
+        }
+        try {
+            if (currentUser.hasRole("TEACHER")) {
+                var response = courseServiceClient.getMyCourses(authorizationHeader);
+                return response == null || response.getData() == null
+                        ? Set.of()
+                        : response.getData().stream().map(CourseLookupResponse::getId)
+                        .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+            }
+            if (currentUser.hasRole("STUDENT")) {
+                var response = enrollmentServiceClient.getActiveCourseIdsForStudent(
+                        currentUser.getCurrentUserId(), authorizationHeader);
+                return response == null || response.getData() == null
+                        ? Set.of() : Set.copyOf(response.getData());
+            }
+            throw new AccessDeniedException("Calendar query is not available for this role");
+        } catch (FeignException ex) {
+            throw new CalendarDomainException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "A dependent service is currently unavailable. Please try again later.");
+        }
+    }
+
+    public void assertCanQueryCourse(UUID courseId, String authorizationHeader) {
+        if (courseId == null) {
+            return;
+        }
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            fetchCourse(courseId, authorizationHeader);
+            return;
+        }
+        if (!getVisibleCourseIds(authorizationHeader).contains(courseId)) {
+            throw new AccessDeniedException("You are not authorized to query this course");
         }
     }
 

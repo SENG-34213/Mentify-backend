@@ -7,6 +7,7 @@ import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.EntrollmentService;
+import com.mentify.security.CurrentUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,7 @@ import java.util.List;
 public class EntrollmentController {
 
     private final EntrollmentService entrollmentService;
+    private final CurrentUserService currentUserService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -78,6 +80,16 @@ public class EntrollmentController {
             @PathVariable UUID courseId
     ) {
         return ResponseEntity.ok(entrollmentService.isStudentEnrolledInCourse(studentId, courseId));
+    }
+
+    @GetMapping("/students/{studentId}/courses")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<UUID>>> getActiveCourseIdsForStudent(@PathVariable UUID studentId) {
+        if (!studentId.equals(currentUserService.getCurrentUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Students may only query their own courses");
+        }
+        ApiResponse<List<UUID>> response = entrollmentService.getActiveCourseIdsForStudent(studentId);
+        return new ResponseEntity<>(response, response.getStatus());
     }
 
     @GetMapping("/courses/{courseId}/students")

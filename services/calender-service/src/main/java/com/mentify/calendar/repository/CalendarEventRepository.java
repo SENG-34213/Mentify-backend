@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +41,90 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
             @Param("eventType") CalendarEventType eventType,
             @Param("visibility") CalendarVisibility visibility,
             @Param("sourceType") CalendarSourceType sourceType,
+            @Param("status") CalendarEventStatus status
+    );
+
+    @Query("""
+            select event from CalendarEvent event
+            where event.startDateTime < :rangeEnd
+              and coalesce(event.endDateTime, event.startDateTime) > :rangeStart
+              and (:courseId is null or event.courseId = :courseId)
+              and (:eventType is null or event.eventType = :eventType)
+              and event.status = :status
+              and (event.visibility = com.mentify.calendar.enums.CalendarVisibility.GLOBAL
+                   or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.PRIVATE
+                       and event.createdBy = :userId)
+                   or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.ROLE
+                       and event.targetRole in :roles)
+                   or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.COURSE
+                       and event.courseId in :courseIds))
+            order by event.startDateTime asc, event.id asc
+            """)
+    List<CalendarEvent> findVisibleOverlapping(
+            @Param("rangeStart") LocalDateTime rangeStart,
+            @Param("rangeEnd") LocalDateTime rangeEnd,
+            @Param("courseId") UUID courseId,
+            @Param("eventType") CalendarEventType eventType,
+            @Param("status") CalendarEventStatus status,
+            @Param("userId") UUID userId,
+            @Param("roles") Set<com.mentify.calendar.enums.CalendarTargetRole> roles,
+            @Param("courseIds") Set<UUID> courseIds
+    );
+
+    @Query("""
+            select event from CalendarEvent event
+            where event.startDateTime < :rangeEnd
+              and coalesce(event.endDateTime, event.startDateTime) > :rangeStart
+              and (:courseId is null or event.courseId = :courseId)
+              and (:eventType is null or event.eventType = :eventType)
+              and event.status = :status
+            order by event.startDateTime asc, event.id asc
+            """)
+    List<CalendarEvent> findAdministrativeOverlapping(
+            @Param("rangeStart") LocalDateTime rangeStart,
+            @Param("rangeEnd") LocalDateTime rangeEnd,
+            @Param("courseId") UUID courseId,
+            @Param("eventType") CalendarEventType eventType,
+            @Param("status") CalendarEventStatus status
+    );
+
+    @Query("""
+            select event from CalendarEvent event
+            where event.startDateTime >= :from
+              and (:courseId is null or event.courseId = :courseId)
+              and (:eventType is null or event.eventType = :eventType)
+              and event.status = :status
+              and (event.visibility = com.mentify.calendar.enums.CalendarVisibility.GLOBAL
+                   or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.PRIVATE
+                       and event.createdBy = :userId)
+                   or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.ROLE
+                       and event.targetRole in :roles)
+                   or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.COURSE
+                       and event.courseId in :courseIds))
+            order by event.startDateTime asc, event.id asc
+            """)
+    List<CalendarEvent> findVisibleUpcoming(
+            @Param("from") LocalDateTime from,
+            @Param("courseId") UUID courseId,
+            @Param("eventType") CalendarEventType eventType,
+            @Param("status") CalendarEventStatus status,
+            @Param("userId") UUID userId,
+            @Param("roles") Set<com.mentify.calendar.enums.CalendarTargetRole> roles,
+            @Param("courseIds") Set<UUID> courseIds
+    );
+
+    @Query("""
+            select event from CalendarEvent event
+            where event.startDateTime >= :from
+              and (:courseId is null or event.courseId = :courseId)
+              and (:eventType is null or event.eventType = :eventType)
+              and event.status = :status
+            order by event.startDateTime asc, event.id asc
+            """)
+    List<CalendarEvent> findAdministrativeUpcoming(
+            @Param("from") LocalDateTime from,
+            @Param("courseId") UUID courseId,
+            @Param("eventType") CalendarEventType eventType,
             @Param("status") CalendarEventStatus status
     );
 

@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added role-based Calendar query APIs (MENT-#84): date-range and upcoming feeds with JWT-derived visibility, course assignment/enrollment scoping, private/role/global policy enforcement, half-open overlap semantics, deterministic ordering, cancelled-event policy, bounded limits/ranges, safe dependency failure handling, student course-scope contract, documentation, and tests.
 - Added Calendar Event Management APIs (MENT-#83): authenticated create/retrieve/update/cancel endpoints with DTOs, JWT-derived creator identity, role/ownership/visibility enforcement, Course and Enrollment Service authorization, projected-event protection, structured safe errors, gateway routing, API documentation, and endpoint tests.
 - Added calendar event domain and persistence (MENT-#82): enum-backed `CalendarEvent` model, bean/database validation, audit timestamps, cancellation preservation, source uniqueness, Flyway V2 schema, overlap/filter repository queries, concurrency protection, integration tests, and documented time-zone/query conventions.
 - Added the Calendar Service foundation (MENT-#81): Maven module, shared Keycloak security, Config Server/Eureka integration, PostgreSQL/Flyway bootstrap, database-aware readiness, protected actuator defaults, CI matrix coverage, foundation security/health tests, and local/staging operational documentation. Calendar event persistence and APIs remain separate follow-up tickets.
