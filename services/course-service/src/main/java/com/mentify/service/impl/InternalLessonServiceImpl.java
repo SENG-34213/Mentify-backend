@@ -73,7 +73,7 @@ public class InternalLessonServiceImpl implements InternalLessonService {
                 throw new AccessDeniedException("Teacher does not have access to this course");
             }
         } else if (roles.contains("ROLE_STUDENT")) {
-            if (!entrollmentServiceClient.isStudentEnrolledInCourse(userId, course.getId())) {
+            if (!entrollmentServiceClient.isStudentEnrolledInCourse(userId, course.getId(), authorizationHeader(authentication))) {
                 throw new AccessDeniedException("Student is not enrolled in this course");
             }
         } else {
@@ -95,5 +95,13 @@ public class InternalLessonServiceImpl implements InternalLessonService {
             throw new AccessDeniedException("User identity is missing in token");
         }
         return UUID.fromString(subject);
+    }
+
+    private String authorizationHeader(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof Jwt jwt)) {
+            throw new AccessDeniedException("Invalid authentication principal");
+        }
+        return "Bearer " + jwt.getTokenValue();
     }
 }

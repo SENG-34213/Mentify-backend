@@ -46,6 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CourseContentControllerTest {
 
     private static final String COURSE_CONTENT_ROLES = "hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')";
+    private static final String COURSE_CONTENT_READ_ROLES = "hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')";
+    private static final String AUTH_HEADER = "Bearer token";
 
     @Autowired
     private MockMvc mockMvc;
@@ -212,7 +214,12 @@ class CourseContentControllerTest {
                 .moduleId(moduleId)
                 .build();
 
-        when(learningMaterialService.createLearningMaterial(eq(courseId), eq(moduleId), any(LearningMaterialCreateRequest.class)))
+        when(learningMaterialService.createLearningMaterial(
+                eq(courseId),
+                eq(moduleId),
+                any(LearningMaterialCreateRequest.class),
+                eq(AUTH_HEADER)
+        ))
                 .thenReturn(ApiResponse.<LearningMaterialResponse>builder()
                         .status(HttpStatus.CREATED)
                         .message("Learning material created successfully")
@@ -226,13 +233,19 @@ class CourseContentControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials", courseId, moduleId)
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message").value("Learning material created successfully"))
                 .andExpect(jsonPath("$.data.title").value("Intro Video"));
 
-        verify(learningMaterialService).createLearningMaterial(eq(courseId), eq(moduleId), any(LearningMaterialCreateRequest.class));
+        verify(learningMaterialService).createLearningMaterial(
+                eq(courseId),
+                eq(moduleId),
+                any(LearningMaterialCreateRequest.class),
+                eq(AUTH_HEADER)
+        );
     }
 
     @Test
@@ -253,7 +266,8 @@ class CourseContentControllerTest {
                 eq(courseId),
                 eq(moduleId),
                 eq(materialId),
-                any(LearningMaterialCreateRequest.class)
+                any(LearningMaterialCreateRequest.class),
+                eq(AUTH_HEADER)
         )).thenReturn(ApiResponse.<LearningMaterialResponse>builder()
                 .status(HttpStatus.OK)
                 .message("Learning material updated successfully")
@@ -267,6 +281,7 @@ class CourseContentControllerTest {
                 .build();
 
         mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}", courseId, moduleId, materialId)
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -277,7 +292,8 @@ class CourseContentControllerTest {
                 eq(courseId),
                 eq(moduleId),
                 eq(materialId),
-                any(LearningMaterialCreateRequest.class)
+                any(LearningMaterialCreateRequest.class),
+                eq(AUTH_HEADER)
         );
     }
 
@@ -364,7 +380,7 @@ class CourseContentControllerTest {
         UUID courseId = UUID.randomUUID();
         UUID moduleId = UUID.randomUUID();
 
-        when(learningMaterialService.getLearningMaterials(courseId, moduleId))
+        when(learningMaterialService.getLearningMaterials(courseId, moduleId, AUTH_HEADER))
                 .thenReturn(ApiResponse.<java.util.List<LearningMaterialResponse>>builder()
                         .status(HttpStatus.OK)
                         .message("Learning materials fetched successfully")
@@ -377,11 +393,12 @@ class CourseContentControllerTest {
                                 .build()))
                         .build());
 
-        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials", courseId, moduleId))
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials", courseId, moduleId)
+                        .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Learning materials fetched successfully"));
 
-        verify(learningMaterialService).getLearningMaterials(courseId, moduleId);
+        verify(learningMaterialService).getLearningMaterials(courseId, moduleId, AUTH_HEADER);
     }
 
     @Test
@@ -390,7 +407,7 @@ class CourseContentControllerTest {
         UUID moduleId = UUID.randomUUID();
         UUID materialId = UUID.randomUUID();
 
-        when(learningMaterialService.getLearningMaterial(courseId, moduleId, materialId))
+        when(learningMaterialService.getLearningMaterial(courseId, moduleId, materialId, AUTH_HEADER))
                 .thenReturn(ApiResponse.<LearningMaterialResponse>builder()
                         .status(HttpStatus.OK)
                         .message("Learning material fetched successfully")
@@ -403,11 +420,12 @@ class CourseContentControllerTest {
                                 .build())
                         .build());
 
-        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}", courseId, moduleId, materialId))
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}", courseId, moduleId, materialId)
+                        .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Learning material fetched successfully"));
 
-        verify(learningMaterialService).getLearningMaterial(courseId, moduleId, materialId);
+        verify(learningMaterialService).getLearningMaterial(courseId, moduleId, materialId, AUTH_HEADER);
     }
 
     @Test
@@ -520,7 +538,8 @@ class CourseContentControllerTest {
                 "createLearningMaterial",
                 UUID.class,
                 UUID.class,
-                LearningMaterialCreateRequest.class
+                LearningMaterialCreateRequest.class,
+                String.class
         );
 
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
@@ -567,7 +586,8 @@ class CourseContentControllerTest {
                                 UUID.class,
                                 UUID.class,
                                 UUID.class,
-                                LearningMaterialCreateRequest.class
+                                LearningMaterialCreateRequest.class,
+                                String.class
                 );
 
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
@@ -654,17 +674,28 @@ class CourseContentControllerTest {
 
         @Test
         void getLearningMaterials_hasTeacherPreAuthorize() throws NoSuchMethodException {
-                Method method = CourseContentController.class.getDeclaredMethod("getLearningMaterials", UUID.class, UUID.class);
+                Method method = CourseContentController.class.getDeclaredMethod(
+                                "getLearningMaterials",
+                                UUID.class,
+                                UUID.class,
+                                String.class
+                );
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_READ_ROLES);
         }
 
         @Test
         void getLearningMaterial_hasTeacherPreAuthorize() throws NoSuchMethodException {
-                Method method = CourseContentController.class.getDeclaredMethod("getLearningMaterial", UUID.class, UUID.class, UUID.class);
+                Method method = CourseContentController.class.getDeclaredMethod(
+                                "getLearningMaterial",
+                                UUID.class,
+                                UUID.class,
+                                UUID.class,
+                                String.class
+                );
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_READ_ROLES);
         }
 }
