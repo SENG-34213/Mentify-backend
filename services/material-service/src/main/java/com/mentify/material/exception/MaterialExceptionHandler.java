@@ -28,6 +28,16 @@ public class MaterialExceptionHandler {
         return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
+    @ExceptionHandler(MaterialNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleNotFound(MaterialNotFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(MaterialUnavailableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleUnavailable(MaterialUnavailableException ex) {
+        return build(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Data integrity violation in material-service: {}", ex.getClass().getSimpleName());

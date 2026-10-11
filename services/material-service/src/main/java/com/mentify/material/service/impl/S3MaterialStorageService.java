@@ -2,6 +2,7 @@ package com.mentify.material.service.impl;
 
 import com.mentify.material.config.S3Properties;
 import com.mentify.material.dto.ValidatedMaterialFile;
+import com.mentify.material.dto.response.S3DownloadResult;
 import com.mentify.material.dto.response.S3UploadResult;
 import com.mentify.material.exception.MaterialStorageException;
 import com.mentify.material.service.MaterialStorageService;
@@ -13,9 +14,16 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -25,8 +33,10 @@ import java.util.UUID;
 public class S3MaterialStorageService implements MaterialStorageService {
 
     private static final String KEY_PREFIX = "materials";
+    private static final Duration DEFAULT_DOWNLOAD_URL_EXPIRATION = Duration.ofMinutes(5);
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final S3Properties properties;
 
     @Override
@@ -45,6 +55,41 @@ public class S3MaterialStorageService implements MaterialStorageService {
         } catch (IOException | SdkException ex) {
             log.warn("Material S3 upload failed for key={}: {}", storageKey, ex.getClass().getSimpleName());
             throw new MaterialStorageException("Material file upload failed", ex);
+        }
+    }
+
+    @Override
+    public S3DownloadResult createPresignedDownload(String storageKey, String originalFilename, String contentType) {
+        if (storageKey == null || storageKey.isBlank()) {
+            throw new MaterialStorageException("Material file is unavailable");
+        }
+
+        String bucket = requireBucket();
+        try {
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(storageKey)
+                    .build());
+
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(storageKey)
+                    .responseContentType(contentType)
+                    .responseContentDisposition("attachment; filename=\"" + safeFilename(originalFilename) + "\"")
+                    .build();
+
+            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(GetObjectPresignRequest.builder()
+                    .signatureDuration(requireDownloadUrlExpiration())
+                    .getObjectRequest(getObjectRequest)
+                    .build());
+
+            return new S3DownloadResult(presignedRequest.url().toString(), presignedRequest.expiration());
+        } catch (S3Exception ex) {
+            log.warn("Material S3 download presign failed for key={} status={}", storageKey, ex.statusCode());
+            throw new MaterialStorageException("Material file is unavailable", ex);
+        } catch (SdkException ex) {
+            log.warn("Material S3 download presign failed for key={}: {}", storageKey, ex.getClass().getSimpleName());
+            throw new MaterialStorageException("Material file is unavailable", ex);
         }
     }
 
@@ -75,5 +120,23 @@ public class S3MaterialStorageService implements MaterialStorageService {
             throw new MaterialStorageException("Material storage is not configured");
         }
         return bucket;
+    }
+
+    private Duration requireDownloadUrlExpiration() {
+        Duration expiration = properties.downloadUrlExpiration();
+        if (expiration == null || expiration.isZero() || expiration.isNegative()) {
+            return DEFAULT_DOWNLOAD_URL_EXPIRATION;
+        }
+        return expiration;
+    }
+
+    private String safeFilename(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "material";
+        }
+        return originalFilename.replace("\\", "_")
+                .replace("\"", "_")
+                .replace("\r", "_")
+                .replace("\n", "_");
     }
 }
