@@ -7,6 +7,7 @@ import com.mentify.exam.client.dto.CourseLookupResponse;
 import com.mentify.exam.entity.Exam;
 import com.mentify.exam.enums.ExamStatus;
 import com.mentify.exam.repository.ExamRepository;
+import com.mentify.exam.repository.ExamResultRepository;
 import com.mentify.payload.response.ApiResponse;
 import feign.FeignException;
 import feign.Request;
@@ -45,12 +46,14 @@ class ExamControllerTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired ExamRepository examRepository;
+    @Autowired ExamResultRepository examResultRepository;
     @Autowired ObjectMapper objectMapper;
     @MockBean JwtDecoder jwtDecoder;
     @MockBean CourseServiceClient courseServiceClient;
 
     @BeforeEach
     void setUp() {
+        examResultRepository.deleteAll();
         examRepository.deleteAll();
         stubCourse(TEACHER_ID);
     }

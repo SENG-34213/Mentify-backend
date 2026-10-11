@@ -109,9 +109,6 @@ public class CalendarEventServiceImpl implements CalendarEventService {
             return event.getTargetRole() != null && currentUser.hasRole(event.getTargetRole().name());
         }
         if (event.getVisibility() == CalendarVisibility.COURSE) {
-            if (userId.equals(event.getCreatedBy())) {
-                return true;
-            }
             if (currentUser.hasRole("TEACHER")) {
                 try {
                     courseAccess.assertCanManage(event.getCourseId(), authorizationHeader);

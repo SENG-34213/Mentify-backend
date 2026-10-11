@@ -42,6 +42,9 @@ mentify:
       url: ${COURSE_SERVICE_URL:}
     enrollment-service:
       url: ${ENROLLMENT_SERVICE_URL:}
+    calendar-service:
+      url: ${CALENDAR_SERVICE_URL:}
+      internal-service-token: ${CALENDAR_INTERNAL_SERVICE_TOKEN:}
 
 eureka:
   instance:
