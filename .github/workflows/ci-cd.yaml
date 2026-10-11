@@ -74,6 +74,8 @@
               path: services/exam-service
             - service: material-service
               path: services/material-service
+            - service: calender-service
+              path: services/calender-service
 
       steps:
         - name: Checkout code
@@ -122,6 +124,8 @@
               path: services/exam-service
             - service: material-service
               path: services/material-service
+            - service: calender-service
+              path: services/calender-service
 
       steps:
         - name: Checkout code
@@ -267,6 +271,9 @@
             - service: material-service
               path: services/material-service
               server_port: "8091"
+            - service: calender-service
+              path: services/calender-service
+              server_port: "8092"
 
       services:
         postgres-user:
@@ -366,6 +373,19 @@
             --health-interval 10s
             --health-timeout 5s
             --health-retries 5
+        postgres-calender:
+          image: ${{ vars.POSTGRES_IMAGE }}
+          env:
+            POSTGRES_DB: ${{ vars.CALENDER_DB_NAME }}
+            POSTGRES_USER: ${{ vars.CALENDER_DB_USERNAME }}
+            POSTGRES_PASSWORD: ${{ secrets.CI_CALENDER_DB_PASSWORD }}
+          ports:
+            - ${{ vars.HOST_PORT_CALENDER_DB }}:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
         postgres-keycloak:
           image: ${{ vars.POSTGRES_IMAGE }}
           env:
@@ -447,6 +467,16 @@
             EXAM_DB_NAME: ${{ vars.EXAM_DB_NAME }}
             EXAM_DB_USERNAME: ${{ vars.EXAM_DB_USERNAME }}
             EXAM_DB_PASSWORD: ${{ secrets.CI_EXAM_DB_PASSWORD }}
+            CALENDER_DB_HOST: localhost
+            CALENDER_DB_PORT: ${{ vars.HOST_PORT_CALENDER_DB }}
+            CALENDER_DB_NAME: ${{ vars.CALENDER_DB_NAME }}
+            CALENDER_DB_USERNAME: ${{ vars.CALENDER_DB_USERNAME }}
+            CALENDER_DB_PASSWORD: ${{ secrets.CI_CALENDER_DB_PASSWORD }}
+            CALENDER_TEST_DATASOURCE_URL: jdbc:postgresql://localhost:${{ vars.HOST_PORT_CALENDER_DB }}/${{ vars.CALENDER_DB_NAME }}
+            CALENDER_TEST_DATASOURCE_DRIVER: org.postgresql.Driver
+            CALENDER_TEST_DATASOURCE_USERNAME: ${{ vars.CALENDER_DB_USERNAME }}
+            CALENDER_TEST_DATASOURCE_PASSWORD: ${{ secrets.CI_CALENDER_DB_PASSWORD }}
+            CALENDER_TEST_JPA_DIALECT: org.hibernate.dialect.PostgreSQLDialect
 
             SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
 

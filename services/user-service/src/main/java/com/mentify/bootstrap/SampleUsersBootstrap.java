@@ -61,10 +61,16 @@ public class SampleUsersBootstrap implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (!sampleUsersProperties.isEnabled()) {
+            log.info("Sample login users bootstrap is disabled; set MENTIFY_SAMPLE_USERS_ENABLED=true to enable it");
             return;
         }
 
         validate();
+        log.info(
+                "Starting sample login users bootstrap for Keycloak realm={} and email domain={}",
+                keycloakProperties.getRealm(),
+                sampleUsersProperties.getEmailDomain()
+        );
         bootstrapWithRetry();
     }
 

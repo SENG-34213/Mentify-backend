@@ -1,0 +1,33 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/mentify
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: ${CALENDER_TEST_DATASOURCE_URL:jdbc:h2:mem:calendar_service_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1}
+    driver-class-name: ${CALENDER_TEST_DATASOURCE_DRIVER:org.h2.Driver}
+    username: ${CALENDER_TEST_DATASOURCE_USERNAME:sa}
+    password: ${CALENDER_TEST_DATASOURCE_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    database-platform: ${CALENDER_TEST_JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+  flyway:
+    enabled: true
+
+eureka:
+  client:
+    enabled: false
+
+mentify:
+  security:
+    enabled: true
+
+management:
+  endpoint:
+    health:
+      show-details: never

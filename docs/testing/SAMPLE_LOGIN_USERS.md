@@ -1,13 +1,15 @@
 # Sample Login Users
 
-Enable this only in local development or test environments:
+The repository's `.env.example` enables sample users for local development. Copy it to `.env` (if you have not already), then make sure these settings are present. Enable this only in local development or test environments:
 
 ```txt
 MENTIFY_SAMPLE_USERS_ENABLED=true
 MENTIFY_SAMPLE_USERS_PASSWORD=Sample@12345
 ```
 
-When `user-service` starts, it creates or updates ready-to-login Keycloak users and matching local user profiles.
+Restart `user-service` after changing `.env`. At startup it creates or updates ready-to-login users in the Keycloak realm configured by `KEYCLOAK_REALM` (default: `mentify`) and matching local user profiles. Check the `user-service` startup logs for `Sample login users bootstrap completed`; if bootstrap is disabled, the logs say so explicitly.
+
+If the users still do not appear, confirm that the Keycloak Admin Console is showing the same realm (`mentify` by default) and that the `user-service` environment points to the running Keycloak instance. The bootstrap requires the configured admin client service account to have the realm-management roles `manage-realm`, `view-realm`, `manage-users`, `view-users`, and `query-users`.
 
 Default login accounts:
 
