@@ -1,5 +1,7 @@
 # Course Class Schedule Calendar Projection (MENT-#87)
 
+> The repository's concrete planned-session model is `AttendanceSession`. MENT-#88 refines its active source identity to `ATTENDANCE`; the `COURSE_CLASS` endpoint remains available for a future Course-owned schedule entity.
+
 ## Authoritative source
 
 The repository does not contain a separate Course class-schedule entity. Course Service owns course metadata and teacher assignment, but the existing schedule-like record is `AttendanceSession` in Attendance Service. Therefore Attendance Service is the authoritative source for this integration.

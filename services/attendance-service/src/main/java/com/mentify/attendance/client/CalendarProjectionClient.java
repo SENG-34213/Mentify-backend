@@ -14,13 +14,13 @@ import java.util.UUID;
         path = "/api/v1/internal/calendar")
 public interface CalendarProjectionClient {
 
-    @PostMapping("/class-projections")
+    @PostMapping("/attendance-projections")
     ApiResponse<Object> upsert(@RequestBody CalendarProjectionRequest request,
                                @RequestHeader("Authorization") String authorizationHeader,
                                @RequestHeader("X-Internal-Service-Name") String serviceName,
                                @RequestHeader("X-Internal-Service-Token") String serviceToken);
 
-    @PostMapping("/class-projections/{sourceId}/cancel")
+    @PostMapping("/attendance-projections/{sourceId}/cancel")
     ApiResponse<Void> cancel(@PathVariable UUID sourceId,
                              @RequestHeader("Authorization") String authorizationHeader,
                              @RequestHeader("X-Internal-Service-Name") String serviceName,

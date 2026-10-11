@@ -83,7 +83,7 @@ class CalendarProjectionServiceImplTest {
     void calendarFailureIsRecordedWithoutEscaping() {
         AttendanceSession session = AttendanceSession.builder()
                 .courseId(UUID.randomUUID()).title("Java Class")
-                .attendanceDate(LocalDate.now()).startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(10, 0))
+                .attendanceDate(LocalDate.now().plusDays(1)).startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(10, 0))
                 .status(AttendanceSessionStatus.OPEN).build();
         session.setId(UUID.randomUUID());
         session.setCreatedBy(UUID.randomUUID());

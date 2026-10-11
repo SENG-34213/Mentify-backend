@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Refined scheduled Attendance session Calendar integration (MENT-#88): use `ATTENDANCE` source projections, project only future `OPEN` sessions, exclude attendance records/outcomes, retain cancellation tombstones, and add eligibility/recovery documentation and tests.
 - Added Course class schedule Calendar projection integration (MENT-#87): AttendanceSession source ownership, `COURSE_CLASS` mapping, lifecycle projection/cancellation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
 - Added Assignment and Quiz Calendar projection integration (MENT-#86): published-source mapping, deadline and availability-window projection, retained cancellation, idempotent source-type isolation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
 - Added Exam-to-Calendar projection integration (MENT-#85): scheduled Exam mapping, idempotent source upserts, retained cancellation, internal service authorization, failure recording, reconciliation, source-managed protection, migration, tests, and operational documentation.

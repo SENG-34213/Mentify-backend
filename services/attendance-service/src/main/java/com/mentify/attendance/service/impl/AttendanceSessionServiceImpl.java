@@ -164,7 +164,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
         session.setStatus(AttendanceSessionStatus.COMPLETED);
         session = attendanceSessionRepository.save(session);
-        calendarProjectionService.projectIfEligible(session, authorizationHeader);
+        calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
         return response(HttpStatus.OK, "Attendance session completed successfully", mapToResponse(session, records));
