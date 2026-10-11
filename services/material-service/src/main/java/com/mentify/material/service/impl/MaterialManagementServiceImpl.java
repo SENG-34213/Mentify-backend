@@ -1,11 +1,12 @@
 package com.mentify.material.service.impl;
 
+import com.mentify.material.client.CourseServiceClient;
+import com.mentify.material.client.dto.MaterialScopeLookupResponse;
+import com.mentify.material.dto.request.MaterialSearchCriteria;
 import com.mentify.material.dto.request.UpdateMaterialRequest;
 import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.entity.Material;
-import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
-import com.mentify.material.enums.MaterialType;
 import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
 import com.mentify.material.exception.MaterialValidationException;
@@ -20,10 +21,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mentify.payload.response.ApiResponse;
+import feign.FeignException;
+
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -47,25 +55,19 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
     private final MaterialRepository materialRepository;
     private final MaterialMapper materialMapper;
     private final MaterialAuthorizationService authorizationService;
+    private final CourseServiceClient courseServiceClient;
 
     @Override
     @Transactional(readOnly = true)
     public Page<MaterialDetailsResponse> listMaterials(
-            MaterialType type,
-            MaterialPurpose purpose,
-            MaterialStatus status,
-            UUID uploadedBy,
-            UUID courseId,
+            MaterialSearchCriteria criteria,
             String authorizationHeader,
             Pageable pageable
     ) {
-        Specification<Material> visibleMaterials = MaterialSpecifications.visibleFilter(
-                type,
-                purpose,
-                status,
-                uploadedBy,
-                courseId
-        );
+        MaterialSearchCriteria resolvedCriteria = resolveCourseOwnedScope(criteria, authorizationHeader);
+        validateSearchCriteria(resolvedCriteria);
+
+        Specification<Material> visibleMaterials = MaterialSpecifications.visibleFilter(resolvedCriteria);
         Specification<Material> authorizedMaterials = authorizationService.visibilitySpecification(authorizationHeader);
         if (authorizedMaterials != null) {
             visibleMaterials = visibleMaterials.and(authorizedMaterials);
@@ -149,6 +151,84 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
         int pageSize = Math.min(pageable.getPageSize(), MAX_PAGE_SIZE);
         Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : DEFAULT_SORT;
         return PageRequest.of(pageable.getPageNumber(), pageSize, sort);
+    }
+
+    private MaterialSearchCriteria resolveCourseOwnedScope(
+            MaterialSearchCriteria criteria,
+            String authorizationHeader
+    ) {
+        MaterialSearchCriteria safeCriteria = criteria == null
+                ? new MaterialSearchCriteria(null, null, null, null, null, null, null, null, null, null, null)
+                : criteria;
+
+        UUID resolvedCourseId = safeCriteria.courseId();
+        Set<UUID> materialIds = null;
+
+        if (safeCriteria.moduleId() != null) {
+            MaterialScopeLookupResponse moduleScope = loadScope(
+                    () -> courseServiceClient.getModuleMaterialScope(safeCriteria.moduleId(), authorizationHeader)
+            );
+            resolvedCourseId = mergeCourseScope(resolvedCourseId, moduleScope.courseId());
+            materialIds = intersectMaterialIds(materialIds, moduleScope.materialIds());
+        }
+
+        if (safeCriteria.lessonId() != null) {
+            MaterialScopeLookupResponse lessonScope = loadScope(
+                    () -> courseServiceClient.getLessonMaterialScope(safeCriteria.lessonId(), authorizationHeader)
+            );
+            resolvedCourseId = mergeCourseScope(resolvedCourseId, lessonScope.courseId());
+            materialIds = intersectMaterialIds(materialIds, lessonScope.materialIds());
+        }
+
+        return safeCriteria.withResolvedScope(resolvedCourseId, materialIds);
+    }
+
+    private UUID mergeCourseScope(UUID requestedCourseId, UUID ownerCourseId) {
+        if (ownerCourseId == null) {
+            throw new MaterialValidationException("Course-owned material scope could not be resolved");
+        }
+        if (requestedCourseId != null && !requestedCourseId.equals(ownerCourseId)) {
+            throw new MaterialValidationException("Course id does not match the requested material scope");
+        }
+        return ownerCourseId;
+    }
+
+    private Set<UUID> intersectMaterialIds(Set<UUID> currentIds, List<UUID> nextIds) {
+        Set<UUID> next = nextIds == null ? new HashSet<>() : new HashSet<>(nextIds);
+        if (currentIds == null) {
+            return next;
+        }
+        currentIds.retainAll(next);
+        return currentIds;
+    }
+
+    private void validateSearchCriteria(MaterialSearchCriteria criteria) {
+        if (criteria.createdFrom() != null
+                && criteria.createdTo() != null
+                && criteria.createdFrom().isAfter(criteria.createdTo())) {
+            throw new MaterialValidationException("createdFrom must be before or equal to createdTo");
+        }
+    }
+
+    private MaterialScopeLookupResponse loadScope(DownstreamScopeCall call) {
+        try {
+            ApiResponse<MaterialScopeLookupResponse> response = call.execute();
+            if (response == null || response.getData() == null) {
+                throw new MaterialValidationException("Material scope could not be resolved");
+            }
+            return response.getData();
+        } catch (FeignException.Forbidden | FeignException.Unauthorized ex) {
+            throw new AccessDeniedException("Material scope authorization was denied by course-service", ex);
+        } catch (FeignException.NotFound ex) {
+            throw new MaterialValidationException("Material scope could not be resolved");
+        } catch (FeignException ex) {
+            throw new AccessDeniedException("Material scope could not be verified", ex);
+        }
+    }
+
+    @FunctionalInterface
+    private interface DownstreamScopeCall {
+        ApiResponse<MaterialScopeLookupResponse> execute();
     }
 
     private void validateUpdateRequest(UpdateMaterialRequest request) {
