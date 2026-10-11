@@ -104,6 +104,7 @@ docs/testing/CALENDAR_EXAM_PROJECTION_TEST_REGISTER.md
 docs/testing/ASSIGNMENT_QUIZ_CALENDAR_PROJECTION_TEST_REGISTER.md
 docs/testing/COURSE_CLASS_CALENDAR_PROJECTION_TEST_REGISTER.md
 docs/testing/ATTENDANCE_SESSION_CALENDAR_PROJECTION_TEST_REGISTER.md
+docs/testing/COMMUNICATION_CALENDAR_PROJECTION_TEST_REGISTER.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:
