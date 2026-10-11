@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Added MENT-#90 Calendar integration verification evidence: consolidated manual API, role-based query, source projection, failure isolation, retry/reconciliation, optional-source, and regression coverage with explicit staging-blocked checks and recovery documentation.
 - Documented MENT-#89 Communication-to-Calendar source review: the current Communication Service has no explicit schedulable meeting or dated-announcement record, so ordinary messages and message timestamps are intentionally not projected; added the future `COMMUNICATION` mapping contract and test register.
 - Refined scheduled Attendance session Calendar integration (MENT-#88): use `ATTENDANCE` source projections, project only future `OPEN` sessions, exclude attendance records/outcomes, retain cancellation tombstones, and add eligibility/recovery documentation and tests.
 - Added Course class schedule Calendar projection integration (MENT-#87): AttendanceSession source ownership, `COURSE_CLASS` mapping, lifecycle projection/cancellation, internal service authorization, failure recording, reconciliation, tests, and operational documentation.
