@@ -22,7 +22,7 @@ public class AssignmentAttachment extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String originalFilename;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String storedFilename;
 
     @Column(nullable = false, length = 255)
@@ -33,4 +33,11 @@ public class AssignmentAttachment extends BaseEntity {
 
     @Column(nullable = false, columnDefinition = "uuid")
     private UUID uploadedBy;
+
+    @Column(columnDefinition = "uuid")
+    private UUID materialId;
+
+    public boolean isMaterialBacked() {
+        return materialId != null;
+    }
 }
