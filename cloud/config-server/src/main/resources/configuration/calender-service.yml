@@ -35,6 +35,11 @@ mentify:
   security:
     enabled: true
     principal-claim: preferred_username
+  clients:
+    course-service:
+      url: ${COURSE_SERVICE_URL:}
+    enrollment-service:
+      url: ${ENROLLMENT_SERVICE_URL:}
 
 eureka:
   instance:
@@ -52,13 +57,6 @@ feign:
       default:
         connect-timeout: 5000
         read-timeout: 5000
-
-mentify:
-  clients:
-    course-service:
-      url: ${COURSE_SERVICE_URL:}
-    enrollment-service:
-      url: ${ENROLLMENT_SERVICE_URL:}
 
 calendar:
   query:
