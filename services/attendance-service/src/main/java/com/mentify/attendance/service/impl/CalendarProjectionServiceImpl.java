@@ -33,7 +33,7 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
 
     @Override
     public void projectIfEligible(AttendanceSession session, String authorizationHeader) {
-        if (session.getStatus() == AttendanceSessionStatus.CANCELLED || !session.isActive()) {
+        if (!isEligible(session)) {
             return;
         }
         try {
@@ -60,11 +60,19 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
     public void reconcile(UUID sessionId, String authorizationHeader) {
         AttendanceSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attendance session", "id", sessionId));
-        if (session.getStatus() == AttendanceSessionStatus.CANCELLED || !session.isActive()) {
+        if (!isEligible(session)) {
             cancel(session, authorizationHeader);
         } else {
             projectIfEligible(session, authorizationHeader);
         }
+    }
+
+    private boolean isEligible(AttendanceSession session) {
+        if (session.getStatus() != AttendanceSessionStatus.OPEN || !session.isActive()
+                || session.getAttendanceDate() == null || session.getStartTime() == null) {
+            return false;
+        }
+        return LocalDateTime.of(session.getAttendanceDate(), session.getStartTime()).isAfter(LocalDateTime.now());
     }
 
     private CalendarProjectionRequest toRequest(AttendanceSession session) {

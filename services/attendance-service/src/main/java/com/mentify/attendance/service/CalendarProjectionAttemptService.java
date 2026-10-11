@@ -36,8 +36,8 @@ public class CalendarProjectionAttemptService {
     }
 
     private CalendarProjectionAttempt findOrCreate(UUID sourceId) {
-        return repository.findBySourceTypeAndSourceId("COURSE_CLASS", sourceId)
+        return repository.findBySourceTypeAndSourceId("ATTENDANCE", sourceId)
                 .orElseGet(() -> CalendarProjectionAttempt.builder()
-                        .sourceType("COURSE_CLASS").sourceId(sourceId).attempts(0).build());
+                        .sourceType("ATTENDANCE").sourceId(sourceId).attempts(0).build());
     }
 }

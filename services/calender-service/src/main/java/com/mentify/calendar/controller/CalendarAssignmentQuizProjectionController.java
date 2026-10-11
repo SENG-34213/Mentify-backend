@@ -93,4 +93,26 @@ public class CalendarAssignmentQuizProjectionController {
         projectionService.cancel(CalendarSourceType.COURSE_CLASS, sourceId);
         return ResponseEntity.ok(ApiResponse.success(200, "Class calendar projection cancellation accepted", null));
     }
+
+    @PostMapping("/attendance-projections")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<CalendarEventResponse>> upsertAttendance(
+            @Valid @RequestBody CourseCalendarProjectionRequest request,
+            @RequestHeader("X-Internal-Service-Name") String serviceName,
+            @RequestHeader("X-Internal-Service-Token") String serviceToken) {
+        serviceAuthorization.requireAttendanceService(serviceName, serviceToken);
+        return ResponseEntity.ok(ApiResponse.success(200, "Attendance calendar projection upserted successfully",
+                projectionService.upsert(CalendarSourceType.ATTENDANCE, CalendarEventType.ATTENDANCE, request)));
+    }
+
+    @PostMapping("/attendance-projections/{sourceId}/cancel")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<Void>> cancelAttendance(
+            @PathVariable UUID sourceId,
+            @RequestHeader("X-Internal-Service-Name") String serviceName,
+            @RequestHeader("X-Internal-Service-Token") String serviceToken) {
+        serviceAuthorization.requireAttendanceService(serviceName, serviceToken);
+        projectionService.cancel(CalendarSourceType.ATTENDANCE, sourceId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Attendance calendar projection cancellation accepted", null));
+    }
 }
