@@ -36,4 +36,21 @@ public class LessonSummarizationController {
                 .data(response)
                 .build());
     }
+
+    @PostMapping("/materials/{materialId}/summarize")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<LessonSummaryResponse>> summarizeMaterial(
+            @PathVariable UUID materialId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        log.info("Received request to summarize material: {}", materialId);
+
+        LessonSummaryResponse response = lessonSummarizationService.summarizeMaterial(materialId, authorizationHeader);
+
+        return ResponseEntity.ok(ApiResponse.<LessonSummaryResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Material summary generated successfully")
+                .data(response)
+                .build());
+    }
 }
