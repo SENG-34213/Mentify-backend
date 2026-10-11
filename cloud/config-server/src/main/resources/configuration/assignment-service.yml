@@ -42,6 +42,10 @@ mentify:
   security:
     enabled: true
     principal-claim: preferred_username
+  clients:
+    calendar-service:
+      url: ${CALENDAR_SERVICE_URL:}
+      internal-service-token: ${CALENDAR_INTERNAL_SERVICE_TOKEN:}
 
 eureka:
   instance:

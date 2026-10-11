@@ -6,6 +6,7 @@ import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.enums.AssignmentStatus;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.service.AssignmentService;
+import com.mentify.assignment.service.CalendarProjectionService;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.CourseServiceClient;
 import com.mentify.quiz.client.dto.CourseLookupResponse;
@@ -37,6 +38,9 @@ class AssignmentServiceImplTest {
     @Mock
     private CurrentUserService currentUserService;
 
+    @Mock
+    private CalendarProjectionService calendarProjectionService;
+
     private AssignmentService assignmentService;
 
     @BeforeEach
@@ -44,7 +48,8 @@ class AssignmentServiceImplTest {
         assignmentService = new AssignmentServiceImpl(
                 assignmentRepository,
                 courseServiceClient,
-                currentUserService
+                currentUserService,
+                calendarProjectionService
         );
     }
 

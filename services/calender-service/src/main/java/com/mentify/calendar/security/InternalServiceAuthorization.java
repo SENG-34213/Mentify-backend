@@ -15,7 +15,15 @@ public class InternalServiceAuthorization {
     }
 
     public void requireExamService(String serviceName, String token) {
-        if (!"exam-service".equals(serviceName)
+        requireService("exam-service", serviceName, token);
+    }
+
+    public void requireAssignmentService(String serviceName, String token) {
+        requireService("assignment-service", serviceName, token);
+    }
+
+    private void requireService(String expectedService, String serviceName, String token) {
+        if (!expectedService.equals(serviceName)
                 || expectedToken == null || expectedToken.isBlank()
                 || token == null || !expectedToken.equals(token)) {
             throw new AccessDeniedException("Internal service authorization failed");

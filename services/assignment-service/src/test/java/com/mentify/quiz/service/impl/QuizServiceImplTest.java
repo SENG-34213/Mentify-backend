@@ -18,6 +18,7 @@ import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
+import com.mentify.assignment.service.CalendarProjectionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,9 @@ class QuizServiceImplTest {
     @Mock
     private CourseQuizAuthorizationService courseQuizAuthorizationService;
 
+    @Mock
+    private CalendarProjectionService calendarProjectionService;
+
     private QuizServiceImpl quizService;
 
     @BeforeEach
@@ -65,7 +69,8 @@ class QuizServiceImplTest {
                 quizQuestionRepository,
                 enrollmentServiceClient,
                 currentUserService,
-                courseQuizAuthorizationService
+                courseQuizAuthorizationService,
+                calendarProjectionService
         );
     }
 

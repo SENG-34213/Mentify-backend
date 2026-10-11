@@ -22,6 +22,7 @@ import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
+import com.mentify.assignment.service.CalendarProjectionService;
 import com.mentify.quiz.service.QuizService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
@@ -45,6 +46,7 @@ public class QuizServiceImpl implements QuizService {
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final CurrentUserService currentUserService;
     private final CourseQuizAuthorizationService courseQuizAuthorizationService;
+    private final CalendarProjectionService calendarProjectionService;
 
     @Override
     @Transactional
@@ -99,8 +101,10 @@ public class QuizServiceImpl implements QuizService {
         courseQuizAuthorizationService.getCourseOrThrow(quiz.getCourseId(), authorizationHeader);
 
         List<QuizQuestion> questions = quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quizId);
+        Quiz savedQuiz = quizRepository.save(quiz);
+        calendarProjectionService.projectQuizIfEligible(savedQuiz, authorizationHeader);
         return response(HttpStatus.OK, "Quiz updated successfully",
-                QuizMapper.toTeacherQuizResponse(quizRepository.save(quiz), questions));
+                QuizMapper.toTeacherQuizResponse(savedQuiz, questions));
     }
 
     @Override
@@ -121,8 +125,10 @@ public class QuizServiceImpl implements QuizService {
         }
         quiz.setStatus(QuizStatus.PUBLISHED);
 
+        Quiz savedQuiz = quizRepository.save(quiz);
+        calendarProjectionService.projectQuizIfEligible(savedQuiz, authorizationHeader);
         return response(HttpStatus.OK, "Quiz published successfully",
-                QuizMapper.toTeacherQuizResponse(quizRepository.save(quiz), questions));
+                QuizMapper.toTeacherQuizResponse(savedQuiz, questions));
     }
 
     @Override
@@ -150,11 +156,12 @@ public class QuizServiceImpl implements QuizService {
 
     @Override
     @Transactional
-    public ApiResponse<Object> deleteQuiz(UUID quizId) {
+    public ApiResponse<Object> deleteQuiz(UUID quizId, String authorizationHeader) {
         Quiz quiz = getQuizOrThrow(quizId);
         assertCanManageQuiz(quiz);
         quiz.setActive(false);
-        quizRepository.save(quiz);
+        Quiz savedQuiz = quizRepository.save(quiz);
+        calendarProjectionService.cancelQuiz(savedQuiz, authorizationHeader);
         return response(HttpStatus.OK, "Quiz deleted successfully", null);
     }
 

@@ -65,8 +65,10 @@ public class QuizController {
 
     @DeleteMapping("/api/quizzes/{quizId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Object>> deleteQuiz(@PathVariable UUID quizId) {
-        ApiResponse<Object> response = quizService.deleteQuiz(quizId);
+    public ResponseEntity<ApiResponse<Object>> deleteQuiz(
+            @PathVariable UUID quizId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        ApiResponse<Object> response = quizService.deleteQuiz(quizId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
