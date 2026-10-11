@@ -6,5 +6,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface QuizGenerationService {
 
-    GeneratedQuizDraftResponse generateQuiz(QuizGenerationRequest request, MultipartFile file);
+    default GeneratedQuizDraftResponse generateQuiz(QuizGenerationRequest request, MultipartFile file) {
+        return generateQuiz(request, file, null);
+    }
+
+    GeneratedQuizDraftResponse generateQuiz(QuizGenerationRequest request, MultipartFile file, String authorizationHeader);
 }

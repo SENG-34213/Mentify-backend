@@ -7,6 +7,7 @@ import com.mentify.ai.config.AiProviderProperties;
 import com.mentify.ai.config.QuizGenerationProperties;
 import com.mentify.ai.dto.internal.AiExecutionContext;
 import com.mentify.ai.dto.internal.AiExecutionRequest;
+import com.mentify.ai.dto.internal.MaterialDocument;
 import com.mentify.ai.dto.request.QuizGenerationRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.response.GeneratedQuestionResponse;
@@ -25,12 +26,14 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.service.DocumentContentService;
+import com.mentify.ai.service.MaterialDocumentService;
 import com.mentify.ai.service.QuizGenerationService;
 import com.mentify.ai.validation.GeneratedQuizValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -60,9 +63,10 @@ public class QuizGenerationServiceImpl implements QuizGenerationService {
     private final QuizGenerationPromptBuilder promptBuilder;
     private final GeneratedQuizValidator generatedQuizValidator;
     private final ObjectMapper objectMapper;
+    private final MaterialDocumentService materialDocumentService;
 
     @Override
-    public GeneratedQuizDraftResponse generateQuiz(QuizGenerationRequest request, MultipartFile file) {
+    public GeneratedQuizDraftResponse generateQuiz(QuizGenerationRequest request, MultipartFile file, String authorizationHeader) {
         validateRequest(request);
 
         String traceId = UUID.randomUUID().toString();
@@ -74,7 +78,7 @@ public class QuizGenerationServiceImpl implements QuizGenerationService {
             // Re-enable after testing:
             // usageGuardService.assertAllowed(userId, featureType);
             AiProvider provider = getProvider();
-            DocumentInput documentInput = prepareDocumentInput(provider, request, file, featureType);
+            DocumentInput documentInput = prepareDocumentInput(provider, request, file, authorizationHeader, featureType);
             auditService.recordAllowed(traceId, featureType, userId, request.getCourseId(), null);
 
             AiGenerateResponse generateResponse = generateValidResponse(provider, request, documentInput, traceId, userId);
@@ -120,6 +124,9 @@ public class QuizGenerationServiceImpl implements QuizGenerationService {
         if (!SUPPORTED_QUESTION_TYPE.equals(request.getQuestionType())) {
             throw new AiInvalidGenerationException("Unsupported question type: " + request.getQuestionType());
         }
+        if (request.getMaterialId() != null) {
+            return;
+        }
     }
 
     private AiGenerateResponse generateValidResponse(
@@ -154,9 +161,30 @@ public class QuizGenerationServiceImpl implements QuizGenerationService {
             AiProvider provider,
             QuizGenerationRequest request,
             MultipartFile file,
+            String authorizationHeader,
             AiFeatureType featureType
     ) {
         QuizGenerationRequest guardedRequest = withGuardedUserPrompt(request, featureType);
+        if (request.getMaterialId() != null) {
+            if (file != null && !file.isEmpty()) {
+                throw new AiInvalidDocumentException("Provide either materialId or file, not both");
+            }
+            MaterialDocument document = materialDocumentService.loadMaterial(request.getMaterialId(), authorizationHeader);
+            validateMaterialCourse(request, document);
+            if (isGeminiProvider(provider) && document.isPdf()) {
+                return DocumentInput.attachedPdf(
+                        promptBuilder.userInputForAttachedDocument(guardedRequest, document.originalFilename()),
+                        document.contentType(),
+                        Base64.getEncoder().encodeToString(document.content()),
+                        document.originalFilename()
+                );
+            }
+
+            String documentText = documentContentService.extractReadableText(document, request.getQuestionCount());
+            String guardedDocument = contentGuardService.sanitizeForPrompt(featureType, "quiz_document", documentText);
+            return DocumentInput.text(promptBuilder.userInput(guardedRequest, guardedDocument));
+        }
+
         if (isGeminiProvider(provider) && isPdf(file)) {
             validatePdfFile(file);
             return DocumentInput.attachedPdf(
@@ -181,8 +209,15 @@ public class QuizGenerationServiceImpl implements QuizGenerationService {
                 .questionCount(request.getQuestionCount())
                 .difficulty(request.getDifficulty())
                 .questionType(request.getQuestionType())
+                .materialId(request.getMaterialId())
                 .userPrompt(contentGuardService.sanitizeForPrompt(featureType, "quiz_teacher_instruction", request.getUserPrompt()))
                 .build();
+    }
+
+    private void validateMaterialCourse(QuizGenerationRequest request, MaterialDocument document) {
+        if (document.courseId() == null || !document.courseId().equals(request.getCourseId())) {
+            throw new AccessDeniedException("Material does not belong to the requested course");
+        }
     }
 
     private boolean isGeminiProvider(AiProvider provider) {

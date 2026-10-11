@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,21 +27,24 @@ public class QuizGenerationController {
 
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<GeneratedQuizDraftResponse>> generateQuiz(
-            @RequestPart("file") MultipartFile file,
+            @RequestPart(value = "file", required = false) MultipartFile file,
             @RequestParam UUID courseId,
             @RequestParam Integer questionCount,
             @RequestParam String difficulty,
             @RequestParam String questionType,
-            @RequestParam(required = false) String userPrompt
+            @RequestParam(required = false) UUID materialId,
+            @RequestParam(required = false) String userPrompt,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         QuizGenerationRequest request = QuizGenerationRequest.builder()
                 .courseId(courseId)
                 .questionCount(questionCount)
                 .difficulty(difficulty)
                 .questionType(questionType)
+                .materialId(materialId)
                 .userPrompt(userPrompt)
                 .build();
-        GeneratedQuizDraftResponse draft = quizGenerationService.generateQuiz(request, file);
+        GeneratedQuizDraftResponse draft = quizGenerationService.generateQuiz(request, file, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.<GeneratedQuizDraftResponse>builder()
                 .status(HttpStatus.OK)
                 .statusCode(HttpStatus.OK.value())
