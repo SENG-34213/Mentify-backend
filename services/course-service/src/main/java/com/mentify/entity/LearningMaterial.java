@@ -6,6 +6,8 @@ import com.mentify.enums.MaterialType;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "learning_materials")
 @Getter
@@ -22,8 +24,11 @@ public class LearningMaterial extends BaseEntity {
     @Column(nullable = false, length = 20)
     private MaterialType type;
 
-    @Column(nullable = false, length = 500)
+    @Column(length = 500)
     private String fileUrl;
+
+    @Column(name = "material_id", columnDefinition = "uuid")
+    private UUID materialId;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
