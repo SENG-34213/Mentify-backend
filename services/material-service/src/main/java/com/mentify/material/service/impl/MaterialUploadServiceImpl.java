@@ -4,11 +4,13 @@ import com.mentify.material.dto.ValidatedMaterialFile;
 import com.mentify.material.dto.response.MaterialResponse;
 import com.mentify.material.dto.response.S3UploadResult;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.security.MaterialAuthorizationService;
+import com.mentify.material.service.MaterialAuditService;
 import com.mentify.material.service.MaterialFileValidationService;
 import com.mentify.material.service.MaterialStorageService;
 import com.mentify.material.service.MaterialUploadService;
@@ -26,6 +28,7 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
     private final MaterialStorageService storageService;
     private final MaterialRepository materialRepository;
     private final MaterialAuthorizationService authorizationService;
+    private final MaterialAuditService auditService;
 
     @Override
     public MaterialResponse upload(
@@ -57,9 +60,11 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
                     .courseId(authorizedCourseId)
                     .build();
 
-            return toResponse(materialRepository.saveAndFlush(material));
+            Material saved = materialRepository.saveAndFlush(material);
+            auditService.record(MaterialAuditAction.UPLOAD, saved, uploadedBy, "SUCCESS", null);
+            return toResponse(saved);
         } catch (RuntimeException ex) {
-            storageService.delete(uploadResult.storageKey());
+            safeDeleteUploadedObject(uploadResult.storageKey());
             throw ex;
         }
     }
@@ -95,6 +100,14 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
 
     private MaterialPurpose requirePurpose(MaterialPurpose purpose) {
         return purpose == null ? MaterialPurpose.LEARNING_MATERIAL : purpose;
+    }
+
+    private void safeDeleteUploadedObject(String storageKey) {
+        try {
+            storageService.delete(storageKey);
+        } catch (RuntimeException ignored) {
+            // Upload rollback cleanup must not mask the original persistence failure.
+        }
     }
 
     private MaterialResponse toResponse(Material material) {

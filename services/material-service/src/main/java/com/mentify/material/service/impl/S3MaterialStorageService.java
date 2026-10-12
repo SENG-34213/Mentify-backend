@@ -16,6 +16,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -24,6 +26,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -53,7 +57,7 @@ public class S3MaterialStorageService implements MaterialStorageService {
             s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), validatedFile.fileSize()));
             return new S3UploadResult(storageKey);
         } catch (IOException | SdkException ex) {
-            log.warn("Material S3 upload failed for key={}: {}", storageKey, ex.getClass().getSimpleName());
+            log.warn("Material S3 upload failed for keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
             throw new MaterialStorageException("Material file upload failed", ex);
         }
     }
@@ -85,11 +89,59 @@ public class S3MaterialStorageService implements MaterialStorageService {
 
             return new S3DownloadResult(presignedRequest.url().toString(), presignedRequest.expiration());
         } catch (S3Exception ex) {
-            log.warn("Material S3 download presign failed for key={} status={}", storageKey, ex.statusCode());
+            log.warn("Material S3 download presign failed for keyHash={} status={}", keyHash(storageKey), ex.statusCode());
             throw new MaterialStorageException("Material file is unavailable", ex);
         } catch (SdkException ex) {
-            log.warn("Material S3 download presign failed for key={}: {}", storageKey, ex.getClass().getSimpleName());
+            log.warn("Material S3 download presign failed for keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
             throw new MaterialStorageException("Material file is unavailable", ex);
+        }
+    }
+
+    @Override
+    public boolean exists(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return false;
+        }
+
+        try {
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(requireBucket())
+                    .key(storageKey)
+                    .build());
+            return true;
+        } catch (S3Exception ex) {
+            if (ex.statusCode() == 404) {
+                return false;
+            }
+            log.warn("Material S3 existence check failed for keyHash={} status={}", keyHash(storageKey), ex.statusCode());
+            throw new MaterialStorageException("Material storage could not be audited", ex);
+        } catch (SdkException ex) {
+            log.warn("Material S3 existence check failed for keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
+            throw new MaterialStorageException("Material storage could not be audited", ex);
+        }
+    }
+
+    @Override
+    public List<String> listStorageKeys() {
+        String bucket = requireBucket();
+        List<String> keys = new ArrayList<>();
+        String continuationToken = null;
+
+        try {
+            do {
+                ListObjectsV2Response response = s3Client.listObjectsV2(ListObjectsV2Request.builder()
+                        .bucket(bucket)
+                        .prefix(KEY_PREFIX + "/")
+                        .continuationToken(continuationToken)
+                        .build());
+                response.contents().forEach(object -> keys.add(object.key()));
+                continuationToken = response.nextContinuationToken();
+            } while (continuationToken != null);
+
+            return keys;
+        } catch (SdkException ex) {
+            log.warn("Material S3 object listing failed: {}", ex.getClass().getSimpleName());
+            throw new MaterialStorageException("Material storage could not be audited", ex);
         }
     }
 
@@ -106,7 +158,8 @@ public class S3MaterialStorageService implements MaterialStorageService {
                     .build();
             s3Client.deleteObject(request);
         } catch (SdkException ex) {
-            log.error("Failed to clean up uploaded material object key={}", storageKey, ex);
+            log.warn("Failed to delete material object keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
+            throw new MaterialStorageException("Material file cleanup failed", ex);
         }
     }
 
@@ -138,5 +191,9 @@ public class S3MaterialStorageService implements MaterialStorageService {
                 .replace("\"", "_")
                 .replace("\r", "_")
                 .replace("\n", "_");
+    }
+
+    private String keyHash(String storageKey) {
+        return Integer.toHexString(storageKey.hashCode());
     }
 }

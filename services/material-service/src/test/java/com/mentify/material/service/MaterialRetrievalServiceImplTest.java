@@ -4,6 +4,7 @@ import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.dto.response.MaterialDownloadResponse;
 import com.mentify.material.dto.response.S3DownloadResult;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
@@ -48,6 +49,9 @@ class MaterialRetrievalServiceImplTest {
     @Mock
     private MaterialAuthorizationService authorizationService;
 
+    @Mock
+    private MaterialAuditService auditService;
+
     private MaterialRetrievalServiceImpl retrievalService;
 
     @BeforeEach
@@ -56,7 +60,8 @@ class MaterialRetrievalServiceImplTest {
                 materialRepository,
                 storageService,
                 new MaterialMapper(),
-                authorizationService
+                authorizationService,
+                auditService
         );
     }
 
@@ -97,6 +102,7 @@ class MaterialRetrievalServiceImplTest {
         assertThat(recordComponentNames(MaterialDownloadResponse.class)).doesNotContain("storageKey");
         verify(authorizationService).assertCanDownload(material, AUTH_HEADER);
         verify(storageService).createPresignedDownload("materials/object.pdf", "intro.pdf", "application/pdf");
+        verify(auditService).record(MaterialAuditAction.DOWNLOAD_ACCESS_GENERATED, material, null, "SUCCESS", null);
     }
 
     @Test

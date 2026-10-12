@@ -4,12 +4,14 @@ import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.dto.response.MaterialDownloadResponse;
 import com.mentify.material.dto.response.S3DownloadResult;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
 import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.security.MaterialAuthorizationService;
+import com.mentify.material.service.MaterialAuditService;
 import com.mentify.material.service.MaterialRetrievalService;
 import com.mentify.material.service.MaterialStorageService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
     private final MaterialStorageService storageService;
     private final MaterialMapper materialMapper;
     private final MaterialAuthorizationService authorizationService;
+    private final MaterialAuditService auditService;
 
     @Override
     public MaterialDetailsResponse getMaterial(UUID materialId, String authorizationHeader) {
@@ -52,6 +55,7 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
                 material.getOriginalFilename(),
                 material.getContentType()
         );
+        auditService.record(MaterialAuditAction.DOWNLOAD_ACCESS_GENERATED, material, null, "SUCCESS", null);
 
         return materialMapper.toDownloadResponse(material, download);
     }

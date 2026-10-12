@@ -5,6 +5,7 @@ import com.mentify.material.client.dto.MaterialScopeLookupResponse;
 import com.mentify.material.dto.request.MaterialSearchCriteria;
 import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
@@ -50,6 +51,9 @@ class MaterialManagementServiceImplTest {
     @Mock
     private CourseServiceClient courseServiceClient;
 
+    @Mock
+    private MaterialAuditService auditService;
+
     private MaterialManagementServiceImpl service;
 
     @BeforeEach
@@ -58,7 +62,8 @@ class MaterialManagementServiceImplTest {
                 materialRepository,
                 new MaterialMapper(),
                 authorizationService,
-                courseServiceClient
+                courseServiceClient,
+                auditService
         );
     }
 
@@ -126,6 +131,31 @@ class MaterialManagementServiceImplTest {
         ))
                 .isInstanceOf(MaterialValidationException.class)
                 .hasMessage("Course id does not match the requested material scope");
+    }
+
+    @Test
+    void archiveMaterialRecordsAuditEvent() {
+        Material material = material(UUID.randomUUID(), UUID.randomUUID());
+        when(materialRepository.findById(material.getId())).thenReturn(java.util.Optional.of(material));
+        when(materialRepository.saveAndFlush(material)).thenReturn(material);
+
+        MaterialDetailsResponse response = service.archiveMaterial(material.getId(), AUTH_HEADER);
+
+        assertThat(response.status()).isEqualTo(MaterialStatus.ARCHIVED);
+        verify(auditService).record(MaterialAuditAction.ARCHIVE, material, null, "SUCCESS", null);
+    }
+
+    @Test
+    void deleteMaterialRecordsAuditEventWithoutPhysicalStorageDelete() {
+        Material material = material(UUID.randomUUID(), UUID.randomUUID());
+        when(materialRepository.findById(material.getId())).thenReturn(java.util.Optional.of(material));
+        when(materialRepository.saveAndFlush(material)).thenReturn(material);
+
+        MaterialDetailsResponse response = service.deleteMaterial(material.getId(), AUTH_HEADER);
+
+        assertThat(response.status()).isEqualTo(MaterialStatus.DELETED);
+        assertThat(material.isActive()).isFalse();
+        verify(auditService).record(MaterialAuditAction.DELETE, material, null, "SUCCESS", null);
     }
 
     private ApiResponse<MaterialScopeLookupResponse> scopeResponse(UUID courseId, List<UUID> materialIds) {

@@ -6,6 +6,7 @@ import com.mentify.material.dto.request.MaterialSearchCriteria;
 import com.mentify.material.dto.request.UpdateMaterialRequest;
 import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
@@ -14,6 +15,7 @@ import com.mentify.material.mapper.MaterialMapper;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.repository.MaterialSpecifications;
 import com.mentify.material.security.MaterialAuthorizationService;
+import com.mentify.material.service.MaterialAuditService;
 import com.mentify.material.service.MaterialManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -56,6 +58,7 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
     private final MaterialMapper materialMapper;
     private final MaterialAuthorizationService authorizationService;
     private final CourseServiceClient courseServiceClient;
+    private final MaterialAuditService auditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -111,7 +114,9 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
         }
 
         material.setStatus(MaterialStatus.ARCHIVED);
-        return materialMapper.toDetailsResponse(materialRepository.saveAndFlush(material));
+        Material saved = materialRepository.saveAndFlush(material);
+        auditService.record(MaterialAuditAction.ARCHIVE, saved, null, "SUCCESS", null);
+        return materialMapper.toDetailsResponse(saved);
     }
 
     @Override
@@ -125,7 +130,9 @@ public class MaterialManagementServiceImpl implements MaterialManagementService 
 
         material.setStatus(MaterialStatus.DELETED);
         material.setActive(false);
-        return materialMapper.toDetailsResponse(materialRepository.saveAndFlush(material));
+        Material saved = materialRepository.saveAndFlush(material);
+        auditService.record(MaterialAuditAction.DELETE, saved, null, "SUCCESS", null);
+        return materialMapper.toDetailsResponse(saved);
     }
 
     private Material loadVisibleMaterial(UUID materialId) {

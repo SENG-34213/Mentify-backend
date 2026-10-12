@@ -195,6 +195,19 @@ class MaterialRepositoryPersistenceTest {
                 "idx_materials_course_status_created"
         );
 
+        Set<String> auditIndexes = jdbcTemplate.queryForList(
+                        "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = 'MATERIAL_AUDIT_EVENTS'",
+                        String.class
+                )
+                .stream()
+                .map(index -> index.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        assertThat(auditIndexes).contains(
+                "idx_material_audit_material_id",
+                "idx_material_audit_action_created"
+        );
+
         Set<String> constraints = jdbcTemplate.queryForList(
                         "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'MATERIALS'",
                         String.class
@@ -212,6 +225,20 @@ class MaterialRepositoryPersistenceTest {
                 "chk_materials_type",
                 "chk_materials_purpose",
                 "chk_materials_status"
+        );
+
+        Set<String> auditConstraints = jdbcTemplate.queryForList(
+                        "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'MATERIAL_AUDIT_EVENTS'",
+                        String.class
+                )
+                .stream()
+                .map(constraint -> constraint.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        assertThat(auditConstraints).contains(
+                "pk_material_audit_events",
+                "chk_material_audit_action",
+                "chk_material_audit_outcome_non_blank"
         );
     }
 
