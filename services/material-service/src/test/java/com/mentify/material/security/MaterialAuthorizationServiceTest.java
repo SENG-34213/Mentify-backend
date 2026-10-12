@@ -66,7 +66,7 @@ class MaterialAuthorizationServiceTest {
         when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
                 .thenReturn(courseResponse(courseId, UUID.randomUUID()));
 
-        assertThat(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).isEqualTo(courseId);
+        assertThat(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER)).isEqualTo(courseId);
     }
 
     @Test
@@ -87,7 +87,7 @@ class MaterialAuthorizationServiceTest {
         when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
                 .thenReturn(courseResponse(courseId, teacherId));
 
-        assertThat(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).isEqualTo(courseId);
+        assertThat(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER)).isEqualTo(courseId);
     }
 
     @Test
@@ -98,7 +98,7 @@ class MaterialAuthorizationServiceTest {
         when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
                 .thenReturn(courseResponse(courseId, UUID.randomUUID()));
 
-        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER))
+        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("User is not authorized to upload material for this course");
     }
@@ -138,7 +138,7 @@ class MaterialAuthorizationServiceTest {
     void uploadRequiresCourseScope() {
         authenticate(UUID.randomUUID(), "TEACHER");
 
-        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(null, AUTH_HEADER))
+        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(null, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER))
                 .isInstanceOf(MaterialValidationException.class)
                 .hasMessage("Course id is required for material upload");
     }
@@ -152,7 +152,22 @@ class MaterialAuthorizationServiceTest {
         when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
                 .thenReturn(courseResponse(courseId, frontendClaimedTeacherId));
 
-        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER))
+        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void enrolledStudentCanUploadSubmissionAttachmentOnly() {
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        authenticate(studentId, "STUDENT");
+        when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
+                .thenReturn(courseResponse(courseId, UUID.randomUUID()));
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, AUTH_HEADER)).thenReturn(true);
+
+        assertThat(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.SUBMISSION_ATTACHMENT, AUTH_HEADER))
+                .isEqualTo(courseId);
+        assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER))
                 .isInstanceOf(AccessDeniedException.class);
     }
 

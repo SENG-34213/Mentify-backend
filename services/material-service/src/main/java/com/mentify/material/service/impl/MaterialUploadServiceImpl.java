@@ -41,7 +41,8 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
             String authorizationHeader
     ) {
         validateMetadata(title, description, uploadedBy);
-        UUID authorizedCourseId = authorizationService.requireUploadCourseAccess(courseId, authorizationHeader);
+        MaterialPurpose resolvedPurpose = requirePurpose(purpose);
+        UUID authorizedCourseId = authorizationService.requireUploadCourseAccess(courseId, resolvedPurpose, authorizationHeader);
         ValidatedMaterialFile validatedFile = validationService.validate(file);
         S3UploadResult uploadResult = storageService.upload(file, validatedFile);
 
@@ -54,7 +55,7 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
                     .contentType(validatedFile.contentType())
                     .fileSize(validatedFile.fileSize())
                     .type(validatedFile.materialType())
-                    .purpose(requirePurpose(purpose))
+                    .purpose(resolvedPurpose)
                     .status(MaterialStatus.UPLOADED)
                     .uploadedBy(uploadedBy)
                     .courseId(authorizedCourseId)

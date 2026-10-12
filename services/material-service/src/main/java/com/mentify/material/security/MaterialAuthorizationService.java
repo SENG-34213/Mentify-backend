@@ -1,13 +1,14 @@
 package com.mentify.material.security;
 
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialPurpose;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.UUID;
 
 public interface MaterialAuthorizationService {
 
-    UUID requireUploadCourseAccess(UUID courseId, String authorizationHeader);
+    UUID requireUploadCourseAccess(UUID courseId, MaterialPurpose purpose, String authorizationHeader);
 
     void assertCanView(Material material, String authorizationHeader);
 
