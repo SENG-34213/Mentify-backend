@@ -16,9 +16,12 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -131,6 +134,36 @@ class S3MaterialStorageServiceTest {
         assertThat(recordingPresigner.presignRequests).isEmpty();
     }
 
+    @Test
+    void checksObjectExistenceWithHeadRequest() {
+        RecordingS3Client recordingS3Client = new RecordingS3Client();
+        S3MaterialStorageService storageService = storageService(recordingS3Client);
+
+        assertThat(storageService.exists("materials/object.pdf")).isTrue();
+
+        assertThat(recordingS3Client.headRequests).hasSize(1);
+        assertThat(recordingS3Client.headRequests.get(0).key()).isEqualTo("materials/object.pdf");
+    }
+
+    @Test
+    void missingObjectReturnsFalseForExistenceCheck() {
+        RecordingS3Client recordingS3Client = new RecordingS3Client();
+        recordingS3Client.headFailure = S3Exception.builder().statusCode(404).build();
+        S3MaterialStorageService storageService = storageService(recordingS3Client);
+
+        assertThat(storageService.exists("materials/missing.pdf")).isFalse();
+    }
+
+    @Test
+    void listsManagedMaterialObjectKeysOnly() {
+        RecordingS3Client recordingS3Client = new RecordingS3Client();
+        recordingS3Client.listKeys = List.of("materials/one.pdf", "materials/two.pdf");
+        S3MaterialStorageService storageService = storageService(recordingS3Client);
+
+        assertThat(storageService.listStorageKeys()).containsExactly("materials/one.pdf", "materials/two.pdf");
+        assertThat(recordingS3Client.listRequests.get(0).prefix()).isEqualTo("materials/");
+    }
+
     private S3MaterialStorageService storageService(RecordingS3Client recordingS3Client) {
         return storageService(recordingS3Client, new RecordingS3Presigner());
     }
@@ -166,6 +199,8 @@ class S3MaterialStorageServiceTest {
         private final List<PutObjectRequest> putRequests = new ArrayList<>();
         private final List<DeleteObjectRequest> deleteRequests = new ArrayList<>();
         private final List<HeadObjectRequest> headRequests = new ArrayList<>();
+        private final List<ListObjectsV2Request> listRequests = new ArrayList<>();
+        private List<String> listKeys = List.of();
         private RuntimeException putFailure;
         private RuntimeException headFailure;
 
@@ -197,6 +232,14 @@ class S3MaterialStorageServiceTest {
                     }
                     headRequests.add((HeadObjectRequest) args[0]);
                     yield HeadObjectResponse.builder().build();
+                }
+                case "listObjectsV2" -> {
+                    listRequests.add((ListObjectsV2Request) args[0]);
+                    yield ListObjectsV2Response.builder()
+                            .contents(listKeys.stream()
+                                    .map(key -> S3Object.builder().key(key).build())
+                                    .toList())
+                            .build();
                 }
                 case "serviceName" -> "s3";
                 case "close" -> null;

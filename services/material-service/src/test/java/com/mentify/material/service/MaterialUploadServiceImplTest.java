@@ -4,6 +4,7 @@ import com.mentify.material.dto.ValidatedMaterialFile;
 import com.mentify.material.dto.response.MaterialResponse;
 import com.mentify.material.dto.response.S3UploadResult;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
@@ -50,6 +51,9 @@ class MaterialUploadServiceImplTest {
     @Mock
     private MaterialAuthorizationService authorizationService;
 
+    @Mock
+    private MaterialAuditService auditService;
+
     @InjectMocks
     private MaterialUploadServiceImpl uploadService;
 
@@ -92,6 +96,7 @@ class MaterialUploadServiceImplTest {
         assertThat(response.storageKey()).isEqualTo("materials/object.pdf");
         assertThat(response.storageKey()).doesNotStartWith("http://").doesNotStartWith("https://");
         assertThat(response.uploadedBy()).isEqualTo(uploaderId);
+        verify(auditService).record(MaterialAuditAction.UPLOAD, saved, uploaderId, "SUCCESS", null);
     }
 
     @Test
