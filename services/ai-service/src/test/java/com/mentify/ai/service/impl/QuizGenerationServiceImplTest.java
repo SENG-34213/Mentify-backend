@@ -17,6 +17,7 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.service.DocumentContentService;
+import com.mentify.ai.service.MaterialDocumentService;
 import com.mentify.ai.validation.GeneratedQuizValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,9 @@ class QuizGenerationServiceImplTest {
     @Mock
     private AiAuditService auditService;
 
+    @Mock
+    private MaterialDocumentService materialDocumentService;
+
     private AiProviderProperties aiProviderProperties;
     private QuizGenerationProperties quizGenerationProperties;
     private QuizGenerationServiceImpl service;
@@ -81,7 +85,8 @@ class QuizGenerationServiceImplTest {
                 auditService,
                 new QuizGenerationPromptBuilder(),
                 new GeneratedQuizValidator(),
-                new ObjectMapper()
+                new ObjectMapper(),
+                materialDocumentService
         );
     }
 
@@ -250,7 +255,10 @@ class QuizGenerationServiceImplTest {
         assertThat(captor.getValue().getUserInput()).contains("attached PDF document");
         assertThat(captor.getValue().getDocumentMimeType()).isEqualTo("application/pdf");
         assertThat(captor.getValue().getDocumentDataBase64()).isEqualTo(Base64.getEncoder().encodeToString(pdfBytes));
-        verify(documentContentService, org.mockito.Mockito.never()).extractReadableText(any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(documentContentService, org.mockito.Mockito.never()).extractReadableText(
+                any(org.springframework.web.multipart.MultipartFile.class),
+                org.mockito.ArgumentMatchers.anyInt()
+        );
         verify(contentGuardService, org.mockito.Mockito.never()).sanitizeForPrompt(any(), any(), any());
     }
 

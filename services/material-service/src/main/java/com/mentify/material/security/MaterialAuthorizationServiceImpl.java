@@ -4,6 +4,7 @@ import com.mentify.material.client.CourseServiceClient;
 import com.mentify.material.client.EnrollmentServiceClient;
 import com.mentify.material.client.dto.CourseLookupResponse;
 import com.mentify.material.entity.Material;
+import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.payload.response.ApiResponse;
 import feign.FeignException;
@@ -24,7 +25,7 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
     private final EnrollmentServiceClient enrollmentServiceClient;
 
     @Override
-    public UUID requireUploadCourseAccess(UUID courseId, String authorizationHeader) {
+    public UUID requireUploadCourseAccess(UUID courseId, MaterialPurpose purpose, String authorizationHeader) {
         AuthenticatedMaterialUser user = currentUserService.getCurrentUser();
         if (courseId == null) {
             throw new MaterialValidationException("Course id is required for material upload");
@@ -35,6 +36,11 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
             return course.id();
         }
         if (user.isTeacher() && user.userId().equals(course.assignedTeacherId())) {
+            return course.id();
+        }
+        if (user.isStudent()
+                && purpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                && isStudentEnrolled(user.userId(), course.id(), authorizationHeader)) {
             return course.id();
         }
         throw new AccessDeniedException("User is not authorized to upload material for this course");
@@ -129,6 +135,14 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
         return callDownstream(() -> enrollmentServiceClient.isStudentEnrolledInCourse(
                 user.userId(),
                 material.getCourseId(),
+                authorizationHeader
+        ));
+    }
+
+    private boolean isStudentEnrolled(UUID studentId, UUID courseId, String authorizationHeader) {
+        return callDownstream(() -> enrollmentServiceClient.isStudentEnrolledInCourse(
+                studentId,
+                courseId,
                 authorizationHeader
         ));
     }

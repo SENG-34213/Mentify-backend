@@ -49,7 +49,7 @@ public class MaterialController {
     private final CurrentMaterialUserService currentUserService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<MaterialResponse>> uploadMaterial(
             @RequestParam String title,
             @RequestParam(required = false) String description,

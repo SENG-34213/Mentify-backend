@@ -63,7 +63,7 @@ class MaterialUploadServiceImplTest {
         UUID courseId = UUID.randomUUID();
         MultipartFile file = file();
         ValidatedMaterialFile validatedFile = validatedFile();
-        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
+        when(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenReturn(new S3UploadResult("materials/object.pdf"));
         when(materialRepository.saveAndFlush(any(Material.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
@@ -123,7 +123,7 @@ class MaterialUploadServiceImplTest {
         MultipartFile file = file();
         UUID courseId = UUID.randomUUID();
         ValidatedMaterialFile validatedFile = validatedFile();
-        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
+        when(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenThrow(new MaterialStorageException("Material file upload failed"));
 
@@ -145,7 +145,7 @@ class MaterialUploadServiceImplTest {
         MultipartFile file = file();
         UUID courseId = UUID.randomUUID();
         ValidatedMaterialFile validatedFile = validatedFile();
-        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
+        when(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenReturn(new S3UploadResult("materials/object.pdf"));
         when(materialRepository.saveAndFlush(any(Material.class)))
@@ -188,7 +188,7 @@ class MaterialUploadServiceImplTest {
         UUID courseId = UUID.randomUUID();
         MultipartFile file = file();
         ValidatedMaterialFile validatedFile = validatedFile();
-        when(authorizationService.requireUploadCourseAccess(courseId, AUTH_HEADER)).thenReturn(courseId);
+        when(authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER)).thenReturn(courseId);
         when(validationService.validate(file)).thenReturn(validatedFile);
         when(storageService.upload(file, validatedFile)).thenReturn(new S3UploadResult("materials/object.pdf"));
         when(materialRepository.saveAndFlush(any(Material.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0)));

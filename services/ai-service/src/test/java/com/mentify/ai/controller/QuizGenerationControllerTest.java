@@ -36,7 +36,7 @@ class QuizGenerationControllerTest {
                 MediaType.APPLICATION_PDF_VALUE,
                 "pdf".getBytes()
         );
-        when(quizGenerationService.generateQuiz(any(), eq(file)))
+        when(quizGenerationService.generateQuiz(any(), eq(file), any()))
                 .thenReturn(GeneratedQuizDraftResponse.builder()
                         .courseId(courseId)
                         .questionCount(3)
@@ -62,7 +62,8 @@ class QuizGenerationControllerTest {
                                 && request.getDifficulty().equals("MEDIUM")
                                 && request.getQuestionType().equals("MULTIPLE_CHOICE_SINGLE_ANSWER")
                                 && request.getUserPrompt().equals("Focus on architecture tradeoffs")),
-                eq(file)
+                eq(file),
+                org.mockito.ArgumentMatchers.isNull()
         );
     }
 }

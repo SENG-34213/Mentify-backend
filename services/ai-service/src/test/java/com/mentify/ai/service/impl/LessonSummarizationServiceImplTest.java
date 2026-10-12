@@ -14,6 +14,8 @@ import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
+import com.mentify.ai.service.DocumentContentService;
+import com.mentify.ai.service.MaterialDocumentService;
 import com.mentify.payload.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,12 @@ class LessonSummarizationServiceImplTest {
     @Mock
     private AiAuditService auditService;
 
+    @Mock
+    private MaterialDocumentService materialDocumentService;
+
+    @Mock
+    private DocumentContentService documentContentService;
+
     private AiProviderProperties properties;
     private AiPromptRegistry promptRegistry;
 
@@ -72,7 +80,9 @@ class LessonSummarizationServiceImplTest {
                 promptRegistry,
                 usageGuardService,
                 contentGuardService,
-                auditService
+                auditService,
+                materialDocumentService,
+                documentContentService
         );
     }
 
