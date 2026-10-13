@@ -2,6 +2,7 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.config.StripeProperties;
 import com.mentify.dto.AdminPaymentDetailResponse;
 import com.mentify.dto.AdminPaymentFilter;
@@ -37,6 +38,7 @@ import com.mentify.service.stripe.StripeWebhookVerifier;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +47,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -70,6 +74,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final StripeRefundGateway stripeRefundGateway;
     private final StripeWebhookVerifier stripeWebhookVerifier;
     private final StripeProperties stripeProperties;
+    private final ObjectProvider<NotificationEventPublisher> notificationEventPublisher;
 
     @Override
     @Transactional
@@ -250,7 +255,34 @@ public class PaymentServiceImpl implements PaymentService {
                         return;
                     }
                     paymentRepository.saveAndFlush(payment);
+                    publishPaymentSuccessAfterCommit(payment);
                 }, () -> log.warn("Stripe webhook referenced unknown PaymentIntent [{}]", event.paymentIntentId()));
+    }
+
+    private void publishPaymentSuccessAfterCommit(Payment payment) {
+        Runnable publishEvent = () -> {
+            NotificationEventPublisher publisher = notificationEventPublisher.getIfAvailable();
+            if (publisher != null) {
+                publisher.publishForRecipient(
+                        payment.getStudentId().toString(),
+                        null,
+                        "PAYMENT_SUCCEEDED",
+                        "Payment successful",
+                        "Your course payment was successful."
+                );
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publishEvent.run();
+                }
+            });
+        } else {
+            publishEvent.run();
+        }
     }
 
     private void markPaymentFailed(StripeWebhookEvent event) {

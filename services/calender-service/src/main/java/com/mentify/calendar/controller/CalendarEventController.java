@@ -3,6 +3,7 @@ package com.mentify.calendar.controller;
 import com.mentify.calendar.dto.CalendarEventRequest;
 import com.mentify.calendar.dto.CalendarEventResponse;
 import com.mentify.calendar.service.CalendarEventService;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class CalendarEventController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "CALENDAR_EVENT_CREATED", title = "Calendar event created", message = "Your calendar event was created successfully.")
     public ResponseEntity<ApiResponse<CalendarEventResponse>> create(
             @Valid @RequestBody CalendarEventRequest request,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -47,6 +49,7 @@ public class CalendarEventController {
 
     @PutMapping("/{eventId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "CALENDAR_EVENT_UPDATED", title = "Calendar event updated", message = "Your calendar event was updated successfully.")
     public ResponseEntity<ApiResponse<CalendarEventResponse>> update(
             @PathVariable UUID eventId,
             @Valid @RequestBody CalendarEventRequest request,
@@ -57,6 +60,7 @@ public class CalendarEventController {
 
     @PostMapping("/{eventId}/cancel")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "CALENDAR_EVENT_CANCELLED", title = "Calendar event cancelled", message = "Your calendar event was cancelled successfully.")
     public ResponseEntity<ApiResponse<CalendarEventResponse>> cancel(
             @PathVariable UUID eventId,
             @RequestHeader("Authorization") String authorizationHeader) {

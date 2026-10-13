@@ -1,5 +1,6 @@
 package com.mentify.quiz.controller;
 
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.dto.request.CreateQuizRequest;
 import com.mentify.quiz.dto.request.UpdateQuizRequest;
@@ -30,6 +31,7 @@ public class QuizController {
 
     @PostMapping("/api/quizzes")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "QUIZ_CREATED", title = "Quiz created", message = "Your quiz was created successfully.")
     public ResponseEntity<ApiResponse<QuizResponse>> createQuiz(
             @Valid @RequestBody CreateQuizRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -40,6 +42,7 @@ public class QuizController {
 
     @PutMapping("/api/quizzes/{quizId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "QUIZ_UPDATED", title = "Quiz updated", message = "Your quiz was updated successfully.")
     public ResponseEntity<ApiResponse<QuizResponse>> updateQuiz(
             @PathVariable UUID quizId,
             @Valid @RequestBody UpdateQuizRequest request,
@@ -74,6 +77,7 @@ public class QuizController {
 
     @PostMapping("/api/quizzes/{quizId}/publish")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "QUIZ_PUBLISHED", title = "Quiz published", message = "Your quiz was published successfully.")
     public ResponseEntity<ApiResponse<QuizResponse>> publishQuiz(
             @PathVariable UUID quizId,
             @RequestHeader("Authorization") String authorizationHeader

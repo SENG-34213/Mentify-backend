@@ -25,5 +25,6 @@
         <module>payment-service</module>
         <module>material-service</module>
         <module>calender-service</module>
+        <module>notification-service</module>
     </modules>
 </project>

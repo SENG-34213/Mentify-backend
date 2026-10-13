@@ -11,6 +11,7 @@ import com.mentify.exam.service.MarksEntryService;
 import com.mentify.exam.dto.request.UpdateExamRequest;
 import com.mentify.exam.dto.response.ExamResponse;
 import com.mentify.exam.service.ExamService;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class ExamController {
     private final ExamSummaryService examSummaryService;
 
     @PostMapping
+    @NotifyOnSuccess(type = "EXAM_CREATED", title = "Exam created", message = "Your exam was created successfully.")
     public ResponseEntity<ApiResponse<ExamResponse>> createExam(
             @Valid @RequestBody CreateExamRequest request,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -65,6 +67,7 @@ public class ExamController {
     }
 
     @PutMapping("/{examId}")
+    @NotifyOnSuccess(type = "EXAM_UPDATED", title = "Exam updated", message = "Your exam was updated successfully.")
     public ResponseEntity<ApiResponse<ExamResponse>> updateExam(
             @PathVariable UUID examId,
             @Valid @RequestBody UpdateExamRequest request,
@@ -74,6 +77,7 @@ public class ExamController {
     }
 
     @PostMapping("/{examId}/cancel")
+    @NotifyOnSuccess(type = "EXAM_CANCELLED", title = "Exam cancelled", message = "Your exam was cancelled successfully.")
     public ResponseEntity<ApiResponse<ExamResponse>> cancelExam(
             @PathVariable UUID examId,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -82,6 +86,7 @@ public class ExamController {
     }
 
     @PostMapping("/{examId}/schedule")
+    @NotifyOnSuccess(type = "EXAM_SCHEDULED", title = "Exam scheduled", message = "Your exam was scheduled successfully.")
     public ResponseEntity<ApiResponse<ExamResponse>> scheduleExam(
             @PathVariable UUID examId,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -98,6 +103,7 @@ public class ExamController {
     }
 
     @PostMapping("/{examId}/complete")
+    @NotifyOnSuccess(type = "EXAM_COMPLETED", title = "Exam completed", message = "Your exam was completed successfully.")
     public ResponseEntity<ApiResponse<ExamResponse>> completeExam(
             @PathVariable UUID examId,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -122,6 +128,7 @@ public class ExamController {
     }
 
     @PutMapping("/{examId}/results")
+    @NotifyOnSuccess(type = "EXAM_RESULTS_RECORDED", title = "Exam results recorded", message = "Marks for your exam were recorded successfully.")
     public ResponseEntity<ApiResponse<MarksEntryResponse>> enterMarks(
             @PathVariable UUID examId,
             @Valid @RequestBody BatchMarksEntryRequest request,

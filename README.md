@@ -37,6 +37,7 @@ Use these setup guides:
 docs/PROJECT_SETUP.md   Full local project setup
 docs/KEYCLOAK_SETUP.md  Keycloak realm, clients, roles, and token testing
 docs/AUTHENTICATION_SESSION_FLOW.md  Login, refresh, logout, and forgot password flows
+docs/NOTIFICATION_SERVICE.md  Kafka event notifications, in-app inbox, and SMTP setup
 docs/testing/README.md  Testing standards, coverage commands, and registers
 CHANGELOG.md            Unreleased changes
 ```
@@ -54,4 +55,5 @@ Keycloak runs at:
 http://localhost:8180
 ```
 
-For full setup, read [Project Setup](docs/PROJECT_SETUP.md).
+For full setup, read [Project Setup](docs/PROJECT_SETUP.md). Notification Service's Kafka and
+SMTP/Mailpit configuration is documented in [Notification Service](docs/NOTIFICATION_SERVICE.md).

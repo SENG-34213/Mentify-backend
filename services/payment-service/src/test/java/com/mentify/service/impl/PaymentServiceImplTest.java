@@ -1,5 +1,6 @@
 package com.mentify.service.impl;
 
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
@@ -48,6 +49,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
@@ -93,6 +95,12 @@ class PaymentServiceImplTest {
     @Mock
     private StripeWebhookVerifier stripeWebhookVerifier;
 
+    @Mock
+    private ObjectProvider<NotificationEventPublisher> notificationEventPublisher;
+
+    @Mock
+    private NotificationEventPublisher kafkaNotificationEventPublisher;
+
     private StripeProperties stripeProperties;
 
     private PaymentServiceImpl paymentService;
@@ -109,7 +117,8 @@ class PaymentServiceImplTest {
                 stripePaymentIntentGateway,
                 stripeRefundGateway,
                 stripeWebhookVerifier,
-                stripeProperties
+                stripeProperties,
+                notificationEventPublisher
         );
 
         when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
@@ -677,12 +686,20 @@ class PaymentServiceImplTest {
         when(stripeWebhookVerifier.verify("payload", "signature"))
                 .thenReturn(new StripeWebhookEvent("evt_1", "payment_intent.succeeded", stripePaymentIntentId, payment.getId(), paidAt));
         when(paymentRepository.findByStripePaymentIntentId(stripePaymentIntentId)).thenReturn(java.util.Optional.of(payment));
+        when(notificationEventPublisher.getIfAvailable()).thenReturn(kafkaNotificationEventPublisher);
 
         paymentService.handleStripeWebhook("payload", "signature");
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(payment.getPaidAt()).isEqualTo(paidAt);
         verify(paymentRepository).saveAndFlush(payment);
+        verify(kafkaNotificationEventPublisher).publishForRecipient(
+                payment.getStudentId().toString(),
+                null,
+                "PAYMENT_SUCCEEDED",
+                "Payment successful",
+                "Your course payment was successful."
+        );
     }
 
     @Test
