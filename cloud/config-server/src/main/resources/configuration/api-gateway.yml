@@ -61,6 +61,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+
         - id: course-service
           uri: lb://course-service
           predicates:

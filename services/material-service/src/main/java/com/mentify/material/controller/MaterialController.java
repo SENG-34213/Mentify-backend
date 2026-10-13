@@ -1,6 +1,7 @@
 package com.mentify.material.controller;
 
 import com.mentify.material.dto.request.MaterialSearchCriteria;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.material.dto.request.UpdateMaterialRequest;
 import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.dto.response.MaterialDownloadResponse;
@@ -50,6 +51,7 @@ public class MaterialController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "MATERIAL_UPLOADED", title = "Material uploaded", message = "Your learning material was uploaded successfully.")
     public ResponseEntity<ApiResponse<MaterialResponse>> uploadMaterial(
             @RequestParam String title,
             @RequestParam(required = false) String description,
@@ -132,6 +134,7 @@ public class MaterialController {
 
     @PutMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "MATERIAL_UPDATED", title = "Material updated", message = "Your learning material was updated successfully.")
     public ResponseEntity<ApiResponse<MaterialDetailsResponse>> updateMaterial(
             @PathVariable UUID materialId,
             @RequestBody UpdateMaterialRequest request,
@@ -143,6 +146,7 @@ public class MaterialController {
 
     @PostMapping("/{materialId}/archive")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "MATERIAL_ARCHIVED", title = "Material archived", message = "Your learning material was archived successfully.")
     public ResponseEntity<ApiResponse<MaterialDetailsResponse>> archiveMaterial(
             @PathVariable UUID materialId,
             @RequestHeader("Authorization") String authorizationHeader
@@ -153,6 +157,7 @@ public class MaterialController {
 
     @DeleteMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "MATERIAL_DELETED", title = "Material deleted", message = "Your learning material was deleted successfully.")
     public ResponseEntity<ApiResponse<MaterialDetailsResponse>> deleteMaterial(
             @PathVariable UUID materialId,
             @RequestHeader("Authorization") String authorizationHeader

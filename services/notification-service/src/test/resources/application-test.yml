@@ -1,0 +1,33 @@
+mentify:
+  security:
+    enabled: false
+  notifications:
+    kafka:
+      enabled: false
+    email:
+      retry-enabled: false
+spring:
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:notificationdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  kafka:
+    listener:
+      auto-startup: false
+  mail:
+    host: localhost
+    port: 1025
+eureka:
+  client:
+    enabled: false

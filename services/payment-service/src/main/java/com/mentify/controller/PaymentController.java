@@ -12,6 +12,7 @@ import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
 import com.mentify.enums.PaymentStatus;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.PaymentService;
 import jakarta.validation.Valid;
@@ -45,6 +46,7 @@ public class PaymentController {
 
     @PostMapping("/course")
     @PreAuthorize("hasRole('STUDENT')")
+    @NotifyOnSuccess(type = "COURSE_PAYMENT_INITIATED", title = "Payment started", message = "Your course payment was initiated successfully.")
     public ResponseEntity<ApiResponse<StartCoursePaymentResponse>> startCoursePayment(
             @Valid @RequestBody StartCoursePaymentRequest request,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader
@@ -164,6 +166,7 @@ public class PaymentController {
 
     @PostMapping("/admin/{paymentId}/refund")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "PAYMENT_REFUNDED", title = "Refund processed", message = "The payment refund was processed successfully.")
     public ResponseEntity<ApiResponse<RefundPaymentResponse>> refundPayment(
             @PathVariable UUID paymentId,
             @Valid @RequestBody(required = false) RefundPaymentRequest request

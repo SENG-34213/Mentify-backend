@@ -3,6 +3,7 @@ package com.mentify.assignment.controller;
 import com.mentify.assignment.dto.request.CreateAssignmentRequest;
 import com.mentify.assignment.dto.request.UpdateAssignmentRequest;
 import com.mentify.assignment.dto.response.AssignmentResponse;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.assignment.service.AssignmentService;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -23,6 +24,7 @@ public class AssignmentController {
 
     @PostMapping("/assignments")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ASSIGNMENT_CREATED", title = "Assignment created", message = "Your assignment was created successfully.")
     public ResponseEntity<ApiResponse<AssignmentResponse>> createAssignment(
             @Valid @RequestBody CreateAssignmentRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -33,6 +35,7 @@ public class AssignmentController {
 
     @PutMapping("/assignments/{assignmentId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ASSIGNMENT_UPDATED", title = "Assignment updated", message = "Your assignment was updated successfully.")
     public ResponseEntity<ApiResponse<AssignmentResponse>> updateAssignment(
             @PathVariable UUID assignmentId,
             @Valid @RequestBody UpdateAssignmentRequest request,
@@ -71,6 +74,7 @@ public class AssignmentController {
 
     @PostMapping("/assignments/{assignmentId}/publish")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ASSIGNMENT_PUBLISHED", title = "Assignment published", message = "Your assignment was published successfully.")
     public ResponseEntity<ApiResponse<AssignmentResponse>> publishAssignment(
             @PathVariable UUID assignmentId,
             @RequestHeader("Authorization") String authorizationHeader
@@ -81,6 +85,7 @@ public class AssignmentController {
 
     @PostMapping("/assignments/{assignmentId}/close")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ASSIGNMENT_CLOSED", title = "Assignment closed", message = "Your assignment was closed successfully.")
     public ResponseEntity<ApiResponse<AssignmentResponse>> closeAssignment(
             @PathVariable UUID assignmentId,
             @RequestHeader("Authorization") String authorizationHeader

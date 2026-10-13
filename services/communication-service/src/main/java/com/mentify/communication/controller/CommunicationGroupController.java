@@ -1,5 +1,6 @@
 package com.mentify.communication.controller;
 
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
 import com.mentify.communication.dto.request.AddStudentToGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
@@ -35,6 +36,7 @@ public class CommunicationGroupController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "COMMUNICATION_GROUP_CREATED", title = "Group created", message = "Your communication group was created successfully.")
     public ResponseEntity<ApiResponse<CommunicationGroupResponse>> createGroup(
             @Valid @RequestBody CreateCommunicationGroupRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -71,6 +73,7 @@ public class CommunicationGroupController {
 
     @PostMapping("/{groupId}/students")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "COMMUNICATION_MEMBER_ADDED", title = "Student added", message = "A student was added to your communication group successfully.")
     public ResponseEntity<ApiResponse<GroupMemberResponse>> addStudentToGroup(
             @PathVariable UUID groupId,
             @Valid @RequestBody AddStudentToGroupRequest request
@@ -82,6 +85,7 @@ public class CommunicationGroupController {
 
     @PostMapping("/courses/{courseId}/students")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "COMMUNICATION_COURSE_GROUP_CREATED", title = "Course group created", message = "The course communication group was created successfully.")
     public ResponseEntity<ApiResponse<GroupMemberResponse>> addStudentToCourseGroup(
             @PathVariable UUID courseId,
             @Valid @RequestBody AddStudentToGroupRequest request

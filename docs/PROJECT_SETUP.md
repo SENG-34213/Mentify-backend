@@ -65,13 +65,14 @@ Start them only when needed:
 docker compose --profile app-db up -d
 ```
 
-On first startup, the app PostgreSQL container creates:
+On first startup, the app PostgreSQL container creates the service databases, including:
 
 ```txt
 mentify
 user_db
 course_db
 calender_db
+notification_db
 ```
 
 Default optional ports:
@@ -154,6 +155,7 @@ Recommended local startup order:
 4. user-service
 5. course-service
 6. calender-service
+7. notification-service
 ```
 
 If using IntelliJ IDEA, run each Spring Boot application from its main class:
@@ -165,6 +167,7 @@ cloud/api-gateway/src/main/java/com/mentify/gateway/ApiGatewayApplication.java
 services/user-service/src/main/java/com/mentify/UserServiceApplication.java
 services/course-service/src/main/java/com/mentify/CourseServiceApplication.java
 services/calender-service/src/main/java/com/mentify/calendar/CalendarServiceApplication.java
+services/notification-service/src/main/java/com/mentify/notification/NotificationServiceApplication.java
 ```
 
 ## 7. Authentication Setup
@@ -195,6 +198,10 @@ starting it:
 docker compose --profile app-db up -d
 sh cloud/config-server/mvnw -f pom.xml -pl services/calender-service spring-boot:run
 ```
+
+Notification Service uses `notification_db`, Kafka, and SMTP. Start the `app-db` and
+`notifications` compose profiles to provide PostgreSQL, the Kafka broker, and Mailpit for local
+testing. Then follow [Notification Service setup](./NOTIFICATION_SERVICE.md).
 
 Verify foundation health and readiness:
 

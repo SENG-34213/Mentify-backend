@@ -5,6 +5,7 @@ import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
 import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.EntrollmentService;
 import com.mentify.security.CurrentUserService;
@@ -41,6 +42,7 @@ public class EntrollmentController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ENROLLMENT_CREATED", title = "Enrollment created", message = "A course enrollment was created successfully.")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> createEntrollment(
             @Valid @RequestBody EntrollmentCreateRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -52,6 +54,7 @@ public class EntrollmentController {
 
     @PostMapping("/me")
     @PreAuthorize("hasRole('STUDENT')")
+    @NotifyOnSuccess(type = "ENROLLMENT_CREATED", title = "Enrollment successful", message = "You were enrolled in the course successfully.")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> createCurrentStudentEntrollment(
             @Valid @RequestBody StudentEntrollmentCreateRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -63,6 +66,7 @@ public class EntrollmentController {
 
     @PutMapping("/{enrollmentId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ENROLLMENT_UPDATED", title = "Enrollment updated", message = "The course enrollment was updated successfully.")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> updateEntrollment(
             @PathVariable UUID enrollmentId,
             @Valid @RequestBody EntrollmentUpdateRequest request,

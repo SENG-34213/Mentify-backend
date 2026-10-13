@@ -4,6 +4,7 @@ import com.mentify.attendance.dto.request.CreateAttendanceSessionRequest;
 import com.mentify.attendance.dto.request.MarkAttendanceRequest;
 import com.mentify.attendance.dto.response.AttendanceSessionResponse;
 import com.mentify.attendance.service.AttendanceSessionService;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class AttendanceSessionController {
 
     @PostMapping("/sessions")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "ATTENDANCE_SESSION_CREATED", title = "Attendance session created", message = "Your attendance session was created successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> createSession(
             @Valid @RequestBody CreateAttendanceSessionRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -54,6 +56,7 @@ public class AttendanceSessionController {
 
     @PutMapping("/sessions/{sessionId}/records")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "ATTENDANCE_RECORDED", title = "Attendance recorded", message = "Attendance records were saved successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> markAttendance(
             @PathVariable UUID sessionId,
             @Valid @RequestBody MarkAttendanceRequest request,
@@ -66,6 +69,7 @@ public class AttendanceSessionController {
 
     @PostMapping("/sessions/{sessionId}/complete")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "ATTENDANCE_SESSION_COMPLETED", title = "Attendance session completed", message = "Your attendance session was completed successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> completeSession(
             @PathVariable UUID sessionId,
             @RequestHeader("Authorization") String authorizationHeader
@@ -76,6 +80,7 @@ public class AttendanceSessionController {
 
     @PostMapping("/sessions/{sessionId}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "ATTENDANCE_SESSION_CANCELLED", title = "Attendance session cancelled", message = "Your attendance session was cancelled successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> cancelSession(
             @PathVariable UUID sessionId,
             @RequestHeader("Authorization") String authorizationHeader

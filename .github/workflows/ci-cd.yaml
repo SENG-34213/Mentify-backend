@@ -76,6 +76,8 @@
               path: services/material-service
             - service: calender-service
               path: services/calender-service
+            - service: notification-service
+              path: services/notification-service
 
       steps:
         - name: Checkout code
@@ -126,6 +128,8 @@
               path: services/material-service
             - service: calender-service
               path: services/calender-service
+            - service: notification-service
+              path: services/notification-service
 
       steps:
         - name: Checkout code
@@ -180,6 +184,8 @@
               path: services/exam-service
             - service: material-service
               path: services/material-service
+            - service: notification-service
+              path: services/notification-service
 
       steps:
         - name: Checkout code
