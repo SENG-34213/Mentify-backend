@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -65,6 +66,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex, WebRequest request) {
         ApiResponse<Object> response = ApiResponse.builder()
                 .message(ex.getMessage())
+                .status(HttpStatus.BAD_REQUEST)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex,
+            WebRequest request
+    ) {
+        String message = UUID.class.equals(ex.getRequiredType())
+                ? "Invalid UUID format for parameter '" + ex.getName() + "'"
+                : "Invalid value for parameter '" + ex.getName() + "'";
+
+        ApiResponse<Object> response = ApiResponse.builder()
+                .message(message)
                 .status(HttpStatus.BAD_REQUEST)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);

@@ -8,6 +8,8 @@ import com.mentify.enums.CourseStatus;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
+import com.mentify.repository.LearningMaterialRepository;
+import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.impl.ModuleServiceImpl;
 import com.mentify.service.impl.TeacherCourseAccessGuard;
@@ -26,6 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,13 +42,25 @@ class ModuleServiceImplTest {
     private ModuleRepository moduleRepository;
 
     @Mock
+    private LessonRepository lessonRepository;
+
+    @Mock
+    private LearningMaterialRepository learningMaterialRepository;
+
+    @Mock
     private TeacherCourseAccessGuard teacherCourseAccessGuard;
 
     private ModuleServiceImpl moduleService;
 
     @BeforeEach
     void setUp() {
-        moduleService = new ModuleServiceImpl(courseRepository, moduleRepository, teacherCourseAccessGuard);
+        moduleService = new ModuleServiceImpl(
+                courseRepository,
+                moduleRepository,
+                lessonRepository,
+                learningMaterialRepository,
+                teacherCourseAccessGuard
+        );
     }
 
     @Test
@@ -148,6 +163,8 @@ class ModuleServiceImplTest {
         module.setId(moduleId);
 
         when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(lessonRepository.existsByModule_Id(moduleId)).thenReturn(false);
+        when(learningMaterialRepository.existsByModule_Id(moduleId)).thenReturn(false);
 
         ApiResponse<Object> response = moduleService.deleteModule(courseId, moduleId);
 
@@ -155,6 +172,27 @@ class ModuleServiceImplTest {
         assertThat(response.getMessage()).isEqualTo("Module deleted successfully");
         verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
         verify(moduleRepository).delete(module);
+    }
+
+    @Test
+    void deleteModule_whenDependentRecordsExist_throwsBadRequest() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        Course course = baseCourse(courseId);
+        Module module = Module.builder()
+                .title("Module")
+                .sequenceOrder(1)
+                .course(course)
+                .build();
+        module.setId(moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(lessonRepository.existsByModule_Id(moduleId)).thenReturn(true);
+
+        assertThatThrownBy(() -> moduleService.deleteModule(courseId, moduleId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot delete module with existing lessons or learning materials");
+        verify(moduleRepository, never()).delete(module);
     }
 
     @Test

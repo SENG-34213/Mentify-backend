@@ -6,6 +6,7 @@ import com.mentify.entity.Lesson;
 import com.mentify.entity.Module;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
+import com.mentify.repository.LearningMaterialRepository;
 import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.LessonService;
@@ -23,6 +24,7 @@ public class LessonServiceImpl implements LessonService {
 
     private final ModuleRepository moduleRepository;
     private final LessonRepository lessonRepository;
+    private final LearningMaterialRepository learningMaterialRepository;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
 
     @Override
@@ -132,6 +134,10 @@ public class LessonServiceImpl implements LessonService {
 
         Lesson lesson = lessonRepository.findByIdAndModule_Id(lessonId, moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", lessonId));
+
+        if (learningMaterialRepository.existsByLesson_Id(lessonId)) {
+            throw new IllegalArgumentException("Cannot delete lesson with existing learning materials");
+        }
 
         lessonRepository.delete(lesson);
 

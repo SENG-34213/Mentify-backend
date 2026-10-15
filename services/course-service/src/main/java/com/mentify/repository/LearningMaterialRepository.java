@@ -40,4 +40,9 @@ public interface LearningMaterialRepository extends JpaRepository<LearningMateri
 			  and lm.materialId is not null
 			""")
 	List<UUID> findMaterialIdsByLessonId(@Param("lessonId") UUID lessonId);
+
+	boolean existsByModule_Id(UUID moduleId);
+
+	boolean existsByLesson_Id(UUID lessonId);
+
 }
