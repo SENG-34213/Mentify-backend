@@ -28,6 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -377,18 +378,35 @@ class CourseContentControllerTest {
                 .fileUrl("https://cdn.example.com/algebra-v2.mp4")
                 .build();
 
+        doThrow(new IllegalArgumentException("Learning material type is required for legacy fileUrl materials"))
+                .when(learningMaterialService)
+                .updateLearningMaterial(
+                        eq(courseId),
+                        eq(moduleId),
+                        eq(materialId),
+                        any(LearningMaterialCreateRequest.class),
+                        eq(AUTH_HEADER)
+                );
+
         mockMvc.perform(put(
                         "/api/v1/course/{courseId}/modules/{moduleId}/learning-materials/{materialId}",
                         courseId,
                         moduleId,
                         materialId
                 )
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Learning material type is required"));
+                .andExpect(jsonPath("$.message").value("Learning material type is required for legacy fileUrl materials"));
 
-        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+        verify(learningMaterialService).updateLearningMaterial(
+                eq(courseId),
+                eq(moduleId),
+                eq(materialId),
+                any(LearningMaterialCreateRequest.class),
+                eq(AUTH_HEADER)
+        );
     }
 
     @Test

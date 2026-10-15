@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -82,6 +83,18 @@ public class GlobalExceptionHandler {
 
         ApiResponse<Object> response = ApiResponse.builder()
                 .message(message)
+                .status(HttpStatus.BAD_REQUEST)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMissingRequestHeaderException(
+            MissingRequestHeaderException ex,
+            WebRequest request
+    ) {
+        ApiResponse<Object> response = ApiResponse.builder()
+                .message("Required request header '" + ex.getHeaderName() + "' is missing")
                 .status(HttpStatus.BAD_REQUEST)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
