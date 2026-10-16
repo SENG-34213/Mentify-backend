@@ -3,6 +3,7 @@ package com.mentify.service.authentication;
 import com.mentify.config.KeycloakProperties;
 import com.mentify.dto.LoginRequest;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -88,6 +89,22 @@ class DefaultKeycloakAuthenticationClientTest {
                 .build()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage("Invalid email or password");
+    }
+
+    @Test
+    void authenticate_whenKeycloakRequiresSetup_rejectsDirectGrantWithFirstLoginSignal() {
+        server.expect(requestTo(TOKEN_ENDPOINT))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"invalid_grant\",\"error_description\":\"Account is not fully set up\"}"));
+
+        assertThatThrownBy(() -> client.authenticate(LoginRequest.builder()
+                .identifier("student@gmail.com")
+                .password("Temporary@123")
+                .build()))
+                .isInstanceOf(FirstLoginRequiredException.class)
+                .hasMessage("Complete account setup before signing in");
+        server.verify();
     }
 
     @Test
