@@ -50,6 +50,9 @@ temporary password using the shared `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `
 `SMTP_AUTH`, `SMTP_STARTTLS_ENABLE`, and `SMTP_FROM` settings. Configure SMTP for both Keycloak
 and user-service in each environment. The temporary password is not included in the registration
 API response or stored by Mentify; Keycloak stores the credential and enforces `UPDATE_PASSWORD`.
+After both required actions finish, Keycloak returns the browser to `MENTIFY_LOGIN_URL` using the
+`KEYCLOAK_FRONTEND_CLIENT_ID` client. Add the configured login URL to that client's allowed redirect
+URIs in each environment.
 The welcome email includes the registered email, temporary password, and configured `MENTIFY_LOGIN_URL`.
 It instructs users to complete the Keycloak setup email first, then sign in and change their
 temporary password. SMTP delivery is retried a bounded number of times in the user-service process;

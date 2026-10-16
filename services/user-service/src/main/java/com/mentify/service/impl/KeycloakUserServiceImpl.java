@@ -108,7 +108,10 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
         try {
             realmUsers()
                     .get(keycloakUserId)
-                    .executeActionsEmail(PASSWORD_SETUP_ACTIONS);
+                    .executeActionsEmail(
+                            keycloakProperties.getFrontendClientId(),
+                            keycloakProperties.getFirstLoginRedirectUri(),
+                            PASSWORD_SETUP_ACTIONS);
         } catch (ProcessingException | WebApplicationException exception) {
             throw new KeycloakEmailActionException("Failed to send password setup email through Keycloak", exception);
         }

@@ -36,6 +36,12 @@ After setup is complete, the existing login endpoint continues to authenticate p
 users normally. Frontends should route this 428 response to the invitation/setup instructions; this
 backend repository does not contain the frontend application.
 
+After both required actions finish, the Keycloak action link returns to the configured
+`MENTIFY_LOGIN_URL` using `KEYCLOAK_FRONTEND_CLIENT_ID`. The URI must be registered as an allowed
+redirect URI for that Keycloak client. The subsequent login response contains the role validated
+against the local user profile. Frontend route guards and dashboard path mapping must be implemented
+and tested in the frontend repository.
+
 ## Refresh Access Token
 
 `POST /api/v1/auth/refresh`
