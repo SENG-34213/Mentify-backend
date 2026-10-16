@@ -88,7 +88,7 @@ public class AdminUserController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         HttpStatus.OK.value(),
-                        "Invitation email sent successfully.",
+                        "Invitation email with refreshed temporary credentials sent successfully.",
                         null
                 )
         );

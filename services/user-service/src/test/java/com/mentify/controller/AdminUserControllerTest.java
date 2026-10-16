@@ -180,7 +180,7 @@ class AdminUserControllerTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statusCode").value(200))
-                .andExpect(jsonPath("$.message").value("Invitation email sent successfully."))
+                .andExpect(jsonPath("$.message").value("Invitation email with refreshed temporary credentials sent successfully."))
                 .andExpect(jsonPath("$.data").doesNotExist());
 
         verify(userRegistrationService).resendInvitation(userId);
@@ -193,7 +193,7 @@ class AdminUserControllerTest {
         mockMvc.perform(post("/api/v1/users/{userId}/resend-invitation", userId)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Invitation email sent successfully."));
+                .andExpect(jsonPath("$.message").value("Invitation email with refreshed temporary credentials sent successfully."));
 
         verify(userRegistrationService).resendInvitation(userId);
     }

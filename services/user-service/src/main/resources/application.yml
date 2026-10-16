@@ -32,6 +32,8 @@ mentify:
   registration:
     email:
       from: ${SMTP_FROM:no-reply@mentify.local}
+      login-url: ${MENTIFY_LOGIN_URL:http://localhost:5173/login}
+      retry-attempts: ${MENTIFY_WELCOME_EMAIL_RETRY_ATTEMPTS:2}
   security:
     enabled: true
     principal-claim: preferred_username

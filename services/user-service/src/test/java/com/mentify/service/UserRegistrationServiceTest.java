@@ -326,7 +326,7 @@ class UserRegistrationServiceTest {
     }
 
     @Test
-    void resendInvitation_whenUserIsInvited_sendsPasswordSetupEmail() {
+    void resendInvitation_whenUserIsInvited_rotatesPasswordAndSendsFreshSetupEmails() {
         UUID userId = UUID.randomUUID();
         User user = invitedUser(userId, "keycloak-user-id");
 
@@ -334,7 +334,11 @@ class UserRegistrationServiceTest {
 
         userRegistrationService.resendInvitation(userId);
 
-        verify(keycloakUserService).sendPasswordSetupEmail("keycloak-user-id");
+        ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(keycloakUserService).setTemporaryPassword(eq("keycloak-user-id"), passwordCaptor.capture());
+        assertThat(passwordCaptor.getValue()).hasSize(32);
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(
+                eq("keycloak-user-id"), eq(user.getEmail()), eq(user.getFirstName()), eq(passwordCaptor.getValue()));
     }
 
     @Test
@@ -347,7 +351,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("User not found");
 
-        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+        verify(keycloakUserService, never()).setTemporaryPassword(any(), any());
     }
 
     @Test
@@ -362,7 +366,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(InvalidUserStateException.class)
                 .hasMessage("Invitation can only be resent for invited users");
 
-        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+        verify(keycloakUserService, never()).setTemporaryPassword(any(), any());
     }
 
     @Test
@@ -376,7 +380,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(InvalidUserStateException.class)
                 .hasMessage("User is not linked to Keycloak");
 
-        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+        verify(keycloakUserService, never()).setTemporaryPassword(any(), any());
     }
 
     @Test
