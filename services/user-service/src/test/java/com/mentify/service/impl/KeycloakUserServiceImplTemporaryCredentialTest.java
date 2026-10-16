@@ -12,6 +12,8 @@ import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +23,26 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class KeycloakUserServiceImplTemporaryCredentialTest {
+
+    @Test
+    void sendPasswordSetupEmail_redirectsToConfiguredFrontendLoginAfterActions() {
+        Keycloak keycloak = mock(Keycloak.class);
+        RealmResource realm = mock(RealmResource.class);
+        UsersResource users = mock(UsersResource.class);
+        UserResource user = mock(UserResource.class);
+        KeycloakProperties properties = new KeycloakProperties();
+        properties.setRealm("mentify");
+        properties.setFrontendClientId("mentify-web-client");
+        properties.setFirstLoginRedirectUri("http://localhost:5173/login");
+        when(keycloak.realm("mentify")).thenReturn(realm);
+        when(realm.users()).thenReturn(users);
+        when(users.get("kc-user")).thenReturn(user);
+
+        new KeycloakUserServiceImpl(keycloak, properties).sendPasswordSetupEmail("kc-user");
+
+        verify(user).executeActionsEmail(
+                "mentify-web-client", "http://localhost:5173/login", List.of("UPDATE_PASSWORD", "VERIFY_EMAIL"));
+    }
 
     @Test
     void createUser_setsRequiredSetupActions() {
