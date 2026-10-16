@@ -45,6 +45,12 @@ The realm uses the bundled `mentify` email theme for account setup and password 
 messages. The setup invitation sent after registration includes matching HTML and plain-text
 content. The Docker Compose service mounts `keycloak/themes` into Keycloak.
 
+Keycloak sends the required-action setup link. The user service separately emails the generated
+temporary password using the shared `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+`SMTP_AUTH`, `SMTP_STARTTLS_ENABLE`, and `SMTP_FROM` settings. Configure SMTP for both Keycloak
+and user-service in each environment. The temporary password is not included in the registration
+API response or stored by Mentify; Keycloak stores the credential and enforces `UPDATE_PASSWORD`.
+
 For an existing local Keycloak database, realm import does not overwrite an already-created
 realm. Select **Realm settings → Themes → Email theme → mentify** in the Keycloak Admin
 Console and save. For a fresh local setup, the realm import selects this theme automatically.

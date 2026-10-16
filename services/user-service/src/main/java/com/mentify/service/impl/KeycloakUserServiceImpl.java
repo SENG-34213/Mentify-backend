@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,32 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
 
     @Override
     public String createUser(KeycloakUserProvisionRequest request) {
+        return createUserInternal(request);
+    }
+
+    @Override
+    public void setTemporaryPassword(String keycloakUserId, String temporaryPassword) {
+        if (temporaryPassword == null || temporaryPassword.isBlank()) {
+            throw new IllegalArgumentException("Temporary password is required");
+        }
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(temporaryPassword);
+        credential.setTemporary(true);
+        try {
+            realmUsers().get(keycloakUserId).resetPassword(credential);
+        } catch (WebApplicationException exception) {
+            if (exception.getResponse() != null && exception.getResponse().getStatus() == 400) {
+                throw new KeycloakUserCreationException(
+                        "Generated temporary password violates the configured Keycloak password policy");
+            }
+            throw new KeycloakUserCreationException("Failed to assign temporary Keycloak password");
+        } catch (ProcessingException exception) {
+            throw new KeycloakUserCreationException("Failed to assign temporary Keycloak password");
+        }
+    }
+
+    private String createUserInternal(KeycloakUserProvisionRequest request) {
         UserRepresentation userRepresentation = new UserRepresentation();
         userRepresentation.setUsername(request.getEmail());
         userRepresentation.setEmail(request.getEmail());
@@ -41,7 +68,6 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
         userRepresentation.setEnabled(true);
         userRepresentation.setEmailVerified(false);
         userRepresentation.setRequiredActions(PASSWORD_SETUP_ACTIONS);
-
         try (Response response = realmUsers().create(userRepresentation)) {
             if (response.getStatus() != Response.Status.CREATED.getStatusCode()) {
                 throw new KeycloakUserCreationException(buildCreateUserFailureMessage(response));
@@ -49,7 +75,7 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
 
             return extractCreatedUserId(response.getLocation());
         } catch (KeycloakUserCreationException exception) {
-            log.error("Keycloak user creation failed: {}", exception.getMessage(), exception);
+            log.error("Keycloak user creation failed");
 
             throw exception;
         } catch (ProcessingException | WebApplicationException exception) {

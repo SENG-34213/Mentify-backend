@@ -24,6 +24,7 @@ import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +41,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -79,7 +82,8 @@ class UserRegistrationServiceTest {
                 keycloakUserService,
                 validator,
                 factory,
-                passwordSetupEmailDispatcher
+                passwordSetupEmailDispatcher,
+                new TemporaryPasswordGenerator()
         );
     }
 
@@ -107,7 +111,16 @@ class UserRegistrationServiceTest {
         assertThat(response.getAccountStatus()).isEqualTo(AccountStatus.INVITED);
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "STUDENT");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
+        ArgumentCaptor<String> temporaryPasswordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
+        String temporaryPassword = temporaryPasswordCaptor.getValue();
+        assertThat(temporaryPassword).hasSize(32)
+                .matches(".*[A-Z].*")
+                .matches(".*[a-z].*")
+                .matches(".*[0-9].*")
+                .matches(".*[^A-Za-z0-9].*");
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
@@ -153,7 +166,7 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getAddress().getCity()).isEqualTo(request.getAddress().getCity());
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "TEACHER");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
     }
 
     @Test
@@ -275,6 +288,25 @@ class UserRegistrationServiceTest {
 
         verify(keycloakUserService).deleteUser(keycloakUserId);
         verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void registerUser_whenTemporaryPasswordIsRejected_deletesCreatedKeycloakUser() {
+        AdminRegisterUserRequest request = validRequest(Role.STUDENT);
+        String keycloakUserId = "keycloak-user-id";
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
+        org.mockito.Mockito.doThrow(new KeycloakUserCreationException(
+                        "Generated temporary password violates the configured Keycloak password policy"))
+                .when(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
+
+        assertThatThrownBy(() -> userRegistrationService.registerUser(request))
+                .isInstanceOf(KeycloakUserCreationException.class);
+
+        verify(keycloakUserService).deleteUser(keycloakUserId);
+        verify(userRepository, never()).saveAndFlush(any());
+        verify(passwordSetupEmailDispatcher, never()).sendAfterCommit(any(), any(), any(), any());
     }
 
     @Test
