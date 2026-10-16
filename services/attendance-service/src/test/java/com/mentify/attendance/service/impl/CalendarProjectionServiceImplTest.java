@@ -50,7 +50,7 @@ class CalendarProjectionServiceImplTest {
         UUID creatorId = UUID.randomUUID();
         AttendanceSession session = AttendanceSession.builder()
                 .courseId(UUID.randomUUID()).title("Java Class")
-                .attendanceDate(LocalDate.of(2026, 10, 16))
+                .attendanceDate(LocalDate.now().plusDays(1))
                 .startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(11, 0))
                 .status(AttendanceSessionStatus.OPEN).build();
         session.setId(sessionId);
