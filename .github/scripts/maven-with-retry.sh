@@ -18,14 +18,25 @@ while (( attempt <= max_attempts )); do
     exit 0
   fi
 
-  if (( attempt >= max_attempts )) || ! grep -Eiq 'HTTP Status: 5[0-9]{2}|status code: 5[0-9]{2}' "$log_file"; then
+  retryable_resolution_failure=false
+  if grep -Eiq \
+    'HTTP Status: 5[0-9]{2}|status code: 5[0-9]{2}|Could not find artifact .* in central|Could not transfer artifact .* from/to central|was not found in .* during a previous attempt' \
+    "$log_file"; then
+    retryable_resolution_failure=true
+  fi
+
+  if (( attempt >= max_attempts )) || [[ "$retryable_resolution_failure" != true ]]; then
     rm -f "$log_file"
     exit "$status"
   fi
 
+  # Maven can cache failed or incomplete Central lookups in the shared Actions cache.
+  if [[ -d "$HOME/.m2/repository" ]]; then
+    find "$HOME/.m2/repository" -type f -name '*.lastUpdated' -delete
+  fi
   rm -f "$log_file"
   delay_seconds=$((attempt * 10))
-  echo "Maven Central returned a server error; retrying in ${delay_seconds}s."
+  echo "Maven Central dependency resolution failed; retrying in ${delay_seconds}s."
   sleep "$delay_seconds"
   ((attempt += 1))
 done
