@@ -11,6 +11,7 @@ import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class UserRegistrationService {
     private final RegistrationRequestValidator registrationRequestValidator;
     private final UserRegistrationFactory userRegistrationFactory;
     private final PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private final TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     @Transactional
     public UserRegistrationResponse registerUser(AdminRegisterUserRequest request) {
@@ -42,15 +44,18 @@ public class UserRegistrationService {
         }
 
         String keycloakUserId = null;
+        String temporaryPassword = temporaryPasswordGenerator.generate();
 
         try {
             keycloakUserId = keycloakUserService.createUser(KeycloakUserProvisionRequest.from(request));
+            keycloakUserService.setTemporaryPassword(keycloakUserId, temporaryPassword);
 
             keycloakUserService.assignRealmRole(keycloakUserId, request.getRole().name());
 
             User user = userRegistrationFactory.create(request, keycloakUserId);
             User savedUser = userRepository.saveAndFlush(user);
-            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
+            passwordSetupEmailDispatcher.sendAfterCommit(
+                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {

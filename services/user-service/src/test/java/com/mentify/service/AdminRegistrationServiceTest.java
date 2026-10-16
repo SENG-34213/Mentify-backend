@@ -17,6 +17,7 @@ import com.mentify.service.registration.PasswordSetupEmailDispatcher;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +73,8 @@ class AdminRegistrationServiceTest {
                 userRepository,
                 keycloakUserService,
                 factory,
-                passwordSetupEmailDispatcher
+                passwordSetupEmailDispatcher,
+                new TemporaryPasswordGenerator()
         );
     }
 
@@ -100,7 +104,9 @@ class AdminRegistrationServiceTest {
         assertThat(response.getAdminProfile().getAdminCode()).isEqualTo("TIT-ADM-005");
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "ADMIN");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
+        verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());

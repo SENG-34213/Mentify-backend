@@ -8,6 +8,17 @@ spring:
     name: user-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:false}
   security:
     oauth2:
       resourceserver:
@@ -18,6 +29,9 @@ spring:
     baseline-version: 0
 
 mentify:
+  registration:
+    email:
+      from: ${SMTP_FROM:no-reply@mentify.local}
   security:
     enabled: true
     principal-claim: preferred_username

@@ -13,28 +13,35 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class PasswordSetupEmailDispatcher {
 
     private final KeycloakUserService keycloakUserService;
+    private final TemporaryCredentialsEmailDeliveryService temporaryCredentialsEmailDeliveryService;
 
-    public void sendAfterCommit(String keycloakUserId) {
+    public void sendAfterCommit(String keycloakUserId, String email, String firstName, String temporaryPassword) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            sendSafely(keycloakUserId);
+            sendSafely(keycloakUserId, email, firstName, temporaryPassword);
             return;
         }
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                sendSafely(keycloakUserId);
+                sendSafely(keycloakUserId, email, firstName, temporaryPassword);
             }
         });
     }
 
-    private void sendSafely(String keycloakUserId) {
+    private void sendSafely(String keycloakUserId, String email, String firstName, String temporaryPassword) {
         try {
             keycloakUserService.sendPasswordSetupEmail(keycloakUserId);
         } catch (Exception exception) {
             log.error("Failed to send Keycloak password setup email for user {}. Registration remains committed; use resend invitation.",
                     keycloakUserId,
                     exception);
+        }
+        try {
+            temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword);
+        } catch (Exception exception) {
+            // Never log the temporary credential or a mail exception that might contain message content.
+            log.error("Failed to deliver temporary sign-in credentials for Keycloak user {}", keycloakUserId);
         }
     }
 }

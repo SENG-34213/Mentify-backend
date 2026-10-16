@@ -5,9 +5,9 @@
 
 ## Summary
 
-The admin-managed registration flow for students and teachers, and the super-admin-managed registration flow for admins, already provisions Keycloak users with the required actions `UPDATE_PASSWORD` and `VERIFY_EMAIL`. Mentify does not assign an initial or temporary password in this flow. Keycloak sends a branded action email; the user chooses a password and verifies email through the Keycloak action page before using the Mentify login bridge.
+The admin-managed registration flow for students and teachers, the legacy student endpoint, and the super-admin-managed registration flow for admins provision Keycloak users with the required actions `UPDATE_PASSWORD` and `VERIFY_EMAIL`. MENT-92 adds a temporary credential assigned through Keycloak as temporary and delivered by user-service SMTP. Keycloak also sends a branded action email; the user chooses a permanent password and verifies email through the Keycloak action page before using the Mentify login bridge.
 
-This already provides mandatory password setup for invited accounts without generating or emailing a temporary credential. The current login bridge is a direct password grant, so it can only handle a successful token response or a generic authentication failure. It does not render or complete a Keycloak required-action challenge. Keep first-password setup on the existing email action link unless product requirements specifically require users to enter a temporary password in the Mentify login form.
+The current login bridge is a direct password grant, so it can only handle a successful token response or a generic authentication failure. Keycloak does not support required actions through that grant; users must complete the separate Keycloak setup email before the bridge can issue a token. The bridge does not render the required-action challenge itself. Verify the frontend's first-login path against the deployed Keycloak browser flow. [Keycloak documents these Direct Grant limitations](https://github.com/keycloak/keycloak/blob/main/docs/guides/securing-apps/partials/oidc/supported-grant-types.adoc).
 
 One older registration path differs: `POST /api/students/register` uses `StudentServiceImpl` and saves a local student without provisioning a Keycloak user or sending an invitation. `TeacherController` currently exposes listing only. The intended supported teacher creation path is the admin-managed users endpoint. These route differences should be clarified before frontend work relies on them.
 
@@ -28,9 +28,9 @@ One older registration path differs: `POST /api/students/register` uses `Student
 2. `AdminRegistrationService` creates the Keycloak user, assigns the `ADMIN` realm role, creates the local admin profile in `INVITED` state, and schedules the same post-commit setup email.
 3. It uses the same Keycloak provisioning request and compensation approach as student/teacher creation.
 
-### Legacy student registration endpoint
+### Student registration endpoint
 
-`POST /api/students/register` delegates to `StudentServiceImpl`, which maps the request to local user/profile/address records and saves them. It does not call `KeycloakUserService`, assign a Keycloak realm role, or send a password setup email. This path is separate from the Keycloak-backed registration workflow and should not be used for accounts expected to log in through Keycloak without first being reconciled.
+`POST /api/students/register` delegates to `StudentServiceImpl` and uses the legacy student mapper/profile defaults. MENT-92 aligns its identity flow: it provisions a Keycloak `STUDENT`, assigns a temporary password and role, saves the local profile as `INVITED`, and queues the same post-commit credential and setup emails. The legacy request's `password` field remains accepted for payload compatibility but is optional, excluded from request `toString()`, and ignored; Mentify does not persist or return it.
 
 ### Keycloak provisioning and setup email
 
@@ -77,26 +77,26 @@ No frontend source tree or package manifest was found in this backend repository
 
 - A newly invited user must choose a password that meets the active Keycloak realm policy before using Mentify.
 - The setup action must expire, be one-time, and be safely resendable by an authorized administrator.
-- Do not send generated temporary passwords over email or store them in Mentify.
+- Do not store temporary passwords in Mentify, expose them in API responses, or log them. MENT-92 sends the generated credential by email because this is the requested delivery channel.
 - Preserve the local `INVITED` status and role checks; successful Keycloak authentication must not activate incomplete or disabled local profiles.
 - Never return application access tokens until the user has completed the required Keycloak setup actions.
 - Preserve current login, refresh, logout, JWT validation, and role-based authorization for established accounts.
 
 ### Recommended implementation
 
-1. Retain the existing `UPDATE_PASSWORD` and `VERIFY_EMAIL` action email as the mandatory first-password flow. It avoids temporary passwords, a new database table, and new services.
+1. Retain the existing `UPDATE_PASSWORD` and `VERIFY_EMAIL` action email as the mandatory first-password flow. MENT-92 assigns the temporary credential through the Keycloak Admin Client and delivers it separately by user-service SMTP; Mentify does not persist it.
 2. Confirm the deployed realm has the required actions enabled, suitable password policy configured, SMTP verified, action-link lifespan chosen, and Mentify email theme selected.
 3. Confirm the setup action completion returns the user to the intended frontend login route. The Admin Client supports a redirect URI when paired with a client ID; choose and allowlist the actual frontend route before configuring it.
 4. Verify the user cannot get an application token before the required action completes, using the same Keycloak/client settings used in production. The current password-grant login bridge is not an interactive action handler.
-5. If the product explicitly requires entering a temporary password in the Mentify login UI, treat that as a separate design decision: prefer a Keycloak browser/standard authorization-code flow with PKCE and an enforced password-update action. Avoid adding a temporary-password store or custom identity flow unless an interactive React-owned flow is a confirmed requirement.
+5. The backend login bridge uses direct password grant and has no required-action response flow. If the frontend must collect the temporary password and perform the forced update without leaving Mentify, implement a supported browser/standard authorization-code flow with PKCE or a carefully scoped API flow in a separate task.
 
-No extra microservice or Mentify database table is required for the recommended flow. No code change is needed merely to keep requiring password selection; the existing creation and email path already requests it.
+No extra microservice or Mentify database table was introduced. MENT-92 reuses the existing Keycloak required-action email and the shared SMTP configuration to assign and deliver the one-time temporary credential.
 
 ## Compatibility and Follow-up
 
 - Existing accounts without pending required actions keep the current login bridge behavior.
 - Existing role, profile completeness, lockout, and status checks remain authoritative after Keycloak authentication.
-- The public-looking legacy student endpoint does not provision a Keycloak identity. Decide whether to retire it, secure it, or connect it to the supported flow in a separate implementation task.
+- The legacy student endpoint now provisions a Keycloak identity, but it retains its older profile mapping and request model. Consolidating it with the admin-managed registration factory remains a separate cleanup.
 - Keep the database and Keycloak operation compensations covered by current registration tests. Add focused integration coverage for action completion, action-link expiry/resend, failure before local commit, email failure after commit, and attempted login before action completion when implementing any behavior change.
 
 ## Evidence Reviewed
