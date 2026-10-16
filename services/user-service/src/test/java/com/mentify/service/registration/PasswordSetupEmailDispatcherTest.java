@@ -24,46 +24,33 @@ class PasswordSetupEmailDispatcherTest {
     }
 
     @Test
-    void sendAfterCommit_whenEitherDeliveryFails_reportsSafeFailureAndAttemptsBothMessages() {
+    void sendAfterCommit_whenDeliveryFails_reportsSafeFailure() {
         KeycloakUserService keycloakUserService = mock(KeycloakUserService.class);
-        TemporaryCredentialsEmailDeliveryService emailDeliveryService = mock(TemporaryCredentialsEmailDeliveryService.class);
         doThrow(new RuntimeException("provider details may contain private message content"))
                 .when(keycloakUserService).sendPasswordSetupEmail("keycloak-id");
-        PasswordSetupEmailDispatcher dispatcher = new PasswordSetupEmailDispatcher(
-                keycloakUserService, emailDeliveryService);
+        PasswordSetupEmailDispatcher dispatcher = new PasswordSetupEmailDispatcher(keycloakUserService);
 
-        assertThatThrownBy(() -> dispatcher.sendAfterCommit(
-                "keycloak-id", "user@example.com", "User", "Secret123!"))
-                .isInstanceOf(RegistrationEmailDeliveryException.class)
-                .hasMessage("Account setup email could not be delivered")
-                .hasMessageNotContaining("Secret123!")
-                .hasMessageNotContaining("provider details");
+        assertThatThrownBy(() -> dispatcher.sendAfterCommit("keycloak-id"))
+                .isInstanceOf(RegistrationEmailDeliveryException.class);
 
         verify(keycloakUserService).sendPasswordSetupEmail("keycloak-id");
-        verify(emailDeliveryService).send("user@example.com", "User", "Secret123!");
     }
 
     @Test
     void sendAfterCommit_whenDeliveryFailsAfterCommit_propagatesSafeFailureToRegistrationCaller() {
         KeycloakUserService keycloakUserService = mock(KeycloakUserService.class);
-        TemporaryCredentialsEmailDeliveryService emailDeliveryService = mock(TemporaryCredentialsEmailDeliveryService.class);
-        doThrow(new TemporaryCredentialsEmailException())
-                .when(emailDeliveryService).send("user@example.com", "User", "Secret123!");
-        PasswordSetupEmailDispatcher dispatcher = new PasswordSetupEmailDispatcher(
-                keycloakUserService, emailDeliveryService);
+        doThrow(new RuntimeException("fail"))
+                .when(keycloakUserService).sendPasswordSetupEmail("keycloak-id");
+        PasswordSetupEmailDispatcher dispatcher = new PasswordSetupEmailDispatcher(keycloakUserService);
         TransactionSynchronizationManager.initSynchronization();
 
-        dispatcher.sendAfterCommit("keycloak-id", "user@example.com", "User", "Secret123!");
+        dispatcher.sendAfterCommit("keycloak-id");
 
-        verifyNoInteractions(keycloakUserService, emailDeliveryService);
+        verifyNoInteractions(keycloakUserService);
         List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
         assertThatThrownBy(() -> synchronizations.forEach(TransactionSynchronization::afterCommit))
-                .isInstanceOf(RegistrationEmailDeliveryException.class)
-                .hasMessage("Account setup email could not be delivered")
-                .hasMessageNotContaining("Secret123!")
-                .hasMessageNotContaining("Temporary credentials email could not be delivered");
+                .isInstanceOf(RegistrationEmailDeliveryException.class);
 
         verify(keycloakUserService).sendPasswordSetupEmail("keycloak-id");
-        verify(emailDeliveryService).send("user@example.com", "User", "Secret123!");
     }
 }

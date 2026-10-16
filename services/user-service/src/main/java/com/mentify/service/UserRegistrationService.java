@@ -54,8 +54,7 @@ public class UserRegistrationService {
 
             User user = userRegistrationFactory.create(request, keycloakUserId);
             User savedUser = userRepository.saveAndFlush(user);
-            passwordSetupEmailDispatcher.sendAfterCommit(
-                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {
@@ -93,8 +92,7 @@ public class UserRegistrationService {
 
         String temporaryPassword = temporaryPasswordGenerator.generate();
         keycloakUserService.setTemporaryPassword(user.getKeycloakUserId(), temporaryPassword);
-        passwordSetupEmailDispatcher.sendAfterCommit(
-                user.getKeycloakUserId(), user.getEmail(), user.getFirstName(), temporaryPassword);
+        passwordSetupEmailDispatcher.sendAfterCommit(user.getKeycloakUserId());
     }
 
     @Transactional

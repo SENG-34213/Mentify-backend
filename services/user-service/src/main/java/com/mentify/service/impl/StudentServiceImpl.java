@@ -60,8 +60,7 @@ public class StudentServiceImpl implements StudentService {
             user.setAddress(address);
 
             User savedUser = userRepository.saveAndFlush(user);
-            passwordSetupEmailDispatcher.sendAfterCommit(
-                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
 
             UserResponse userResponse = studentMapper.toUserResponse(savedUser);
 

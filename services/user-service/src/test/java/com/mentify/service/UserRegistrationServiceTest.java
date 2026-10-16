@@ -119,8 +119,7 @@ class UserRegistrationServiceTest {
                 .matches(".*[a-z].*")
                 .matches(".*[0-9].*")
                 .matches(".*[^A-Za-z0-9].*");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(
-                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
@@ -166,7 +165,7 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getAddress().getCity()).isEqualTo(request.getAddress().getCity());
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "TEACHER");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
     }
 
     @Test
@@ -306,7 +305,7 @@ class UserRegistrationServiceTest {
 
         verify(keycloakUserService).deleteUser(keycloakUserId);
         verify(userRepository, never()).saveAndFlush(any());
-        verify(passwordSetupEmailDispatcher, never()).sendAfterCommit(any(), any(), any(), any());
+        verify(passwordSetupEmailDispatcher, never()).sendAfterCommit(any());
     }
 
     @Test
@@ -337,8 +336,7 @@ class UserRegistrationServiceTest {
         ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
         verify(keycloakUserService).setTemporaryPassword(eq("keycloak-user-id"), passwordCaptor.capture());
         assertThat(passwordCaptor.getValue()).hasSize(32);
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(
-                eq("keycloak-user-id"), eq(user.getEmail()), eq(user.getFirstName()), eq(passwordCaptor.getValue()));
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq("keycloak-user-id"));
     }
 
     @Test

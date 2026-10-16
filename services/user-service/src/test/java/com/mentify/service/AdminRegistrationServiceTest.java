@@ -105,8 +105,7 @@ class AdminRegistrationServiceTest {
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "ADMIN");
         verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(
-                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());

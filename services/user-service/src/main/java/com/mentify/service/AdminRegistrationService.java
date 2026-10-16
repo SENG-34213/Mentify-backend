@@ -43,8 +43,7 @@ public class AdminRegistrationService {
 
             User user = userRegistrationFactory.createAdmin(request, keycloakUserId);
             User savedUser = userRepository.saveAndFlush(user);
-            passwordSetupEmailDispatcher.sendAfterCommit(
-                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {

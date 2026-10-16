@@ -107,8 +107,7 @@ class StudentServiceImplTest {
         assertThat(user.getPassword()).isNull();
         verify(keycloakUserService).assignRealmRole(keycloakUserId, Role.STUDENT.name());
         verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(
-                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
+        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
     }
 
     @Test

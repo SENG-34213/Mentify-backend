@@ -13,38 +13,26 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class PasswordSetupEmailDispatcher {
 
     private final KeycloakUserService keycloakUserService;
-    private final TemporaryCredentialsEmailDeliveryService temporaryCredentialsEmailDeliveryService;
 
-    public void sendAfterCommit(String keycloakUserId, String email, String firstName, String temporaryPassword) {
+    public void sendAfterCommit(String keycloakUserId) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            sendSafely(keycloakUserId, email, firstName, temporaryPassword);
+            sendSafely(keycloakUserId);
             return;
         }
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                sendSafely(keycloakUserId, email, firstName, temporaryPassword);
+                sendSafely(keycloakUserId);
             }
         });
     }
 
-    private void sendSafely(String keycloakUserId, String email, String firstName, String temporaryPassword) {
-        boolean deliveryFailed = false;
+    private void sendSafely(String keycloakUserId) {
         try {
             keycloakUserService.sendPasswordSetupEmail(keycloakUserId);
         } catch (Exception exception) {
-            deliveryFailed = true;
             log.error("Failed to send Keycloak password setup email for user {}", keycloakUserId);
-        }
-        try {
-            temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword);
-        } catch (Exception exception) {
-            // Never log the temporary credential or a mail exception that might contain message content.
-            log.error("Failed to deliver temporary sign-in credentials for Keycloak user {}", keycloakUserId);
-            deliveryFailed = true;
-        }
-        if (deliveryFailed) {
             throw new RegistrationEmailDeliveryException();
         }
     }

@@ -2,17 +2,6 @@ server:
   port: ${USER_SERVICE_PORT:8081}
 
 spring:
-  mail:
-    host: ${SMTP_HOST:localhost}
-    port: ${SMTP_PORT:1025}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: ${SMTP_AUTH:false}
-          starttls:
-            enable: ${SMTP_STARTTLS_ENABLE:false}
   security:
     oauth2:
       resourceserver:
@@ -45,11 +34,6 @@ spring:
         order_updates: true
 
 mentify:
-  registration:
-    email:
-      from: ${SMTP_FROM:no-reply@mentify.local}
-      login-url: ${MENTIFY_LOGIN_URL:http://localhost:5173/login}
-      retry-attempts: ${MENTIFY_WELCOME_EMAIL_RETRY_ATTEMPTS:2}
   security:
     enabled: true
     principal-claim: preferred_username
