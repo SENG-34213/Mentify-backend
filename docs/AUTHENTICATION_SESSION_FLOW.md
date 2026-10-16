@@ -38,9 +38,11 @@ backend repository does not contain the frontend application.
 
 After both required actions finish, the Keycloak action link returns to the configured
 `MENTIFY_LOGIN_URL` using `KEYCLOAK_FRONTEND_CLIENT_ID`. The URI must be registered as an allowed
-redirect URI for that Keycloak client. The subsequent login response contains the role validated
-against the local user profile. Frontend route guards and dashboard path mapping must be implemented
-and tested in the frontend repository.
+redirect URI for that Keycloak client. The user then signs in through `POST /api/v1/auth/login`; its
+authenticated response contains the server-resolved `user.role` (`STUDENT`, `TEACHER`, `ADMIN`, or
+`SUPER_ADMIN`). The frontend must use that value to select its role-specific dashboard and keep the
+route behind its authenticated session guard. API authorization remains enforced by the existing
+JWT resource-server checks and frontend route guards must be tested in the frontend repository.
 
 ## Refresh Access Token
 

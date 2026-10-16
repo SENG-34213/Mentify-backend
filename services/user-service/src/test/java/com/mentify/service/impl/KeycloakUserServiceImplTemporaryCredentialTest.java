@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 class KeycloakUserServiceImplTemporaryCredentialTest {
 
     @Test
-    void sendPasswordSetupEmail_redirectsToFrontendLoginAfterRequiredActions() {
+    void sendPasswordSetupEmail_redirectsToConfiguredFrontendLoginAfterActions() {
         Keycloak keycloak = mock(Keycloak.class);
         RealmResource realm = mock(RealmResource.class);
         UsersResource users = mock(UsersResource.class);

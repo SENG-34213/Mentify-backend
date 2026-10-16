@@ -66,7 +66,9 @@ temporary credential and send a new setup link; verify the old temporary passwor
 
 ## Environment limitations
 
-Mock-based tests verify the service contract but do not replace the live Keycloak browser-flow and
-SMTP checks above. The frontend routing checks require the separate frontend repository. Record the
-Keycloak version, realm password policy, SMTP provider, tested roles, and pass/fail result when
-running the manual integration check.
+The automated tests in this repository are unit and MVC tests using mocked Keycloak and SMTP
+clients. They verify the service contract but do not prove the live Keycloak browser action flow,
+SMTP delivery, or a full end-to-end registration. The frontend routing checks require the separate
+frontend repository. Record the Keycloak version, realm password policy, SMTP provider, tested roles,
+and pass/fail result when running the manual integration check. Do not report the manual checks as
+passed until they have been run against configured services.

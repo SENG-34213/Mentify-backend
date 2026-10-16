@@ -60,7 +60,8 @@ class PasswordSetupEmailDispatcherTest {
         assertThatThrownBy(() -> synchronizations.forEach(TransactionSynchronization::afterCommit))
                 .isInstanceOf(RegistrationEmailDeliveryException.class)
                 .hasMessage("Account setup email could not be delivered")
-                .hasMessageNotContaining("Secret123!");
+                .hasMessageNotContaining("Secret123!")
+                .hasMessageNotContaining("Temporary credentials email could not be delivered");
 
         verify(keycloakUserService).sendPasswordSetupEmail("keycloak-id");
         verify(emailDeliveryService).send("user@example.com", "User", "Secret123!");
