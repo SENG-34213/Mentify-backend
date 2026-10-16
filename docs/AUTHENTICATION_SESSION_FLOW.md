@@ -25,6 +25,17 @@ Successful responses use the common `ApiResponse` shape:
 }
 ```
 
+Newly registered accounts have the Keycloak `UPDATE_PASSWORD` and `VERIFY_EMAIL` required actions
+and a temporary Keycloak credential. The password-grant login bridge cannot complete interactive
+required actions. When Keycloak reports `invalid_grant` with `Account is not fully set up`, the
+bridge returns HTTP `428 Precondition Required` with instructions to complete the secure setup link
+from the Mentify invitation email. It does not return or create access or refresh tokens, and it
+does not count this as a bad-password attempt. Keycloak's browser action link validates the token,
+enforces its expiry and one-time use, and accepts the permanent password under the realm policy.
+After setup is complete, the existing login endpoint continues to authenticate permanent-password
+users normally. Frontends should route this 428 response to the invitation/setup instructions; this
+backend repository does not contain the frontend application.
+
 ## Refresh Access Token
 
 `POST /api/v1/auth/refresh`

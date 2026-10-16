@@ -7,7 +7,7 @@
 
 The admin-managed registration flow for students and teachers, the legacy student endpoint, and the super-admin-managed registration flow for admins provision Keycloak users with the required actions `UPDATE_PASSWORD` and `VERIFY_EMAIL`. MENT-92 adds a temporary credential assigned through Keycloak as temporary and delivered by user-service SMTP. Keycloak also sends a branded action email; the user chooses a permanent password and verifies email through the Keycloak action page before using the Mentify login bridge.
 
-The current login bridge is a direct password grant, so it can only handle a successful token response or a generic authentication failure. Keycloak does not support required actions through that grant; users must complete the separate Keycloak setup email before the bridge can issue a token. The bridge does not render the required-action challenge itself. Verify the frontend's first-login path against the deployed Keycloak browser flow. [Keycloak documents these Direct Grant limitations](https://github.com/keycloak/keycloak/blob/main/docs/guides/securing-apps/partials/oidc/supported-grant-types.adoc).
+The login bridge uses a direct password grant, which cannot render required-action challenges. Keycloak blocks token issuance while a required action is pending. The bridge now maps Keycloak's `Account is not fully set up` response to HTTP 428 and tells the user to complete the secure setup link from the invitation email. Keycloak's browser action page performs the password update and email verification; after completion the existing bridge can issue a token. The React frontend is outside this repository and should route the 428 response to that setup guidance. [Keycloak documents these Direct Grant limitations](https://github.com/keycloak/keycloak/blob/main/docs/guides/securing-apps/partials/oidc/supported-grant-types.adoc).
 
 One older registration path differs: `POST /api/students/register` uses `StudentServiceImpl` and saves a local student without provisioning a Keycloak user or sending an invitation. `TeacherController` currently exposes listing only. The intended supported teacher creation path is the admin-managed users endpoint. These route differences should be clarified before frontend work relies on them.
 
@@ -52,7 +52,7 @@ Keycloak documents `execute-actions-email` as a way to send users a link that as
 5. `AuthenticationService` loads the local profile by Keycloak subject (with email fallback), checks local role against Keycloak realm roles, activates a complete and unlocked local `INVITED` profile, enforces account status, records login data, and returns token and approved profile fields.
 6. Incomplete, disabled, suspended, locked, or role-mismatched local accounts do not receive a successful login response.
 
-The direct password grant does not provide an interactive required-action screen in this backend response contract. The action email is currently the first-password setup experience. Do not rely on the login bridge to complete `UPDATE_PASSWORD` for an account that has not finished the action link.
+The direct password grant does not provide an interactive required-action screen in this backend response contract. The action email is the first-password setup experience. The login bridge rejects pending actions without issuing tokens and returns HTTP 428; it does not complete `UPDATE_PASSWORD` itself.
 
 ### Email and frontend
 

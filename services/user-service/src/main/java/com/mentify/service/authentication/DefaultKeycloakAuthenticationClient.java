@@ -1,8 +1,11 @@
 package com.mentify.service.authentication;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.config.KeycloakProperties;
 import com.mentify.dto.LoginRequest;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -17,6 +20,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,6 +32,8 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticationClient {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String PASSWORD_GRANT_TYPE = "password";
     private static final String REFRESH_TOKEN_GRANT_TYPE = "refresh_token";
@@ -48,10 +55,16 @@ public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticati
                     .retrieve()
                     .onStatus(status -> status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNAUTHORIZED,
                             (clientRequest, clientResponse) -> {
+                                if (isPendingRequiredAction(clientResponse.getBody().readAllBytes())) {
+                                    throw new FirstLoginRequiredException();
+                                }
                                 throw new AuthenticationFailedException("Invalid email or password");
                             })
                     .onStatus(status -> status == HttpStatus.FORBIDDEN,
                             (clientRequest, clientResponse) -> {
+                                if (isPendingRequiredAction(clientResponse.getBody().readAllBytes())) {
+                                    throw new FirstLoginRequiredException();
+                                }
                                 throw new AuthenticationFailedException("Invalid email or password");
                             })
                     .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
@@ -61,10 +74,22 @@ public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticati
                     .body(KeycloakTokenResponse.class);
 
             return toAuthenticationResult(tokenResponse);
-        } catch (AuthenticationFailedException | KeycloakAuthenticationException exception) {
+        } catch (AuthenticationFailedException | FirstLoginRequiredException | KeycloakAuthenticationException exception) {
             throw exception;
         } catch (RestClientException exception) {
             throw new KeycloakAuthenticationException("Authentication service is unavailable", exception);
+        }
+    }
+
+    private boolean isPendingRequiredAction(byte[] responseBody) {
+        try {
+            JsonNode response = OBJECT_MAPPER.readTree(new String(responseBody, StandardCharsets.UTF_8));
+            String error = response.path("error").asText();
+            String description = response.path("error_description").asText();
+            return "invalid_grant".equals(error)
+                    && description.toLowerCase(java.util.Locale.ROOT).contains("account is not fully set up");
+        } catch (IOException | RuntimeException exception) {
+            return false;
         }
     }
 

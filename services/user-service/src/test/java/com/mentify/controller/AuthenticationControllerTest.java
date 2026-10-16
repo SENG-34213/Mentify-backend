@@ -14,6 +14,7 @@ import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.exception.KeycloakEmailActionException;
@@ -96,6 +97,20 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.statusCode").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"))
                 .andExpect(jsonPath("$.message").value(not("User not found")));
+    }
+
+    @Test
+    void login_whenFirstLoginActionIsPending_returnsSetupInstructionsWithoutTokens() throws Exception {
+        when(authenticationService.login(any(LoginRequest.class)))
+                .thenThrow(new FirstLoginRequiredException());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest())))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.statusCode").value(428))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("invitation email")))
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

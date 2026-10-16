@@ -4,6 +4,7 @@ import com.mentify.dto.ErrorResponse;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.DuplicateResourceException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.InvalidUserStateException;
@@ -72,6 +73,17 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid email or password", request);
+    }
+
+    @ExceptionHandler(FirstLoginRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleFirstLoginRequired(
+            FirstLoginRequiredException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.PRECONDITION_REQUIRED,
+                "Complete the password and email setup from your Mentify invitation email before signing in. "
+                        + "If the link has expired, ask an administrator to resend your invitation.",
+                request);
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)

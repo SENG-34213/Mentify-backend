@@ -15,6 +15,7 @@ import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakAuthenticationException;
@@ -92,6 +93,18 @@ class AuthenticationServiceTest {
         assertThat(user.getLastLogin()).isNotNull();
 
         verify(authenticationEventLogger).loginSucceeded(user.getId(), "keycloak-student-id", Role.STUDENT);
+    }
+
+    @Test
+    void login_whenKeycloakRequiresFirstLoginAction_returnsSetupRequiredWithoutIssuingSession() {
+        LoginRequest request = loginRequest();
+        when(keycloakAuthenticationClient.authenticate(request)).thenThrow(new FirstLoginRequiredException());
+
+        assertThatThrownBy(() -> authenticationService.login(request))
+                .isInstanceOf(FirstLoginRequiredException.class);
+
+        verifyNoInteractions(userRepository);
+        verify(authenticationEventLogger).loginFailed("FIRST_LOGIN_REQUIRED", "student@gmail.com", null);
     }
 
     @Test
