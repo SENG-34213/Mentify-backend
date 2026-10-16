@@ -1,125 +1,201 @@
-# backend
-Mentify backend monorepo built with six Spring Boot microservices (User, Course, Assessment, Communication, Analytics, AI) using microservices architecture. Implements JWT authentication, RBAC, Apache Kafka event-driven communication, OpenAI-powered RAG chatbots and AI grading, with PostgreSQL (AWS RDS) and MongoDB Atlas databases.
+# 🎓 Mentify Backend
 
-## Read Flow Contract (MENT-15)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)](https://spring.io/projects/spring-boot)
+[![Microservices](https://img.shields.io/badge/Architecture-Microservices-blue)](https://microservices.io/)
+[![Security](https://img.shields.io/badge/Security-Keycloak-red)](https://www.keycloak.org/)
+[![Messaging](https://img.shields.io/badge/Messaging-Kafka-black)](https://kafka.apache.org/)
 
-This contract standardizes read operations for:
-- Lessons
-- Modules
-- Lesson Materials
+Mentify is a production-grade, AI-powered Learning Management System (LMS) backend. Built on a modular Spring Boot microservices architecture, it provides a scalable and secure foundation for modern educational platforms, featuring event-driven communication, distributed configuration, and deep integration with LLMs for intelligent learning assistance.
 
-### Endpoint Availability
+---
 
-Each entity supports:
-- Single record retrieval: `GET /api/v1/{entity}/{id}`
-- List retrieval: `GET /api/v1/{entity}`
+## 🏗️ Architecture Overview
 
-Entities map as:
-- `lessons`
-- `modules`
-- `lesson-materials`
+Mentify follows a **Cloud-Native Microservices** pattern, leveraging the Spring Cloud ecosystem for infrastructure and Apache Kafka for asynchronous inter-service communication.
 
-### Standard Response Envelope and DTO Rules
+### High-Level System Design
 
-All successful responses must use the same envelope shape:
-
-```json
-{
-  "success": true,
-  "message": "Request successful",
-  "data": {}
-}
+```text
+                                  +-------------------------------------------------------+
+                                  |                   External Clients                    |
+                                  |          (Web Portal, Mobile App, API Users)          |
+                                  +---------------------------+---------------------------+
+                                                              |
+                                                              v
+      +-----------------------+                 +-------------+-------------+
+      |  Keycloak (Identity)  |<--------------->|       Spring Cloud Gateway| (API Gateway)
+      |  Auth & JWT Issuance  |                 |      (Auth, Routing, Rate Limit) |
+      +-----------------------+                 +-------------+-------------+
+                                                              |
+            +---------------------+---------------------------+---------------------------+
+            |                     |                           |                           |
+    +-------v-------+      +------v-------+            +------v-------+            +------v-------+
+    | User Service  |      | Course Serv. |            | AI Service   |            | Payment Serv.| ...
+    | (Identity)    |      | (Content Management)      | (LLM/RAG/OCR)|            | (Stripe/Pay) |
+    +-------+-------+      +------+-------+            +------+-------+            +------+-------+
+            |                     |                           |                           |
+            +---------------------+-------------+-------------+---------------------------+
+                                                |
+                                  +-------------v-------------+
+                                  |       Apache Kafka        | (Distributed Event Bus)
+                                  |  (Notifications, Analytics, Audit Logs) |
+                                  +-------------+-------------+
+                                                |
+                                  +-------------v-------------+
+                                  |   Notification Service    |
+                                  |   (Email, SMS, Push, Inbox)|
+                                  +---------------------------+
 ```
 
-Single retrieval (`GET /api/v1/{entity}/{id}`):
-- `data` is a single DTO object for the requested entity.
+---
 
-List retrieval (`GET /api/v1/{entity}`):
-- `data` contains an items list and pagination metadata:
-## Course Content Create Contract (MENT-#13)
+## 🛠️ Tech Stack & Ecosystem
 
-This ticket defines the initial **create** contract for:
-- Modules
-- Lessons
-- Lesson Materials
+### Core Frameworks
+*   **Java 17 (LTS)**: Core programming language.
+*   **Spring Boot 3.x**: Service foundation.
+*   **Spring Cloud (2022.x/2023.x)**:
+    *   **Netflix Eureka**: Service Discovery & Registry.
+    *   **Spring Cloud Gateway**: Centralized entry point & Security filter.
+    *   **Spring Cloud Config**: Centralized externalized configuration.
+    *   **Spring Cloud OpenFeign**: Declarative REST client for inter-service communication.
 
-### Create Endpoint Availability
+### Data & Messaging
+*   **PostgreSQL**: Primary relational database (Transactional data).
+*   **MongoDB**: Document storage for unstructured content (AI logs, communications).
+*   **Apache Kafka**: Event streaming platform.
+*   **Flyway**: Database versioning and migrations.
 
-Expose add/create operations under the course content API:
-- `POST /courses/{courseId}/modules`
-- `POST /modules/{moduleId}/lessons`
-- `POST /lessons/{lessonId}/materials`
+### Security & AI
+*   **Keycloak**: Open-source Identity and Access Management (OIDC/OAuth2).
+*   **OpenAI API**: Integration for RAG (Retrieval-Augmented Generation), Chatbots, and Auto-grading.
+*   **Apache POI / PDFBox**: For document text extraction and processing.
 
-### Validation and Safety Rules
+---
 
-Each create request must enforce required fields with Jakarta Bean Validation (`@Valid`) and reject malformed input with standard API error responses.
+## 📂 Microservices Catalog
 
-Minimum validation expectations:
-- **Module**: `title` required
-- **Lesson**: `title` required
-- **Lesson Material**: `type` and `url` required
+Mentify is composed of several specialized services:
 
-Duplicate content names within the same parent scope must be rejected with a conflict-style response.
+| Service | Description | Port |
+| :--- | :--- | :--- |
+| **`api-gateway`** | Central entry point, JWT validation, and request routing. | `8080` |
+| **`service-registry`** | Eureka server for service registration and discovery. | `8761` |
+| **`config-server`** | Manages environment-specific configurations via Git/Native. | `8888` |
+| **`user-service`** | User profiles, identity syncing, and RBAC management. | `8081` |
+| **`course-service`** | Management of courses, modules, lessons, and content hierarchy. | `8082` |
+| **`ai-service`** | OpenAI integration, document OCR, quiz generation, and RAG. | `8090` |
+| **`notification-service`**| Kafka-driven engine for Email, SMS, and in-app alerts. | `8093` |
+| **`material-service`** | File storage management (S3/Local) and material metadata. | `8084` |
+| **`assignment-service`** | Assignment creation, submission tracking, and grading logic. | `8085` |
+| **`exam-service`** | Online examination engine with timer and proctoring support. | `8087` |
+| **`attendance-service`** | Student attendance tracking and reporting. | `8083` |
+| **`communication-service`**| Internal messaging, forum discussions, and announcements. | `8086` |
+| **`payment-service`** | Integration with payment gateways for course enrollment. | `8089` |
 
-### Service Layer Contract
+---
 
-Controllers delegate to service methods, and services persist entities through repository interfaces using the standard Spring Boot application flow (controller -> service -> repository).
+## 🚀 Getting Started
 
-### Standard Response Shape
+### Prerequisites
+*   **Java 17+**
+*   **Docker & Docker Compose**
+*   **Maven 3.8+**
 
-Successful create operations must return the shared success envelope:
-
-```json
-{
-  "success": true,
-  "message": "Request successful",
-  "data": {
-    "items": [],
-    "page": 0,
-    "size": 20,
-    "totalElements": 0,
-    "totalPages": 0
-  }
-}
+### 1. Environment Configuration
+Clone the repository and initialize the environment file:
+```bash
+git clone https://github.com/your-org/Mentify-backend.git
+cd Mentify-backend
+cp .env.example .env
 ```
+*Edit `.env` to provide your `OPENAI_API_KEY` and other sensitive credentials.*
 
-### Search, Filtering, and Pagination
-
-List endpoints accept optional query parameters:
-- `page` (default: `0`)
-- `size` (default: `20`)
-- `sort` (optional, format: `field,asc|desc`)
-- `search` (optional free-text search)
-- entity-specific filters (for example `moduleId`, `lessonId`, `status`) where applicable
-
-Behavior:
-- Invalid pagination values return a validation error.
-- Missing optional filters do not restrict results.
-- Filtering and paging are applied in the repository/service layer.
-
-### Empty and Not-Found Handling
-
-```txt
-docs/PROJECT_SETUP.md   Full local project setup
-docs/KEYCLOAK_SETUP.md  Keycloak realm, clients, roles, and token testing
-docs/AUTHENTICATION_SESSION_FLOW.md  Login, refresh, logout, and forgot password flows
-docs/NOTIFICATION_SERVICE.md  Kafka event notifications, in-app inbox, and SMTP setup
-docs/testing/README.md  Testing standards, coverage commands, and registers
-CHANGELOG.md            Unreleased changes
-```
-
-## Quick Start
+### 2. Infrastructure Startup
+Mentify uses Docker profiles to manage resources. Start the required infrastructure:
 
 ```bash
-cp .env.example .env
+# Start Core (Keycloak & its DB)
 docker compose up -d
+
+# Start Application Databases (PostgreSQL for all microservices)
+docker compose --profile app-db up -d
+
+# Start Messaging & Notifications (Kafka & Mailpit)
+docker compose --profile notifications up -d
 ```
 
-Keycloak runs at:
+### 3. Service Execution Order
+For local development, services should be started in the following sequence to ensure proper registration and config retrieval:
+1.  **`service-registry`** (Wait for Dashboard at `http://localhost:8761`)
+2.  **`config-server`** (Verify config at `http://localhost:8888/user-service/default`)
+3.  **`api-gateway`**
+4.  **`common-lib`** (Run `mvn install` first as it's a dependency for others)
+5.  **Business Services** (e.g., `user-service`, `course-service`)
 
-```txt
-http://localhost:8180
+---
+
+## 🔒 Security Model
+
+### Authentication & Authorization
+*   **Identity Provider**: Keycloak manages all users, roles, and client credentials.
+*   **JWT Flow**: Gateway validates the JWT signature. Services use `common-lib`'s `SecurityConfig` to decode roles (`ROLE_STUDENT`, `ROLE_TEACHER`, `ROLE_ADMIN`) from the token.
+*   **Inter-service Auth**: Secure communication via Feign clients using JWT relay or client credentials.
+
+### RBAC Implementation
+Access is controlled at the method level using `@PreAuthorize`:
+```java
+@PreAuthorize("hasRole('TEACHER')")
+public CourseResponse createCourse(CourseRequest request) { ... }
 ```
 
-For full setup, read [Project Setup](docs/PROJECT_SETUP.md). Notification Service's Kafka and
-SMTP/Mailpit configuration is documented in [Notification Service](docs/NOTIFICATION_SERVICE.md).
+---
+
+## 🤖 AI & Intelligent Features
+
+The **AI Service** is the brain of Mentify's smart features:
+*   **RAG (Retrieval-Augmented Generation)**: Ingests lesson materials (PDF/Docx) into a vector-searchable context for the OpenAI model to provide accurate, material-specific answers to students.
+*   **Auto-Quiz Generation**: Automatically generates multiple-choice questions based on lesson content.
+*   **AI Grading**: Assists teachers by providing initial sentiment and accuracy analysis on student submissions.
+
+---
+
+## 📨 Event-Driven Communication
+
+Mentify uses an "Event-Carrying State Transfer" pattern:
+*   **Notification Triggers**: Services annotate methods with `@NotifyOnSuccess(topic = "user-events")`.
+*   **Kafka Producer**: `common-lib` contains an AOP aspect that automatically publishes events to Kafka after successful database transactions.
+*   **Kafka Consumer**: `notification-service` listens to topics and routes messages to the appropriate delivery channel (Email/SMS).
+
+---
+
+## 🛠️ Development Guidelines
+
+### Project Structure
+*   `cloud/`: Infrastructure-level Spring Boot apps.
+*   `services/`: Core business microservices.
+*   `common-lib/`: Shared DTOs, Exception handlers, Security, and Kafka configs.
+*   `docker/`: Database initialization scripts and Dockerfiles.
+*   `docs/`: In-depth guides for specific features (Keycloak, Kafka, etc.).
+
+### Common Commands
+*   **Build all**: `mvn clean install -DskipTests`
+*   **Run a specific service**: `mvn -pl services/user-service spring-boot:run`
+*   **Database Migrations**: Handled automatically by Flyway on startup.
+
+---
+
+## 📖 Documentation Index
+
+For deeper dives, refer to our specialized documentation:
+*   📘 [Detailed Project Setup](docs/PROJECT_SETUP.md)
+*   🔐 [Keycloak & Security Configuration](docs/KEYCLOAK_SETUP.md)
+*   📡 [Notification Service & Kafka Guide](docs/NOTIFICATION_SERVICE.md)
+*   🧪 [Testing Standards & Coverage](docs/testing/README.md)
+*   🔄 [Authentication & Session Flows](docs/AUTHENTICATION_SESSION_FLOW.md)
+
+---
+
+## ⚖️ License
+
+This project is **Proprietary and Confidential**. All rights reserved. Unauthorized copying or distribution of this software is strictly prohibited.
