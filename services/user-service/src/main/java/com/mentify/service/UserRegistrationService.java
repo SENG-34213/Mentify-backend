@@ -11,16 +11,16 @@ import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.PasswordSetupEmailDispatcher;
-import com.mentify.service.registration.TemporaryPasswordGenerator;
 import com.mentify.service.registration.RegistrationRequestValidator;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -78,7 +78,7 @@ public class UserRegistrationService {
         return UserRegistrationResponse.from(user);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void resendInvitation(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -91,7 +91,10 @@ public class UserRegistrationService {
             throw new InvalidUserStateException("User is not linked to Keycloak");
         }
 
-        keycloakUserService.sendPasswordSetupEmail(user.getKeycloakUserId());
+        String temporaryPassword = temporaryPasswordGenerator.generate();
+        keycloakUserService.setTemporaryPassword(user.getKeycloakUserId(), temporaryPassword);
+        passwordSetupEmailDispatcher.sendAfterCommit(
+                user.getKeycloakUserId(), user.getEmail(), user.getFirstName(), temporaryPassword);
     }
 
     @Transactional

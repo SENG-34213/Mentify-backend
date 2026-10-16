@@ -3,8 +3,9 @@ package com.mentify.service.registration;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.MailSendException;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Properties;
 
@@ -12,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +25,7 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
         TemporaryCredentialsEmailDeliveryService service = new TemporaryCredentialsEmailDeliveryService(mailSender);
+        ReflectionTestUtils.setField(service, "loginUrl", "https://app.mentify.example/login");
 
         service.send("student@example.com", "Test User", "Secure!Temp123");
 
@@ -32,7 +35,9 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         String content = contentAsText(mimeMessage.getContent());
         assertThat(content).contains("Secure!Temp123");
         assertThat(content).contains("<!doctype html>");
-        assertThat(content).contains("Your temporary password is");
+        assertThat(content).contains("student@example.com");
+        assertThat(content).contains("https://app.mentify.example/login");
+        assertThat(content).contains("Temporary password:");
         assertThat(content).contains("Keycloak requires this password update");
     }
 
@@ -49,6 +54,22 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
                 .isInstanceOf(TemporaryCredentialsEmailException.class)
                 .hasMessage("Temporary credentials email could not be delivered")
                 .hasMessageNotContaining("Secure!Temp123");
+        verify(mailSender, times(2)).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
+    }
+
+    @Test
+    void send_retriesTransientSmtpFailureWithoutPersistingCredential() throws Exception {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+        doThrow(new MailSendException("temporary SMTP failure"))
+                .doNothing()
+                .when(mailSender).send(mimeMessage);
+        TemporaryCredentialsEmailDeliveryService service = new TemporaryCredentialsEmailDeliveryService(mailSender);
+
+        service.send("student@example.com", "Test User", "Secure!Temp123");
+
+        verify(mailSender, times(2)).send(mimeMessage);
     }
 
     private String contentAsText(Object content) throws Exception {

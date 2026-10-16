@@ -4,14 +4,15 @@ import com.mentify.dto.ErrorResponse;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.DuplicateResourceException;
-import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.InvalidRefreshTokenException;
+import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.exception.ResourceNotFoundException;
+import com.mentify.service.registration.RegistrationEmailDeliveryException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -119,6 +120,15 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.BAD_GATEWAY, "Authentication email service is unavailable", request);
+    }
+
+    @ExceptionHandler(RegistrationEmailDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handleRegistrationEmailDelivery(
+            RegistrationEmailDeliveryException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "Account was created, but setup email delivery failed. An administrator can reissue credentials.", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

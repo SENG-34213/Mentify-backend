@@ -30,18 +30,22 @@ public class PasswordSetupEmailDispatcher {
     }
 
     private void sendSafely(String keycloakUserId, String email, String firstName, String temporaryPassword) {
+        boolean deliveryFailed = false;
         try {
             keycloakUserService.sendPasswordSetupEmail(keycloakUserId);
         } catch (Exception exception) {
-            log.error("Failed to send Keycloak password setup email for user {}. Registration remains committed; use resend invitation.",
-                    keycloakUserId,
-                    exception);
+            deliveryFailed = true;
+            log.error("Failed to send Keycloak password setup email for user {}", keycloakUserId);
         }
         try {
             temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword);
         } catch (Exception exception) {
             // Never log the temporary credential or a mail exception that might contain message content.
             log.error("Failed to deliver temporary sign-in credentials for Keycloak user {}", keycloakUserId);
+            deliveryFailed = true;
+        }
+        if (deliveryFailed) {
+            throw new RegistrationEmailDeliveryException();
         }
     }
 }

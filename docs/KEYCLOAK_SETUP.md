@@ -50,6 +50,13 @@ temporary password using the shared `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `
 `SMTP_AUTH`, `SMTP_STARTTLS_ENABLE`, and `SMTP_FROM` settings. Configure SMTP for both Keycloak
 and user-service in each environment. The temporary password is not included in the registration
 API response or stored by Mentify; Keycloak stores the credential and enforces `UPDATE_PASSWORD`.
+The welcome email includes the registered email, temporary password, and configured `MENTIFY_LOGIN_URL`.
+It instructs users to complete the Keycloak setup email first, then sign in and change their
+temporary password. SMTP delivery is retried a bounded number of times in the user-service process;
+no credential email is put into a persistent queue. If delivery still fails, registration returns
+an email-delivery error even though the account is committed. An administrator can use the
+resend-invitation endpoint to rotate the temporary password and issue a fresh setup email; the old
+temporary password is never resent.
 
 For an existing local Keycloak database, realm import does not overwrite an already-created
 realm. Select **Realm settings → Themes → Email theme → mentify** in the Keycloak Admin
