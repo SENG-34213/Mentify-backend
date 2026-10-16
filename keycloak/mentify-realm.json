@@ -1,6 +1,7 @@
 {
   "realm": "mentify",
   "enabled": true,
+  "emailTheme": "mentify",
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "roles": {

@@ -41,6 +41,14 @@ mentify
 
 Application users, clients, and roles must be created inside the `mentify` realm.
 
+The realm uses the bundled `mentify` email theme for account setup and password reset
+messages. The setup invitation sent after registration includes matching HTML and plain-text
+content. The Docker Compose service mounts `keycloak/themes` into Keycloak.
+
+For an existing local Keycloak database, realm import does not overwrite an already-created
+realm. Select **Realm settings → Themes → Email theme → mentify** in the Keycloak Admin
+Console and save. For a fresh local setup, the realm import selects this theme automatically.
+
 ## 3. Realm Roles
 
 The `mentify` realm contains these realm roles:
