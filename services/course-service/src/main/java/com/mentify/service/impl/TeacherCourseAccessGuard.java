@@ -12,6 +12,8 @@ import java.util.UUID;
 @Component
 public class TeacherCourseAccessGuard {
 
+    private static final String LOCAL_USER_ID_CLAIM = "local_user_id";
+
     public void assertTeacherOwnsCourse(Course course) {
         UUID authenticatedTeacherId = getAuthenticatedTeacherId();
         if (!course.getAssignedTeacherId().equals(authenticatedTeacherId)) {
@@ -30,8 +32,17 @@ public class TeacherCourseAccessGuard {
             throw new AccessDeniedException("Invalid authentication principal");
         }
 
+        String resolvedId = jwt.getSubject();
+        if (resolvedId == null || resolvedId.isBlank()) {
+            resolvedId = jwt.getClaimAsString(LOCAL_USER_ID_CLAIM);
+        }
+
+        if (resolvedId == null || resolvedId.isBlank()) {
+            throw new AccessDeniedException("Teacher identity is missing in token");
+        }
+
         try {
-            return UUID.fromString(jwt.getSubject());
+            return UUID.fromString(resolvedId);
         } catch (IllegalArgumentException ex) {
             throw new AccessDeniedException("Invalid teacher identity");
         }

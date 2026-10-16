@@ -65,12 +65,14 @@ Start them only when needed:
 docker compose --profile app-db up -d
 ```
 
-On first startup, the app PostgreSQL container creates:
+On first startup, the app PostgreSQL container creates the service databases, including:
 
 ```txt
 mentify
 user_db
 course_db
+calender_db
+notification_db
 ```
 
 Default optional ports:
@@ -152,6 +154,8 @@ Recommended local startup order:
 3. api-gateway
 4. user-service
 5. course-service
+6. calender-service
+7. notification-service
 ```
 
 If using IntelliJ IDEA, run each Spring Boot application from its main class:
@@ -162,6 +166,8 @@ cloud/config-server/src/main/java/com/mentify/configserver/ConfigServerApplicati
 cloud/api-gateway/src/main/java/com/mentify/gateway/ApiGatewayApplication.java
 services/user-service/src/main/java/com/mentify/UserServiceApplication.java
 services/course-service/src/main/java/com/mentify/CourseServiceApplication.java
+services/calender-service/src/main/java/com/mentify/calendar/CalendarServiceApplication.java
+services/notification-service/src/main/java/com/mentify/notification/NotificationServiceApplication.java
 ```
 
 ## 7. Authentication Setup
@@ -179,6 +185,39 @@ Protected services use this issuer URI by default:
 ```txt
 http://localhost:8180/realms/mentify
 ```
+
+Calendar Service uses the same Keycloak JWT resource-server configuration. It does not provide
+separate login or password-management endpoints. The default local configuration is loaded from
+Config Server using the `calender-service` application name; `application.yml` retains only safe
+bootstrap defaults and the optional Config Server import.
+
+Calendar Service runs on port `8092` and uses `calender_db`. Start the app database profile before
+starting it:
+
+```bash
+docker compose --profile app-db up -d
+sh cloud/config-server/mvnw -f pom.xml -pl services/calender-service spring-boot:run
+```
+
+Notification Service uses `notification_db`, Kafka, and SMTP. Start the `app-db` and
+`notifications` compose profiles to provide PostgreSQL, the Kafka broker, and Mailpit for local
+testing. Then follow [Notification Service setup](./NOTIFICATION_SERVICE.md).
+
+Verify foundation health and readiness:
+
+```bash
+curl http://localhost:8092/actuator/health
+curl http://localhost:8092/actuator/health/readiness
+```
+
+Readiness includes the database health indicator and must not report `UP` when the Calendar
+database is unavailable. Only `health` and `info` actuator endpoints are exposed; environment,
+beans, mappings, and configuration properties are not exposed.
+
+For staging smoke testing, confirm startup logs contain the configured service identity,
+successful Flyway initialization, and Eureka registration; then verify `/actuator/health`,
+`/actuator/health/readiness`, an unauthenticated protected request returns `401`, and a valid
+JWT with an insufficient role returns `403`. Do not include tokens or credentials in evidence.
 
 ## 8. Run Tests
 

@@ -3,13 +3,18 @@ package com.mentify.controller;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.StudentEntrollmentCreateRequest;
+import com.mentify.dto.UnenrolledStudentResponse;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.EntrollmentService;
+import com.mentify.security.CurrentUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/enrollments")
@@ -25,9 +31,18 @@ import java.util.UUID;
 public class EntrollmentController {
 
     private final EntrollmentService entrollmentService;
+    private final CurrentUserService currentUserService;
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<EntrollmentResponse>>> getActiveEntrollments() {
+        ApiResponse<List<EntrollmentResponse>> response = entrollmentService.getActiveEntrollments();
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ENROLLMENT_CREATED", title = "Enrollment created", message = "A course enrollment was created successfully.")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> createEntrollment(
             @Valid @RequestBody EntrollmentCreateRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -37,8 +52,21 @@ public class EntrollmentController {
         return new ResponseEntity<>(response, response.getStatus());
     }
 
+    @PostMapping("/me")
+    @PreAuthorize("hasRole('STUDENT')")
+    @NotifyOnSuccess(type = "ENROLLMENT_CREATED", title = "Enrollment successful", message = "You were enrolled in the course successfully.")
+    public ResponseEntity<ApiResponse<EntrollmentResponse>> createCurrentStudentEntrollment(
+            @Valid @RequestBody StudentEntrollmentCreateRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<EntrollmentResponse> response =
+                entrollmentService.createCurrentStudentEntrollment(request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @PutMapping("/{enrollmentId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ENROLLMENT_UPDATED", title = "Enrollment updated", message = "The course enrollment was updated successfully.")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> updateEntrollment(
             @PathVariable UUID enrollmentId,
             @Valid @RequestBody EntrollmentUpdateRequest request,
@@ -48,5 +76,39 @@ public class EntrollmentController {
                 entrollmentService.updateEntrollment(enrollmentId, request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
-}
 
+    @GetMapping("/students/{studentId}/courses/{courseId}/exists")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Boolean> isStudentEnrolledInCourse(
+            @PathVariable UUID studentId,
+            @PathVariable UUID courseId
+    ) {
+        return ResponseEntity.ok(entrollmentService.isStudentEnrolledInCourse(studentId, courseId));
+    }
+
+    @GetMapping("/students/{studentId}/courses")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<UUID>>> getActiveCourseIdsForStudent(@PathVariable UUID studentId) {
+        if (!studentId.equals(currentUserService.getCurrentUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Students may only query their own courses");
+        }
+        ApiResponse<List<UUID>> response = entrollmentService.getActiveCourseIdsForStudent(studentId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/courses/{courseId}/students")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UUID>>> getEnrolledStudentIdsByCourse(@PathVariable UUID courseId) {
+        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/students/unenrolled")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UnenrolledStudentResponse>>> getUnenrolledStudents(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<UnenrolledStudentResponse>> response = entrollmentService.getUnenrolledStudents(authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+}

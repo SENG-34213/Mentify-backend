@@ -1,0 +1,86 @@
+server:
+  port: ${ASSIGNMENT_SERVICE_PORT:8084}
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: ${FEIGN_CONNECT_TIMEOUT:5000}
+            readTimeout: ${FEIGN_READ_TIMEOUT:10000}
+          ai-service:
+            connectTimeout: ${AI_SERVICE_FEIGN_CONNECT_TIMEOUT:5000}
+            readTimeout: ${AI_SERVICE_FEIGN_READ_TIMEOUT:120000}
+
+  datasource:
+    url: jdbc:postgresql://${ASSIGNMENT_DB_HOST:localhost}:${ASSIGNMENT_DB_PORT:5434}/${ASSIGNMENT_DB_NAME:assignment_db}
+    username: ${ASSIGNMENT_DB_USERNAME:postgres}
+    password: ${ASSIGNMENT_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:10000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+  clients:
+    calendar-service:
+      url: ${CALENDAR_SERVICE_URL:}
+      internal-service-token: ${CALENDAR_INTERNAL_SERVICE_TOKEN:}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: ${FEIGN_CONNECT_TIMEOUT:5000}
+        read-timeout: ${FEIGN_READ_TIMEOUT:10000}
+      ai-service:
+        connect-timeout: ${AI_SERVICE_FEIGN_CONNECT_TIMEOUT:5000}
+        read-timeout: ${AI_SERVICE_FEIGN_READ_TIMEOUT:120000}
+
+logging:
+  level:
+    root: INFO
+    com.mentify: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

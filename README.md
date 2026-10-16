@@ -99,25 +99,27 @@ Behavior:
 
 ### Empty and Not-Found Handling
 
-- Single retrieval with unknown `{id}` returns a consistent not-found response:
-  - HTTP `404`
-  - `success: false`
-  - message indicating entity not found
-- List retrieval with no matches returns:
-  - HTTP `200`
-  - `success: true`
-  - empty `items` with valid pagination metadata
-
-### Implementation Notes
-
-- Keep retrieval logic isolated in repository and service layers.
-- Reuse shared DTO and exception conventions.
-- Do not expose environment credentials or internal secrets in any response payload.
-  "message": "Created successfully",
-  "data": {
-    "id": "..."
-  }
-}
+```txt
+docs/PROJECT_SETUP.md   Full local project setup
+docs/KEYCLOAK_SETUP.md  Keycloak realm, clients, roles, and token testing
+docs/AUTHENTICATION_SESSION_FLOW.md  Login, refresh, logout, and forgot password flows
+docs/NOTIFICATION_SERVICE.md  Kafka event notifications, in-app inbox, and SMTP setup
+docs/testing/README.md  Testing standards, coverage commands, and registers
+CHANGELOG.md            Unreleased changes
 ```
 
-Validation and duplicate errors must use the shared global exception handling format.
+## Quick Start
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+Keycloak runs at:
+
+```txt
+http://localhost:8180
+```
+
+For full setup, read [Project Setup](docs/PROJECT_SETUP.md). Notification Service's Kafka and
+SMTP/Mailpit configuration is documented in [Notification Service](docs/NOTIFICATION_SERVICE.md).

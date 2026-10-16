@@ -83,6 +83,17 @@ class AuthTestControllerTest {
     }
 
     @Test
+    void givenSuperAdminRole_whenCallingAdminEndpoint_thenReturnsOk() throws Exception {
+        // Arrange
+        var request = get("/api/v1/auth/admin-test")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
+
+        // Act and Assert
+        mockMvc.perform(request)
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void givenStudentRole_whenCallingAdminEndpoint_thenReturnsForbidden() throws Exception {
         // Arrange
         var request = get("/api/v1/auth/admin-test")

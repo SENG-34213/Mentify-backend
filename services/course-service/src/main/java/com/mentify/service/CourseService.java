@@ -9,11 +9,15 @@ import java.util.Set;
 import java.util.UUID;
 
 public interface CourseService {
-    ApiResponse<CourseResponse> createCourse(CourseRequest request);
+    ApiResponse<CourseResponse> createCourse(CourseRequest request, String authorizationHeader);
 
-    ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request);
+    ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request, String authorizationHeader);
 
     ApiResponse<CourseResponse> getCourseById(UUID courseId);
+
+    ApiResponse<List<CourseResponse>> getAllCourses();
+
+    ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId);
 
     ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids);
 

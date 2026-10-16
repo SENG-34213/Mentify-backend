@@ -17,5 +17,14 @@
         <module>course-service</module>
         <module>user-service</module>
         <module>entrollment-service</module>
+        <module>assignment-service</module>
+        <module>communication-service</module>
+        <module>attendance-service</module>
+        <module>ai-service</module>
+        <module>exam-service</module>
+        <module>payment-service</module>
+        <module>material-service</module>
+        <module>calender-service</module>
+        <module>notification-service</module>
     </modules>
 </project>

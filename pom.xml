@@ -23,7 +23,7 @@
         <spring.boot.version>3.2.5</spring.boot.version>
         <spring.cloud.version>2023.0.1</spring.cloud.version>
         <lombok.version>1.18.38</lombok.version>
-        <jacoco.version>0.8.12</jacoco.version>
+        <jacoco.version>0.8.11</jacoco.version>
     </properties>
 
     <dependencyManagement>

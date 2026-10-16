@@ -85,13 +85,27 @@ user-service: 100.00% lines, 100.00% branches
 api-gateway: 100.00% lines, 100.00% branches
 ```
 
-## Test Registers
+## Testing Documents
 
-Current registers:
+Current documents:
 
 ```txt
 docs/testing/TEST_REGISTER_KEYCLOAK_AUTH.md
 docs/testing/ADMIN_USER_REGISTRATION_FLOW.md
+docs/testing/ASSIGNMENT_POSTMAN_TESTS.md
+docs/testing/QUIZ_POSTMAN_TESTS.md
+docs/testing/COMMUNICATION_POSTMAN_TESTS.md
+docs/testing/ATTENDANCE_POSTMAN_TESTS.md
+docs/testing/CALENDAR_SERVICE_FOUNDATION_TEST_REGISTER.md
+docs/testing/CALENDAR_EVENT_DOMAIN_TEST_REGISTER.md
+docs/testing/CALENDAR_EVENT_MANAGEMENT_API_TEST_REGISTER.md
+docs/testing/CALENDAR_ROLE_BASED_QUERY_TEST_REGISTER.md
+docs/testing/CALENDAR_EXAM_PROJECTION_TEST_REGISTER.md
+docs/testing/ASSIGNMENT_QUIZ_CALENDAR_PROJECTION_TEST_REGISTER.md
+docs/testing/COURSE_CLASS_CALENDAR_PROJECTION_TEST_REGISTER.md
+docs/testing/ATTENDANCE_SESSION_CALENDAR_PROJECTION_TEST_REGISTER.md
+docs/testing/COMMUNICATION_CALENDAR_PROJECTION_TEST_REGISTER.md
+docs/testing/CALENDAR_INTEGRATION_VERIFICATION_TEST_REGISTER.md
 ```
 
 Before formal submission, export the required PDF deliverables if your course process requires them:

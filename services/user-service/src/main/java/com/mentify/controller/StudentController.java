@@ -6,11 +6,11 @@ import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.StudentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 
 //this is a test file
@@ -22,9 +22,18 @@ public class StudentController {
 
     private final StudentService studentService;
 
+
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserResponse>> registerStudent(@Valid @RequestBody StudentRegistrationRequest request) {
         ApiResponse<UserResponse> response = studentService.registerStudent(request);
         return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/all-students")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllStudents(Pageable pageable){
+        ApiResponse<Page<UserResponse>> response = studentService.getAllStudents(pageable);
+
+        return new ResponseEntity<>(response,response.getStatus());
     }
 }

@@ -2,6 +2,7 @@ package com.mentify.controller;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.SuperAdminRegisterAdminRequest;
+import com.mentify.dto.UpdateUserStatusRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
@@ -13,14 +14,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -30,6 +36,32 @@ public class UserRegistration {
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;
     private final UserRepository userRepository;
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<UserRegistrationResponse>> getCurrentUser(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UserRegistrationResponse response = userRegistrationService.getCurrentUser(jwt.getSubject());
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Current user fetched successfully",
+                response
+        ));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<UserRegistrationResponse>>> getUsersByRole(
+            @RequestParam Role role
+    ) {
+        List<UserRegistrationResponse> users = userRegistrationService.getUsersByRole(role);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Users fetched successfully",
+                users
+        ));
+    }
 
     @PostMapping("/register")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -77,9 +109,32 @@ public class UserRegistration {
         );
     }
 
+    @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> updateUserStatus(
+            @PathVariable UUID userId,
+            @Valid @RequestBody UpdateUserStatusRequest request
+    ) {
+        userRegistrationService.updateUserStatus(userId, request.getActive());
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "User status updated successfully",
+                        null
+                )
+        );
+    }
+
     @GetMapping("/teachers/{teacherId}/exists")
-    public ResponseEntity<Boolean> teacherExists(@PathVariable UUID teacherId) {
-        boolean exists = userRepository.existsByIdAndRole(teacherId, Role.TEACHER);
+    public ResponseEntity<Boolean> teacherExists(@PathVariable String teacherId) {
+        boolean exists = userRepository.existsByKeycloakUserIdAndRole(teacherId, Role.TEACHER);
+        return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/students/{studentId}/exists")
+    public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
+        boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
         return ResponseEntity.ok(exists);
     }
 }

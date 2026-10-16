@@ -1,0 +1,86 @@
+server:
+  port: ${CALENDER_SERVICE_PORT:8092}
+
+spring:
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
+    baseline-version: 0
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+  datasource:
+    url: jdbc:postgresql://${CALENDER_DB_HOST:localhost}:${CALENDER_DB_PORT:5434}/${CALENDER_DB_NAME:calender_db}
+    username: ${CALENDER_DB_USERNAME:postgres}
+    password: ${CALENDER_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:10000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
+  jpa:
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+mentify:
+  security:
+    enabled: true
+    principal-claim: preferred_username
+  clients:
+    course-service:
+      url: ${COURSE_SERVICE_URL:}
+    enrollment-service:
+      url: ${ENROLLMENT_SERVICE_URL:}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 5000
+
+calendar:
+  query:
+    max-range-days: ${CALENDAR_QUERY_MAX_RANGE_DAYS:31}
+    default-upcoming-limit: ${CALENDAR_QUERY_DEFAULT_LIMIT:20}
+    max-upcoming-limit: ${CALENDAR_QUERY_MAX_LIMIT:100}
+  integration:
+    internal-service-token: ${CALENDAR_INTERNAL_SERVICE_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    db:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.mentify: INFO

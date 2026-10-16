@@ -22,4 +22,4 @@ eureka:
     fetch-registry: false   # config-server registers so others can discover it, but does not need the registry itself
   instance:
     prefer-ip-address: true
-    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}

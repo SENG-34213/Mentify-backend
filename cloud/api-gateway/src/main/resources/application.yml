@@ -12,7 +12,25 @@ spring:
 eureka:
   instance:
     prefer-ip-address: true
-    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
   client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+mentify:
+  gateway:
+    cors:
+      allowed-origin-patterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+      allowed-methods: ${GATEWAY_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      allowed-headers: ${GATEWAY_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,Origin,X-Requested-With}
+      exposed-headers: ${GATEWAY_CORS_EXPOSED_HEADERS:Location}
+      allow-credentials: ${GATEWAY_CORS_ALLOW_CREDENTIALS:true}
+      max-age-seconds: ${GATEWAY_CORS_MAX_AGE_SECONDS:3600}

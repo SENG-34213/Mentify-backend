@@ -1,5 +1,7 @@
 package com.mentify.service;
 
+import com.mentify.client.MaterialServiceClient;
+import com.mentify.client.dto.MaterialLookupResponse;
 import com.mentify.dto.LearningMaterialCreateRequest;
 import com.mentify.dto.LearningMaterialResponse;
 import com.mentify.entity.Course;
@@ -14,6 +16,7 @@ import com.mentify.repository.LearningMaterialRepository;
 import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.impl.LearningMaterialServiceImpl;
+import com.mentify.service.impl.CourseContentAccessGuard;
 import com.mentify.service.impl.TeacherCourseAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,6 +40,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class LearningMaterialServiceImplTest {
 
+    private static final String AUTH_HEADER = "Bearer token";
+
     @Mock
     private ModuleRepository moduleRepository;
 
@@ -48,6 +54,12 @@ class LearningMaterialServiceImplTest {
     @Mock
     private TeacherCourseAccessGuard teacherCourseAccessGuard;
 
+    @Mock
+    private CourseContentAccessGuard courseContentAccessGuard;
+
+    @Mock
+    private MaterialServiceClient materialServiceClient;
+
     private LearningMaterialServiceImpl learningMaterialService;
 
     @BeforeEach
@@ -56,7 +68,9 @@ class LearningMaterialServiceImplTest {
                 moduleRepository,
                 lessonRepository,
                 learningMaterialRepository,
-                teacherCourseAccessGuard
+                teacherCourseAccessGuard,
+                courseContentAccessGuard,
+                materialServiceClient
         );
     }
 
@@ -91,6 +105,8 @@ class LearningMaterialServiceImplTest {
                         .fileUrl("  https://cdn.example.com/video.mp4  ")
                         .lessonId(lessonId)
                         .build()
+                ,
+                AUTH_HEADER
         );
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
@@ -99,6 +115,63 @@ class LearningMaterialServiceImplTest {
         assertThat(response.getData().getLessonId()).isEqualTo(lessonId);
 
         verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());
+    }
+
+    @Test
+    void createLearningMaterial_whenValidMaterialId_persistsMaterialReference() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(materialServiceClient.getMaterial(materialId, AUTH_HEADER))
+                .thenReturn(ApiResponse.success(HttpStatus.OK.value(), "ok",
+                        new MaterialLookupResponse(materialId, "Intro PDF", "PDF", courseId)));
+        when(learningMaterialRepository.save(any(LearningMaterial.class))).thenAnswer(invocation -> {
+            LearningMaterial material = invocation.getArgument(0);
+            material.setId(UUID.randomUUID());
+            return material;
+        });
+
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.createLearningMaterial(
+                courseId,
+                moduleId,
+                LearningMaterialCreateRequest.builder()
+                        .title("Intro PDF")
+                        .materialId(materialId)
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getData().getMaterialId()).isEqualTo(materialId);
+        assertThat(response.getData().getFileUrl()).isNull();
+        assertThat(response.getData().getType()).isEqualTo(MaterialType.PDF);
+    }
+
+    @Test
+    void createLearningMaterial_whenMaterialBelongsToDifferentCourse_throwsAccessDenied() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(materialServiceClient.getMaterial(materialId, AUTH_HEADER))
+                .thenReturn(ApiResponse.success(HttpStatus.OK.value(), "ok",
+                        new MaterialLookupResponse(materialId, "Intro PDF", "PDF", UUID.randomUUID())));
+
+        assertThatThrownBy(() -> learningMaterialService.createLearningMaterial(
+                courseId,
+                moduleId,
+                LearningMaterialCreateRequest.builder()
+                        .title("Intro PDF")
+                        .materialId(materialId)
+                        .build(),
+                AUTH_HEADER
+        )).isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Material does not belong to the target course");
     }
 
     @Test
@@ -120,6 +193,8 @@ class LearningMaterialServiceImplTest {
                         .fileUrl("https://cdn.example.com/video.mp4")
                         .lessonId(lessonId)
                         .build()
+                ,
+                AUTH_HEADER
         ))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Lesson not found with id: '" + lessonId + "'");
@@ -163,6 +238,8 @@ class LearningMaterialServiceImplTest {
                         .fileUrl("  https://cdn.example.com/new.pdf  ")
                         .lessonId(lessonId)
                         .build()
+                ,
+                AUTH_HEADER
         );
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
@@ -194,6 +271,8 @@ class LearningMaterialServiceImplTest {
                         .type(MaterialType.VIDEO)
                         .fileUrl("https://cdn.example.com/video.mp4")
                         .build()
+                ,
+                AUTH_HEADER
         ))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("LearningMaterial not found with id: '" + materialId + "'");
@@ -258,11 +337,13 @@ class LearningMaterialServiceImplTest {
                 when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
                 when(learningMaterialRepository.findByIdAndModule_Id(materialId, moduleId)).thenReturn(Optional.of(material));
 
-                ApiResponse<LearningMaterialResponse> response = learningMaterialService.getLearningMaterial(courseId, moduleId, materialId);
+                ApiResponse<LearningMaterialResponse> response =
+                                learningMaterialService.getLearningMaterial(courseId, moduleId, materialId, AUTH_HEADER);
 
                 assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
                 assertThat(response.getMessage()).isEqualTo("Learning material fetched successfully");
                 assertThat(response.getData().getId()).isEqualTo(materialId);
+                verify(courseContentAccessGuard).assertCanReadCourseContent(module.getCourse(), AUTH_HEADER);
         }
 
         @Test
@@ -282,11 +363,13 @@ class LearningMaterialServiceImplTest {
                 when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
                 when(learningMaterialRepository.findAllByModule_Id(moduleId)).thenReturn(List.of(material));
 
-                ApiResponse<List<LearningMaterialResponse>> response = learningMaterialService.getLearningMaterials(courseId, moduleId);
+                ApiResponse<List<LearningMaterialResponse>> response =
+                                learningMaterialService.getLearningMaterials(courseId, moduleId, AUTH_HEADER);
 
                 assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
                 assertThat(response.getMessage()).isEqualTo("Learning materials fetched successfully");
                 assertThat(response.getData()).hasSize(1);
+                verify(courseContentAccessGuard).assertCanReadCourseContent(module.getCourse(), AUTH_HEADER);
         }
 
     private Module baseModule(UUID courseId, UUID moduleId) {

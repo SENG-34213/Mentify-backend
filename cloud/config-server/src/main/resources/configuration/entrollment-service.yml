@@ -13,6 +13,11 @@ spring:
     username: ${ENTROLLMENT_DB_USERNAME:postgres}
     password: ${ENTROLLMENT_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:10000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -33,6 +38,22 @@ mentify:
     enabled: true
     principal-claim: preferred_username
 
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
 feign:
   client:
     config:
@@ -46,4 +67,3 @@ logging:
     com.mentify: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-

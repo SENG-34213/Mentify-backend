@@ -36,9 +36,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 @WebMvcTest(
-        controllers = UserRegistration.class,
+        controllers = {UserRegistration.class, AdminUserController.class},
         properties = {
                 "spring.cloud.config.enabled=false",
                 "mentify.security.enabled=true"
@@ -134,6 +135,22 @@ class AdminUserControllerTest {
     }
 
     @Test
+    void registerUser_whenAdminNamespaceAndAdminRole_returnsCreated() throws Exception {
+        UserRegistrationResponse response = registrationResponse(Role.STUDENT);
+        when(userRegistrationService.registerUser(any(AdminRegisterUserRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/admin/users/register")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("User registered successfully. Password setup email will be sent."))
+                .andExpect(jsonPath("$.data.role").value("STUDENT"));
+
+        verify(userRegistrationService).registerUser(any(AdminRegisterUserRequest.class));
+    }
+
+    @Test
     void resendInvitation_whenUnauthenticated_returnsUnauthorized() throws Exception {
         UUID userId = UUID.randomUUID();
 
@@ -181,6 +198,67 @@ class AdminUserControllerTest {
     }
 
     @Test
+    void updateUserStatus_whenUnauthenticated_returnsUnauthorized() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userRegistrationService);
+    }
+
+    @Test
+    void updateUserStatus_whenStudentRole_returnsForbidden() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("ROLE_STUDENT")
+                        ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(userRegistrationService);
+    }
+
+    @Test
+    void updateUserStatus_whenAdminRole_returnsOk() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("ROLE_ADMIN")
+                        ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("User status updated successfully"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(userRegistrationService).updateUserStatus(userId, false);
+    }
+
+    @Test
+    void updateUserStatus_whenSuperAdminRole_returnsOk() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/status", userId)
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")
+                        ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User status updated successfully"));
+
+        verify(userRegistrationService).updateUserStatus(userId, false);
+    }
+
+    @Test
     void registerAdmin_whenUnauthenticated_returnsUnauthorized() throws Exception {
         mockMvc.perform(post("/api/v1/users/admins/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -212,6 +290,22 @@ class AdminUserControllerTest {
                         .content(objectMapper.writeValueAsString(validAdminRequest())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.statusCode").value(201))
+                .andExpect(jsonPath("$.message").value("Admin registered successfully. Password setup email will be sent."))
+                .andExpect(jsonPath("$.data.role").value("ADMIN"));
+
+        verify(adminRegistrationService).registerAdmin(any(SuperAdminRegisterAdminRequest.class));
+    }
+
+    @Test
+    void registerAdmin_whenAdminNamespaceAndSuperAdminRole_returnsCreated() throws Exception {
+        UserRegistrationResponse response = registrationResponse(Role.ADMIN);
+        when(adminRegistrationService.registerAdmin(any(SuperAdminRegisterAdminRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/admin/users/admins/register")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validAdminRequest())))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message").value("Admin registered successfully. Password setup email will be sent."))
                 .andExpect(jsonPath("$.data.role").value("ADMIN"));
 

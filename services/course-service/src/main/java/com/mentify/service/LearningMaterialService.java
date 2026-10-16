@@ -12,19 +12,30 @@ public interface LearningMaterialService {
     ApiResponse<LearningMaterialResponse> createLearningMaterial(
             UUID courseId,
             UUID moduleId,
-            LearningMaterialCreateRequest request
+            LearningMaterialCreateRequest request,
+            String authorizationHeader
     );
 
     ApiResponse<LearningMaterialResponse> updateLearningMaterial(
             UUID courseId,
             UUID moduleId,
             UUID materialId,
-            LearningMaterialCreateRequest request
+            LearningMaterialCreateRequest request,
+            String authorizationHeader
     );
 
-        ApiResponse<LearningMaterialResponse> getLearningMaterial(UUID courseId, UUID moduleId, UUID materialId);
+    ApiResponse<LearningMaterialResponse> getLearningMaterial(
+            UUID courseId,
+            UUID moduleId,
+            UUID materialId,
+            String authorizationHeader
+    );
 
-        ApiResponse<List<LearningMaterialResponse>> getLearningMaterials(UUID courseId, UUID moduleId);
+    ApiResponse<List<LearningMaterialResponse>> getLearningMaterials(
+            UUID courseId,
+            UUID moduleId,
+            String authorizationHeader
+    );
 
     ApiResponse<Object> deleteLearningMaterial(UUID courseId, UUID moduleId, UUID materialId);
 }
