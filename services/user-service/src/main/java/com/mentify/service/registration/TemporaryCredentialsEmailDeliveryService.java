@@ -46,9 +46,11 @@ public class TemporaryCredentialsEmailDeliveryService {
             MimeBodyPart htmlPart = new MimeBodyPart();
             htmlPart.setContent(htmlText(email, firstName, temporaryPassword),
                     "text/html; charset=" + StandardCharsets.UTF_8.name());
+            htmlPart.setHeader("Content-Type", "text/html; charset=" + StandardCharsets.UTF_8.name());
             alternative.addBodyPart(htmlPart);
 
             message.setContent(alternative);
+            message.saveChanges();
             int attempts = Math.max(1, retryAttempts);
             for (int attempt = 1; ; attempt++) {
                 try {
