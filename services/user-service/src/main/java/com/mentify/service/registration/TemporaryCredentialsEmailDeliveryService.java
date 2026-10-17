@@ -1,7 +1,9 @@
 package com.mentify.service.registration;
 
 import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
@@ -31,11 +33,22 @@ public class TemporaryCredentialsEmailDeliveryService {
     public void send(String email, String firstName, String temporaryPassword) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
             helper.setFrom(fromAddress);
             helper.setTo(email);
             helper.setSubject("Your temporary Mentify sign-in password");
-            helper.setText(plainText(email, firstName, temporaryPassword), htmlText(email, firstName, temporaryPassword));
+            MimeMultipart alternative = new MimeMultipart("alternative");
+
+            MimeBodyPart plainTextPart = new MimeBodyPart();
+            plainTextPart.setText(plainText(email, firstName, temporaryPassword), StandardCharsets.UTF_8.name());
+            alternative.addBodyPart(plainTextPart);
+
+            MimeBodyPart htmlPart = new MimeBodyPart();
+            htmlPart.setContent(htmlText(email, firstName, temporaryPassword),
+                    "text/html; charset=" + StandardCharsets.UTF_8.name());
+            alternative.addBodyPart(htmlPart);
+
+            message.setContent(alternative);
             int attempts = Math.max(1, retryAttempts);
             for (int attempt = 1; ; attempt++) {
                 try {

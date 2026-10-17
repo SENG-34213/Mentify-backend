@@ -1,6 +1,6 @@
 package com.mentify.service.registration;
 
-import jakarta.mail.BodyPart;
+import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -37,7 +37,7 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         verify(mailSender).send(mimeMessage);
         assertThat(mimeMessage.getSubject()).isEqualTo("Your temporary Mentify sign-in password");
         assertThat(mimeMessage.getAllRecipients()).isNotEmpty();
-        assertThat(mimeMessage.getContent()).isInstanceOf(jakarta.mail.Multipart.class);
+        assertThat(mimeMessage.getContent()).isInstanceOf(Multipart.class);
         List<String> leafMimeTypes = new ArrayList<>();
         collectLeafMimeTypes(mimeMessage, leafMimeTypes);
         assertThat(leafMimeTypes).contains("text/plain", "text/html");
@@ -95,14 +95,14 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
 
     private void collectLeafMimeTypes(Part part, List<String> mimeTypes) throws Exception {
         Object content = part.getContent();
-        if (content instanceof jakarta.mail.Multipart multipart) {
+        if (content instanceof Multipart multipart) {
             for (int index = 0; index < multipart.getCount(); index++) {
-                BodyPart bodyPart = multipart.getBodyPart(index);
-                collectLeafMimeTypes(bodyPart, mimeTypes);
+                collectLeafMimeTypes(multipart.getBodyPart(index), mimeTypes);
             }
             return;
         }
 
         mimeTypes.add(part.getContentType().split(";", 2)[0].trim().toLowerCase(Locale.ROOT));
     }
+
 }
