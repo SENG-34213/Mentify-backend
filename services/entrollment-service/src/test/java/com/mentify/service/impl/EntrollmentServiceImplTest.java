@@ -459,12 +459,12 @@ class EntrollmentServiceImplTest {
         return successCourseLookupResponse(courseIds, null);
     }
 
-    private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds, String courseFeeMonthly) {
+    private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds, String gradeMonthlyFee) {
         List<CourseLookupResponse> responses = courseIds.stream().map(id -> {
             CourseLookupResponse response = new CourseLookupResponse();
             response.setId(id);
-            if (courseFeeMonthly != null) {
-                response.setCourseFeeMonthly(new BigDecimal(courseFeeMonthly));
+            if (gradeMonthlyFee != null) {
+                response.setGradeMonthlyFee(new BigDecimal(gradeMonthlyFee));
             }
             return response;
         }).toList();
@@ -477,10 +477,10 @@ class EntrollmentServiceImplTest {
                 .build();
     }
 
-    private ApiResponse<CourseLookupResponse> successCourseLookupResponse(UUID courseId, String courseFeeMonthly) {
+    private ApiResponse<CourseLookupResponse> successCourseLookupResponse(UUID courseId, String gradeMonthlyFee) {
         CourseLookupResponse response = new CourseLookupResponse();
         response.setId(courseId);
-        response.setCourseFeeMonthly(new BigDecimal(courseFeeMonthly));
+        response.setGradeMonthlyFee(new BigDecimal(gradeMonthlyFee));
 
         return ApiResponse.<CourseLookupResponse>builder()
                 .statusCode(HttpStatus.OK.value())
