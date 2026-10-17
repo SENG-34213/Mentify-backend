@@ -2,6 +2,7 @@ package com.mentify.service;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.StudentLookupResponse;
 import com.mentify.entity.User;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Collection;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -70,6 +72,16 @@ public class UserRegistrationService {
         return userRepository.findAllByRoleOrderByCreatedAtDesc(role).stream()
                 .map(UserRegistrationResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentLookupResponse> getStudentsByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllByIdInAndRole(ids, Role.STUDENT).stream()
+                .map(StudentLookupResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
