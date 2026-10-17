@@ -35,7 +35,17 @@ class TeacherCourseAccessGuardTest {
     @Test
     void assertTeacherOwnsCourse_whenSubjectMatches_allowsAccess() {
         UUID teacherId = UUID.randomUUID();
-        setJwtAuthentication(teacherId.toString(), UUID.randomUUID().toString());
+        setJwtAuthentication(teacherId.toString(), null);
+
+        Course course = Course.builder().assignedTeacherId(teacherId).build();
+
+        assertThatCode(() -> guard.assertTeacherOwnsCourse(course)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void assertTeacherOwnsCourse_prefersLocalUserIdClaimOverKeycloakSubject() {
+        UUID teacherId = UUID.randomUUID();
+        setJwtAuthentication(UUID.randomUUID().toString(), teacherId.toString());
 
         Course course = Course.builder().assignedTeacherId(teacherId).build();
 

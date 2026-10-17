@@ -11,6 +11,7 @@ import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
 import com.mentify.repository.GradeRepository;
 import com.mentify.service.impl.CourseServiceImpl;
+import com.mentify.service.impl.TeacherCourseAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,11 +48,14 @@ class CourseServiceImplTest {
     @Mock
     private UserServiceClient userServiceClient;
 
+    @Mock
+    private TeacherCourseAccessGuard teacherCourseAccessGuard;
+
     private CourseServiceImpl courseService;
 
     @BeforeEach
     void setUp() {
-        courseService = new CourseServiceImpl(courseRepository, gradeRepository, userServiceClient);
+        courseService = new CourseServiceImpl(courseRepository, gradeRepository, userServiceClient, teacherCourseAccessGuard);
     }
 
     @Test
