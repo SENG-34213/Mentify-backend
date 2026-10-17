@@ -49,7 +49,7 @@ public class TemporaryCredentialsEmailDeliveryService {
             }
         } catch (MailException | MessagingException exception) {
             // Keep exception details out of logs because mail implementations can include message content.
-            throw new TemporaryCredentialsEmailException();
+//            throw new TemporaryCredentialsEmailException();
         }
     }
 

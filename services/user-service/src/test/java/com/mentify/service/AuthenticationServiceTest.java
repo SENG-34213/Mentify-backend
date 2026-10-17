@@ -96,6 +96,35 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void login_whenTeacherAuthenticates_returnsTeacherRoleForClientRouting() {
+        LoginRequest request = loginRequest();
+        KeycloakAuthenticationResult keycloakSession = keycloakSession(
+                "keycloak-teacher-id", "student@gmail.com", Set.of("TEACHER"));
+        User user = activeUser(Role.TEACHER, AccountStatus.ACTIVE);
+        when(keycloakAuthenticationClient.authenticate(request)).thenReturn(keycloakSession);
+        when(userRepository.findByKeycloakUserId("keycloak-teacher-id")).thenReturn(Optional.of(user));
+
+        LoginResponse response = authenticationService.login(request);
+
+        assertThat(response.getUser().getRole()).isEqualTo(Role.TEACHER);
+    }
+
+    @Test
+    void login_whenAdminAuthenticates_returnsAdminRoleForClientRouting() {
+        LoginRequest request = loginRequest();
+        KeycloakAuthenticationResult keycloakSession = keycloakSession(
+                "keycloak-admin-id", "admin@gmail.com", Set.of("ADMIN"));
+        User user = activeUser(Role.ADMIN, AccountStatus.ACTIVE);
+        user.setAdminProfile(new AdminProfile());
+        when(keycloakAuthenticationClient.authenticate(request)).thenReturn(keycloakSession);
+        when(userRepository.findByKeycloakUserId("keycloak-admin-id")).thenReturn(Optional.of(user));
+
+        LoginResponse response = authenticationService.login(request);
+
+        assertThat(response.getUser().getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
     void login_whenKeycloakRequiresFirstLoginAction_returnsSetupRequiredWithoutIssuingSession() {
         LoginRequest request = loginRequest();
         when(keycloakAuthenticationClient.authenticate(request)).thenThrow(new FirstLoginRequiredException());

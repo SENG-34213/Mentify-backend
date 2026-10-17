@@ -108,6 +108,47 @@ class DefaultKeycloakAuthenticationClientTest {
     }
 
     @Test
+    void authenticate_afterRequiredActionCompletes_acceptsNewPermanentPassword() throws Exception {
+        server.expect(requestTo(TOKEN_ENDPOINT))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"invalid_grant\",\"error_description\":\"Account is not fully set up\"}"));
+        server.expect(requestTo(TOKEN_ENDPOINT))
+                .andExpect(content().string(containsString("password=Permanent%40Password123")))
+                .andRespond(withSuccess(tokenResponseJson(), MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.authenticate(LoginRequest.builder()
+                .identifier("student@gmail.com")
+                .password("Temporary@123")
+                .build()))
+                .isInstanceOf(FirstLoginRequiredException.class);
+
+        KeycloakAuthenticationResult result = client.authenticate(LoginRequest.builder()
+                .identifier("student@gmail.com")
+                .password("Permanent@Password123")
+                .build());
+
+        assertThat(result.getAccessToken()).isNotBlank();
+        assertThat(result.getRealmRoles()).containsExactly("STUDENT");
+        server.verify();
+    }
+
+    @Test
+    void authenticate_whenTemporaryCredentialIsInvalid_returnsGenericFailureWithoutActionDetails() {
+        server.expect(requestTo(TOKEN_ENDPOINT))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"invalid_grant\",\"error_description\":\"Invalid user credentials\"}"));
+
+        assertThatThrownBy(() -> client.authenticate(LoginRequest.builder()
+                .identifier("student@gmail.com")
+                .password("WrongTemporary@123")
+                .build()))
+                .isInstanceOf(AuthenticationFailedException.class)
+                .hasMessage("Invalid email or password");
+    }
+
+    @Test
     void refreshAccessToken_whenRefreshTokenIsValid_usesKeycloakRefreshGrant() throws Exception {
         server.expect(requestTo(TOKEN_ENDPOINT))
                 .andExpect(method(HttpMethod.POST))
