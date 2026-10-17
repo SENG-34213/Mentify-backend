@@ -3,6 +3,13 @@
 **Branch:** `chore/MENT-91-first-login-auth-audit`  
 **Scope:** Read-only review of registration, Keycloak provisioning, login, email, and first-login password setup. No runtime behavior was changed for this audit.
 
+> **Current registration behavior:** The registration implementation has since been changed to match
+> the password-email flow: it sends one user-service welcome email with the initial password, does
+> not send a Keycloak setup/action email, marks the Keycloak email verified, and assigns the initial
+> password as non-temporary so direct login works. Users can request a password change later through
+> the forgot-password flow. The historical findings and recommendations below describe the earlier
+> mandatory first-login setup design and are retained as audit history.
+
 ## Summary
 
 The admin-managed registration flow for students and teachers, the legacy student endpoint, and the super-admin-managed registration flow for admins provision Keycloak users with the required actions `UPDATE_PASSWORD` and `VERIFY_EMAIL`. MENT-92 adds a temporary credential assigned through Keycloak as temporary and delivered by user-service SMTP. Keycloak also sends a branded action email; the user chooses a permanent password and verifies email through the Keycloak action page before using the Mentify login bridge.

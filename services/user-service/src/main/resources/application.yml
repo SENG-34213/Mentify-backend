@@ -53,8 +53,6 @@ keycloak:
   admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
   auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
   auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
-  frontend-client-id: ${KEYCLOAK_FRONTEND_CLIENT_ID:mentify-web-client}
-  first-login-redirect-uri: ${MENTIFY_LOGIN_URL:http://localhost:5173/login}
   include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
   bootstrap-super-admin:
     enabled: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_ENABLED:true}

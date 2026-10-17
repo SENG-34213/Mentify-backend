@@ -32,13 +32,17 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         verify(mailSender).send(mimeMessage);
         assertThat(mimeMessage.getSubject()).isEqualTo("Your temporary Mentify sign-in password");
         assertThat(mimeMessage.getAllRecipients()).isNotEmpty();
+        assertThat(mimeMessage.isMimeType("multipart/mixed")).isTrue();
+        jakarta.mail.Multipart messageParts = (jakarta.mail.Multipart) mimeMessage.getContent();
+        assertThat(messageParts.getBodyPart(0).isMimeType("multipart/alternative")).isTrue();
         String content = contentAsText(mimeMessage.getContent());
         assertThat(content).contains("Secure!Temp123");
         assertThat(content).contains("<!doctype html>");
         assertThat(content).contains("student@example.com");
         assertThat(content).contains("https://app.mentify.example/login");
         assertThat(content).contains("Temporary password:");
-        assertThat(content).contains("Keycloak requires this password update");
+        assertThat(content).contains("Sign in to Mentify with these credentials");
+        assertThat(content).contains("Forgot password on the sign-in page");
     }
 
     @Test

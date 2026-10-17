@@ -57,10 +57,9 @@ public class TemporaryCredentialsEmailDeliveryService {
         return "Hello " + safeName(firstName) + ",\n\n"
                 + "Your Mentify account has been created. Sign in with " + email + " and this temporary password:\n\n"
                 + temporaryPassword + "\n\n"
-                + "First, follow the separate account setup email to verify your email and choose a permanent password. "
-                + "Then sign in at " + loginUrl + ". Keycloak requires this password update. "
-                + "Keep this password private and delete this email "
-                + "after setting your new password.\n";
+                + "Sign in at " + loginUrl + " with these credentials. You can change the password later using "
+                + "Forgot password on the sign-in page. Keep this message private and delete it after changing "
+                + "your password.\n";
     }
 
     private String htmlText(String email, String firstName, String temporaryPassword) {
@@ -76,9 +75,9 @@ public class TemporaryCredentialsEmailDeliveryService {
                     <tr><td style="padding:8px 32px;font-size:14px;line-height:1.6">Sign-in email: <strong>%s</strong></td></tr>
                     <tr><td style="padding:8px 32px 0;font-size:14px;line-height:1.6">Temporary password:</td></tr>
                     <tr><td style="padding:8px 32px 20px"><div style="padding:16px;background:#f7f8fc;border:1px solid #e8eaf2;border-radius:8px;font-family:monospace;font-size:18px;letter-spacing:1px;word-break:break-all">%s</div></td></tr>
-                    <tr><td style="padding:0 32px 16px;font-size:14px;line-height:1.6;color:#4b5565">First, follow the separate account setup email to verify your email and choose a permanent password. Then sign in to Mentify. Keycloak requires this password update.</td></tr>
+                    <tr><td style="padding:0 32px 16px;font-size:14px;line-height:1.6;color:#4b5565">Sign in to Mentify with these credentials. You can change your password later using Forgot password on the sign-in page.</td></tr>
                     <tr><td style="padding:0 32px 24px"><a href="%s" style="display:inline-block;padding:12px 20px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold">Open Mentify</a></td></tr>
-                    <tr><td style="padding:0 32px 28px;font-size:13px;line-height:1.6;color:#6b7280">Keep this password private and delete this email after setting your new password.</td></tr>
+                    <tr><td style="padding:0 32px 28px;font-size:13px;line-height:1.6;color:#6b7280">Keep this password private and delete this email after changing your password.</td></tr>
                   </table>
                 </body></html>
                 """.formatted(HtmlUtils.htmlEscape(safeName(firstName)), HtmlUtils.htmlEscape(email),

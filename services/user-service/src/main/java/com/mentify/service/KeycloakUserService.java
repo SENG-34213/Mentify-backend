@@ -6,11 +6,9 @@ public interface KeycloakUserService {
 
     String createUser(KeycloakUserProvisionRequest request);
 
-    void setTemporaryPassword(String keycloakUserId, String temporaryPassword);
+    void setInitialPassword(String keycloakUserId, String initialPassword);
 
     void assignRealmRole(String keycloakUserId, String roleName);
-
-    void sendPasswordSetupEmail(String keycloakUserId);
 
     void sendPasswordResetEmail(String keycloakUserId);
 

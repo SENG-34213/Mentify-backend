@@ -44,7 +44,7 @@ Backend client: mentify-backend-client
 Realm roles: STUDENT, TEACHER, ADMIN, SUPER_ADMIN
 ```
 
-Keycloak SMTP must be configured because password setup emails are sent by Keycloak.
+User-service SMTP must be configured because registration credentials emails are sent by user-service.
 
 ## Pre-Test Keycloak Setup
 
@@ -76,11 +76,12 @@ Minimum setup for a seed `ADMIN` user, if needed for testing student/teacher reg
 5. Assign realm role ADMIN.
 ```
 
-## Keycloak SMTP Setup
+## SMTP Setup
 
-Password setup emails are sent by Keycloak, not by `user-service`. Configure SMTP before testing registration emails.
+Configure the SMTP provider used by user-service before testing registration emails. SMTP settings
+saved in Keycloak are not automatically shared with user-service.
 
-Keycloak Admin Console path:
+For Keycloak password-reset emails, use the Keycloak Admin Console path:
 
 ```txt
 Realm mentify -> Realm settings -> Email
@@ -107,10 +108,11 @@ After saving SMTP settings:
 ```txt
 1. Click Test connection in Keycloak.
 2. Confirm the test email is received.
-3. Then test user registration from Postman.
+3. For registration, configure the same SMTP host and credentials as user-service in its environment.
+4. Then test user registration from Postman.
 ```
 
-If SMTP is not configured correctly, registration may still create the local/Keycloak user, but the password setup email may fail. In that case, fix SMTP and call the resend invitation endpoint.
+If user-service SMTP is not configured correctly, registration may still create the local/Keycloak user, but the welcome email can fail. In that case, fix SMTP and call the resend invitation endpoint.
 
 ## 1. Login And Get Access Token
 
@@ -323,7 +325,7 @@ TIT-ADM-003
 
 ## 5. Resend Invitation Email
 
-Use this when registration succeeded but the user did not receive the Keycloak password setup email.
+Use this when registration succeeded but the user did not receive the welcome email with login credentials.
 
 Allowed roles:
 
@@ -364,7 +366,7 @@ Example response:
 ```json
 {
   "statusCode": 201,
-  "message": "User registered successfully. Password setup email will be sent.",
+  "message": "User registered successfully. Sign-in credentials will be sent by email.",
   "data": {
     "id": "local-user-id",
     "keycloakUserId": "keycloak-user-id",
@@ -477,7 +479,9 @@ After registration, confirm in Keycloak admin console:
 ```txt
 User exists in realm mentify
 Email matches request email
-Required actions include UPDATE_PASSWORD and VERIFY_EMAIL
+No UPDATE_PASSWORD or VERIFY_EMAIL required actions are set for the new user
+The emailVerified flag is enabled so password-grant login works immediately
+The initial credential is not temporary in Keycloak, so login does not trigger a required action
 Assigned realm role matches local role
 ```
 
@@ -526,13 +530,13 @@ realm-management manage-realm
 realm-management view-realm
 ```
 
-### Password setup email fails
+### Welcome credentials email fails
 
-Check Keycloak SMTP realm settings:
+Check user-service SMTP settings:
 
 ```txt
-SMTP host/port/user/password configured
-From email is configured
+SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD configured
+SMTP_FROM is configured
 Test connection succeeds
 User email is valid
 ```

@@ -1,6 +1,5 @@
 package com.mentify.service.registration;
 
-import com.mentify.service.KeycloakUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -10,9 +9,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PasswordSetupEmailDispatcher {
+public class RegistrationEmailDispatcher {
 
-    private final KeycloakUserService keycloakUserService;
     private final TemporaryCredentialsEmailDeliveryService temporaryCredentialsEmailDeliveryService;
 
     public void sendAfterCommit(String keycloakUserId, String email, String firstName, String temporaryPassword) {
@@ -30,21 +28,11 @@ public class PasswordSetupEmailDispatcher {
     }
 
     private void sendSafely(String keycloakUserId, String email, String firstName, String temporaryPassword) {
-        boolean deliveryFailed = false;
-        try {
-            keycloakUserService.sendPasswordSetupEmail(keycloakUserId);
-        } catch (Exception exception) {
-            deliveryFailed = true;
-            log.error("Failed to send Keycloak password setup email for user {}", keycloakUserId);
-        }
         try {
             temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword);
         } catch (Exception exception) {
             // Never log the temporary credential or a mail exception that might contain message content.
-            log.error("Failed to deliver temporary sign-in credentials for Keycloak user {}", keycloakUserId);
-            deliveryFailed = true;
-        }
-        if (deliveryFailed) {
+            log.error("Failed to deliver sign-in credentials for Keycloak user {}", keycloakUserId);
             throw new RegistrationEmailDeliveryException();
         }
     }
