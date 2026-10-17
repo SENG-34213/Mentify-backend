@@ -39,7 +39,7 @@ public class CourseContentController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_MODULE_CREATED", title = "Course module created", message = "A course module was created successfully.")
+//    @NotifyOnSuccess(type = "COURSE_MODULE_CREATED", title = "Course module created", message = "A course module was created successfully.")
     public ResponseEntity<ApiResponse<ModuleResponse>> createModule(
             @PathVariable UUID courseId,
             @Valid @RequestBody ModuleCreateRequest request
@@ -88,7 +88,7 @@ public class CourseContentController {
 
     @PostMapping("/{moduleId}/lessons")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_LESSON_CREATED", title = "Lesson created", message = "A course lesson was created successfully.")
+//    @NotifyOnSuccess(type = "COURSE_LESSON_CREATED", title = "Lesson created", message = "A course lesson was created successfully.")
     public ResponseEntity<ApiResponse<LessonResponse>> createLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -144,7 +144,7 @@ public class CourseContentController {
 
     @PostMapping("/{moduleId}/learning-materials")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_MATERIAL_CREATED", title = "Course material added", message = "Learning material was added to the course successfully.")
+//    @NotifyOnSuccess(type = "COURSE_MATERIAL_CREATED", title = "Course material added", message = "Learning material was added to the course successfully.")
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> createLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,

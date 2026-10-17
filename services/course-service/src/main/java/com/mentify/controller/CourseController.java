@@ -3,7 +3,6 @@ package com.mentify.controller;
 import com.mentify.dto.CourseBulkLookupRequest;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.CourseService;
 import com.mentify.service.impl.TeacherCourseAccessGuard;
@@ -35,7 +34,6 @@ public class CourseController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_CREATED", title = "Course created", message = "Your course was created successfully.")
     public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
             @Valid @RequestBody CourseRequest request,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -46,7 +44,6 @@ public class CourseController {
 
     @PutMapping("/{courseId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_UPDATED", title = "Course updated", message = "Your course was updated successfully.")
     public ResponseEntity<ApiResponse<CourseResponse>> updateCourse(
             @PathVariable UUID courseId,
             @Valid @RequestBody CourseRequest request,
