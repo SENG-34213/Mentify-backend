@@ -51,8 +51,6 @@ public class CourseServiceImpl implements CourseService {
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
-        course.setCourseFeeMonthly(null);
-        course.setDiscountOfferPercent(null);
         if (course.isPublished()) {
             course.setPublishedDate(LocalDate.now());
         } else {
@@ -96,14 +94,11 @@ public class CourseServiceImpl implements CourseService {
         existingCourse.setCourseName(request.getCourseName().trim());
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
         existingCourse.setCourseThumbnail(request.getCourseThumbnail());
-        existingCourse.setCourseFeeMonthly(null);
         existingCourse.setGradeId(request.getGradeId());
         existingCourse.setAssignedTeacherId(request.getAssignedTeacherId());
-        existingCourse.setCourseEnrollmentId(request.getCourseEnrollmentId());
         existingCourse.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
-        existingCourse.setDiscountOfferPercent(null);
         existingCourse.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
 
         boolean isPublished = request.getIsPublished() != null ? request.getIsPublished() : false;

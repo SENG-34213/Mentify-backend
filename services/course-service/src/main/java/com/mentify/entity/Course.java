@@ -4,7 +4,6 @@ import com.mentify.enums.CourseStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,21 +33,12 @@ public class Course extends BaseEntity {
     private CourseStatus status = CourseStatus.DRAFT;
 
 
-    @Deprecated
-    @Column(precision = 10, scale = 2)
-    private BigDecimal courseFeeMonthly;
-
     @Column(length = 150)
     private String subject;
 
     @Column(nullable = false)
     @Builder.Default
     private boolean isOnline = true;
-
-    @Deprecated
-    @Column(precision = 5, scale = 2)
-    @Builder.Default
-    private BigDecimal discountOfferPercent = new BigDecimal("20.00");
 
     @Column(nullable = false)
     @Builder.Default
@@ -64,9 +54,6 @@ public class Course extends BaseEntity {
     /**
      * Optional course enrollment reference used by downstream integrations.
      */
-    @Column(length = 36)
-    private UUID courseEnrollmentId;
-
     /**
      * Reference to the Grade this course belongs to (resolved via user-service).
      */

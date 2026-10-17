@@ -6,11 +6,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -22,17 +21,12 @@ public class CourseResponse {
     private String courseName;
     private String courseDescription;
     private String courseThumbnail;
-    @JsonIgnore
-    private BigDecimal courseFeeMonthly;
     private BigDecimal gradeMonthlyFee;
     private String gradeCurrencyCode;
     private UUID assignedTeacherId;
-    private UUID courseEnrollmentId;
     private UUID gradeId;
     private String subject;
     private boolean online;
-    @JsonIgnore
-    private BigDecimal discountOfferPercent;
     private boolean visible;
     private boolean isPublished;
     private CourseStatus courseStatus;

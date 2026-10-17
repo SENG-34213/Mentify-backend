@@ -5,9 +5,6 @@ import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.entity.Course;
 import com.mentify.enums.CourseStatus;
-import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
 import java.util.UUID;
 import com.mentify.entity.Grade;
 
@@ -23,22 +20,15 @@ public class CourseMapper {
         boolean isOnline = request.getIsOnline() != null ? request.getIsOnline() : true;
         boolean isVisible = request.getIsVisible() != null ? request.getIsVisible() : true;
         boolean isPublished = request.getIsPublished() != null ? request.getIsPublished() : false;
-        BigDecimal discountOfferPercent = request.getDiscountOfferPercent() != null
-                ? request.getDiscountOfferPercent()
-                : new BigDecimal("20.00");
-
         return Course.builder()
                 .courseName(request.getCourseName().trim())
                 .courseDescription(request.getCourseDescription().trim())
                 .courseThumbnail(request.getCourseThumbnail())
-                .courseFeeMonthly(request.getCourseFeeMonthly())
                 .subject(request.getSubject() != null ? request.getSubject().trim() : null)
                 .isOnline(isOnline)
-                .discountOfferPercent(discountOfferPercent)
                 .isVisible(isVisible)
                 .gradeId(request.getGradeId())
                 .assignedTeacherId(request.getAssignedTeacherId())
-                .courseEnrollmentId(request.getCourseEnrollmentId())
                 .isPublished(isPublished)
                 .status(isPublished ? CourseStatus.PUBLISHED : CourseStatus.DRAFT)
                 .numberOfStudents(0)
@@ -58,15 +48,12 @@ public class CourseMapper {
                 .courseName(course.getCourseName())
                 .courseDescription(course.getCourseDescription())
                 .courseThumbnail(course.getCourseThumbnail())
-                .courseFeeMonthly(course.getCourseFeeMonthly())
                 .gradeMonthlyFee(grade != null ? grade.getMonthlyFee() : null)
                 .gradeCurrencyCode(grade != null ? grade.getCurrencyCode() : null)
                 .assignedTeacherId(course.getAssignedTeacherId())
-                .courseEnrollmentId(course.getCourseEnrollmentId())
                 .gradeId(course.getGradeId())
                 .subject(course.getSubject())
                 .online(course.isOnline())
-                .discountOfferPercent(course.getDiscountOfferPercent())
                 .visible(course.isVisible())
                 .isPublished(course.isPublished())
                 .courseStatus(course.getStatus())
