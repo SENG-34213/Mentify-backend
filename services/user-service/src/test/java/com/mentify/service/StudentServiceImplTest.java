@@ -73,6 +73,7 @@ class StudentServiceImplTest {
                 .password("legacy-client-password")
                 .firstName("Jane")
                 .lastName("Doe")
+                .schoolName("Mentify Academy")
                 .dateOfBirth(LocalDate.of(2010, 1, 1))
                 .phoneNumber("0771234567")
                 .guardianName("Parent")

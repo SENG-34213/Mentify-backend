@@ -61,6 +61,7 @@ public class UserRegistrationResponse {
         private UUID id;
         private String studentId;
         private String grade;
+        private String schoolName;
         private LocalDate dateOfBirth;
         private String guardianName;
         private String guardianPhone;
@@ -75,6 +76,7 @@ public class UserRegistrationResponse {
                     .id(profile.getId())
                     .studentId(profile.getStudentId())
                     .grade(profile.getGrade())
+                    .schoolName(profile.getSchoolName())
                     .dateOfBirth(profile.getDateOfBirth())
                     .guardianName(profile.getGuardianName())
                     .guardianPhone(profile.getGuardianPhone())

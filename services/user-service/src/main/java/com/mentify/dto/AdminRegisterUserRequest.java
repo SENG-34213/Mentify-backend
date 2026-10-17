@@ -72,6 +72,10 @@ public class AdminRegisterUserRequest {
         @NotBlank(message = "Grade is required")
         @Pattern(regexp = "^[0-9]{1,2}$", message = "Grade must be one or two digits")
         private String grade;
+
+        @NotBlank(message = "School name is required")
+        @Size(max = 150, message = "School name must not exceed 150 characters")
+        private String schoolName;
     }
 
     @Data

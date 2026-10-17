@@ -83,6 +83,7 @@ public class UserRegistrationFactory {
                 .grade(normalizedGrade)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
+                .schoolName(profileRequest.getSchoolName().trim())
                 .dateOfBirth(profileRequest.getDateOfBirth())
                 .phoneNumber(request.getPhoneNumber())
                 .guardianName(profileRequest.getGuardianName())

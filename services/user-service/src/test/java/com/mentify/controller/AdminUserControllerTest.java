@@ -332,7 +332,8 @@ class AdminUserControllerTest {
                 "Sunil Perera",
                 "0771112222",
                 AttendanceMode.PHYSICAL,
-                "7"
+                "7",
+                "Mentify Academy"
         );
     }
 
