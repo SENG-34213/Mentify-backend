@@ -39,7 +39,7 @@ public class GradeMonthlyFeeServiceImpl implements GradeMonthlyFeeService {
 
     @Override
     public ApiResponse<GradeMonthlyFeeResponse> getByGrade(UUID gradeId) {
-        return ok("Grade monthly fee fetched successfully", findByGrade(gradeId));
+        return ok("Grade monthly fee fetched successfully", toResponse(findByGrade(gradeId)));
     }
 
     @Override
