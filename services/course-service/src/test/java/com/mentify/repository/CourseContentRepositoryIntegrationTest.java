@@ -182,7 +182,6 @@ class CourseContentRepositoryIntegrationTest {
         return Course.builder()
                 .courseName("Mathematics")
                 .courseDescription("Grade 10 mathematics")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .subject("Mathematics")
                 .assignedTeacherId(teacherId)
                 .gradeId(UUID.randomUUID())

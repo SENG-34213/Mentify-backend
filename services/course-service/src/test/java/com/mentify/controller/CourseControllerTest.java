@@ -61,12 +61,10 @@ class CourseControllerTest {
                 .courseName("Mathematics")
                 .courseDescription("Grade 10 mathematics")
                 .courseThumbnail("math.png")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
                 .subject("Mathematics")
                 .online(true)
-                .discountOfferPercent(new BigDecimal("20.00"))
                 .visible(true)
                 .courseStatus(CourseStatus.DRAFT)
                 .isPublished(false)
@@ -93,7 +91,6 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.data.numberOfStudents").value(0))
                 .andExpect(jsonPath("$.data.subject").value("Mathematics"))
                 .andExpect(jsonPath("$.data.online").value(true))
-                .andExpect(jsonPath("$.data.discountOfferPercent").value(20.0))
                 .andExpect(jsonPath("$.data.visible").value(true));
 
         verify(courseService).createCourse(any(CourseRequest.class), eq(AUTH_HEADER));
@@ -103,20 +100,6 @@ class CourseControllerTest {
     void createCourse_whenCourseNameIsBlank_returnsBadRequest() throws Exception {
         CourseRequest request = validRequest();
         request.setCourseName(" ");
-
-        mockMvc.perform(post("/api/v1/course")
-                        .header("Authorization", AUTH_HEADER)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(courseService);
-    }
-
-    @Test
-    void createCourse_whenMonthlyFeeIsZero_returnsBadRequest() throws Exception {
-        CourseRequest request = validRequest();
-        request.setCourseFeeMonthly(BigDecimal.ZERO);
 
         mockMvc.perform(post("/api/v1/course")
                         .header("Authorization", AUTH_HEADER)
@@ -149,12 +132,10 @@ class CourseControllerTest {
                 .courseName("Advanced Mathematics")
                 .courseDescription("Updated Grade 10 mathematics")
                 .courseThumbnail("math-v2.png")
-                .courseFeeMonthly(new BigDecimal("3000.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
                 .subject("Mathematics")
                 .online(false)
-                .discountOfferPercent(new BigDecimal("10.00"))
                 .visible(true)
                 .courseStatus(CourseStatus.PUBLISHED)
                 .isPublished(true)
@@ -172,7 +153,6 @@ class CourseControllerTest {
         request.setCourseName("Advanced Mathematics");
         request.setCourseDescription("Updated Grade 10 mathematics");
         request.setIsOnline(false);
-        request.setDiscountOfferPercent(new BigDecimal("10.00"));
         request.setIsPublished(true);
 
         mockMvc.perform(put("/api/v1/course/{courseId}", courseId)
@@ -276,12 +256,10 @@ class CourseControllerTest {
                 .courseName("Mathematics")
                 .courseDescription("Grade 10 mathematics")
                 .courseThumbnail("math.png")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
                 .subject("Mathematics")
                 .isOnline(true)
-                .discountOfferPercent(new BigDecimal("20.00"))
                 .isVisible(true)
                 .build();
     }

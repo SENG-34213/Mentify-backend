@@ -376,7 +376,6 @@ class LearningMaterialServiceImplTest {
         Course course = Course.builder()
                 .courseName("Mathematics")
                 .courseDescription("Grade 10")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .subject("Mathematics")
                 .assignedTeacherId(UUID.randomUUID())
                 .gradeId(UUID.randomUUID())
