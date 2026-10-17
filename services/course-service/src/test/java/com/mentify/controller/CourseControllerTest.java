@@ -7,6 +7,7 @@ import com.mentify.dto.CourseResponse;
 import com.mentify.enums.CourseStatus;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.CourseService;
+import com.mentify.service.impl.TeacherCourseAccessGuard;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,9 @@ class CourseControllerTest {
 
     @MockBean
     private CourseService courseService;
+
+    @MockBean
+    private TeacherCourseAccessGuard teacherCourseAccessGuard;
 
     @Test
     void createCourse_whenRequestIsValid_returnsCreatedCourse() throws Exception {
