@@ -64,9 +64,9 @@ public class CourseContentAccessGuard {
             throw new AccessDeniedException("Invalid authentication principal");
         }
 
-        String resolvedId = jwt.getSubject();
+        String resolvedId = jwt.getClaimAsString(LOCAL_USER_ID_CLAIM);
         if (resolvedId == null || resolvedId.isBlank()) {
-            resolvedId = jwt.getClaimAsString(LOCAL_USER_ID_CLAIM);
+            resolvedId = jwt.getSubject();
         }
         if (resolvedId == null || resolvedId.isBlank()) {
             throw new AccessDeniedException("User identity is missing in token");
