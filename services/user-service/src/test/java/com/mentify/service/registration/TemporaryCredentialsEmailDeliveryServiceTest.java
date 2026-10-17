@@ -1,5 +1,7 @@
 package com.mentify.service.registration;
 
+import jakarta.mail.BodyPart;
+import jakarta.mail.Part;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
@@ -7,6 +9,9 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,9 +37,10 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         verify(mailSender).send(mimeMessage);
         assertThat(mimeMessage.getSubject()).isEqualTo("Your temporary Mentify sign-in password");
         assertThat(mimeMessage.getAllRecipients()).isNotEmpty();
-        assertThat(mimeMessage.isMimeType("multipart/related")).isTrue();
-        jakarta.mail.Multipart messageParts = (jakarta.mail.Multipart) mimeMessage.getContent();
-        assertThat(messageParts.getBodyPart(0).isMimeType("multipart/alternative")).isTrue();
+        assertThat(mimeMessage.getContent()).isInstanceOf(jakarta.mail.Multipart.class);
+        List<String> leafMimeTypes = new ArrayList<>();
+        collectLeafMimeTypes(mimeMessage, leafMimeTypes);
+        assertThat(leafMimeTypes).contains("text/plain", "text/html");
         String content = contentAsText(mimeMessage.getContent());
         assertThat(content).contains("Secure!Temp123");
         assertThat(content).contains("<!doctype html>");
@@ -45,21 +51,21 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         assertThat(content).contains("Forgot password on the sign-in page");
     }
 
-//    @Test
-//    void send_whenSmtpFails_doesNotExposeCredentialInFailure() {
-//        JavaMailSender mailSender = mock(JavaMailSender.class);
-//        when(mailSender.createMimeMessage()).thenReturn(
-//                new MimeMessage(Session.getInstance(new Properties())));
-//        doThrow(new MailSendException("SMTP rejected message containing Secure!Temp123"))
-//                .when(mailSender).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
-//        TemporaryCredentialsEmailDeliveryService service = new TemporaryCredentialsEmailDeliveryService(mailSender);
-//
-//        assertThatThrownBy(() -> service.send("student@example.com", "Test User", "Secure!Temp123"))
-//                .isInstanceOf(TemporaryCredentialsEmailException.class)
-//                .hasMessage("Temporary credentials email could not be delivered")
-//                .hasMessageNotContaining("Secure!Temp123");
-//        verify(mailSender, times(2)).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
-//    }
+    @Test
+    void send_whenSmtpFails_doesNotExposeCredentialInFailure() {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        when(mailSender.createMimeMessage()).thenReturn(
+                new MimeMessage(Session.getInstance(new Properties())));
+        doThrow(new MailSendException("SMTP rejected message containing Secure!Temp123"))
+                .when(mailSender).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
+        TemporaryCredentialsEmailDeliveryService service = new TemporaryCredentialsEmailDeliveryService(mailSender);
+
+        assertThatThrownBy(() -> service.send("student@example.com", "Test User", "Secure!Temp123"))
+                .isInstanceOf(TemporaryCredentialsEmailException.class)
+                .hasMessage("Temporary credentials email could not be delivered")
+                .hasMessageNotContaining("Secure!Temp123");
+        verify(mailSender, times(2)).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
+    }
 
     @Test
     void send_retriesTransientSmtpFailureWithoutPersistingCredential() throws Exception {
@@ -85,5 +91,18 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
             return text.toString();
         }
         return content == null ? "" : content.toString();
+    }
+
+    private void collectLeafMimeTypes(Part part, List<String> mimeTypes) throws Exception {
+        Object content = part.getContent();
+        if (content instanceof jakarta.mail.Multipart multipart) {
+            for (int index = 0; index < multipart.getCount(); index++) {
+                BodyPart bodyPart = multipart.getBodyPart(index);
+                collectLeafMimeTypes(bodyPart, mimeTypes);
+            }
+            return;
+        }
+
+        mimeTypes.add(part.getContentType().split(";", 2)[0].trim().toLowerCase(Locale.ROOT));
     }
 }
