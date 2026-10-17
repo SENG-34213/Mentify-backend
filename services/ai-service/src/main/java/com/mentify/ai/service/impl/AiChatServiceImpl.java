@@ -7,6 +7,7 @@ import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
+import com.mentify.ai.dto.tool.CalendarEventSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
 import com.mentify.ai.entity.AiConversation;
@@ -27,6 +28,7 @@ import com.mentify.ai.service.AiChatService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -64,6 +67,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiAuditService auditService;
     private final TodayQuizPerformanceTool todayQuizPerformanceTool;
     private final UserRegistrationOverviewTool userRegistrationOverviewTool;
+    private final UpcomingCalendarEventsTool upcomingCalendarEventsTool;
     private final ObjectMapper objectMapper;
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
@@ -140,7 +144,7 @@ public class AiChatServiceImpl implements AiChatService {
 
         if (requiresUnsupportedHistoricalMentifyData(rawMessage, routingMessage)) {
             return toolOnlyResponse(
-                    "I can use the conversation to understand what you are referring to, but I don't currently have an authorized tool for that time period. Please specify a supported Mentify data view, such as today's quiz performance, or provide the data you want summarized.",
+                    "I can use the conversation to understand what you are referring to, but I don't currently have an authorized tool for that time period. Please specify a supported Mentify data view, such as upcoming calendar events or today's quiz performance, or provide the data you want summarized.",
                     List.of(),
                     traceId,
                     userId
@@ -154,6 +158,10 @@ public class AiChatServiceImpl implements AiChatService {
                     traceId,
                     userId
             );
+        }
+
+        if (isUpcomingCalendarRequest(routingMessage)) {
+            return answerUpcomingCalendarEvents(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
         if (isTodayQuizPerformanceRequest(routingMessage)) {
@@ -183,6 +191,36 @@ public class AiChatServiceImpl implements AiChatService {
         }
 
         return answerGeneralQuestion(guardedMessage, conversationMemory.prompt(), traceId, userId);
+    }
+
+    private AiChatResponse answerUpcomingCalendarEvents(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        List<CalendarEventSummary> events;
+        try {
+            events = upcomingCalendarEventsTool.execute(authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", upcomingCalendarEventsTool.getName());
+            throw new AccessDeniedException("Not authorized to access calendar events");
+        }
+
+        Objects.requireNonNull(events, "Calendar service returned no event data");
+        if (events.isEmpty()) {
+            return toolOnlyResponse(
+                    "There are no upcoming events in the calendar data I can access.",
+                    List.of(upcomingCalendarEventsTool.getName()),
+                    traceId,
+                    userId
+            );
+        }
+
+        String groundedAnswer = generateGroundedCalendarAnswer(
+                rawMessage, conversationContext, events, traceId, userId);
+        return response(groundedAnswer, List.of(upcomingCalendarEventsTool.getName()));
     }
 
     private AiChatResponse answerTodayQuizPerformance(
@@ -338,6 +376,60 @@ public class AiChatServiceImpl implements AiChatService {
         return generateResponse.getContent();
     }
 
+    private String generateGroundedCalendarAnswer(
+            String rawMessage,
+            String conversationContext,
+            List<CalendarEventSummary> events,
+            String traceId,
+            UUID userId
+    ) {
+        String toolJson = toJson(events);
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant.
+                        Use only the supplied tool_result JSON to answer.
+                        Use conversation history only to resolve references and follow-up wording.
+                        Do not invent event titles, dates, times, locations, attendees, or relationships.
+                        The data contains upcoming events visible to the authenticated user, limited to the next 20.
+                        If the user asks about a narrower date range, only include events whose supplied dates fall in that range.
+                        If the supplied fields do not establish an answer, say what information is unavailable.
+                        Keep the response concise and useful.
+                        """)
+                .userInput("""
+                        tool_name: getUpcomingCalendarEvents
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toolJson, conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return generateResponse.getContent();
+    }
+
+    private boolean isUpcomingCalendarRequest(String message) {
+        String normalized = normalize(message);
+        return normalized.contains("calendar")
+                || normalized.contains("schedule")
+                || normalized.contains("event")
+                || normalized.contains("my events")
+                || normalized.contains("what's on my calendar")
+                || normalized.contains("whats on my calendar")
+                || normalized.contains("next class")
+                || normalized.contains("next exam")
+                || normalized.contains("next quiz")
+                || normalized.contains("next assignment")
+                || normalized.contains("next meeting")
+                || normalized.contains("next event");
+    }
+
     private boolean isTodayQuizPerformanceRequest(String message) {
         String normalized = normalize(message);
         return normalized.contains("quiz")
@@ -413,6 +505,9 @@ public class AiChatServiceImpl implements AiChatService {
     private boolean requiresUnsupportedHistoricalMentifyData(String rawMessage, String routingMessage) {
         String normalizedRaw = normalize(rawMessage);
         if (!(normalizedRaw.contains("yesterday")
+                || normalizedRaw.contains("last week")
+                || normalizedRaw.contains("past week")
+                || normalizedRaw.contains("previous week")
                 || normalizedRaw.contains("last month")
                 || normalizedRaw.contains("last year")
                 || normalizedRaw.contains("compare it")
@@ -426,7 +521,10 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalizedRoutingMessage.contains("teacher")
                 || normalizedRoutingMessage.contains("attendance")
                 || normalizedRoutingMessage.contains("assignment")
-                || normalizedRoutingMessage.contains("class");
+                || normalizedRoutingMessage.contains("class")
+                || normalizedRoutingMessage.contains("calendar")
+                || normalizedRoutingMessage.contains("event")
+                || normalizedRoutingMessage.contains("schedule");
     }
 
     private boolean requiresClassClarification(String rawMessage, String routingMessage) {
