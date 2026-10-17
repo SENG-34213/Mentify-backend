@@ -9,16 +9,16 @@ spring:
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   mail:
-    host: ${SMTP_HOST:localhost}
-    port: ${SMTP_PORT:1025}
-    username: ${SMTP_USERNAME:}
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:mohanathasholins17@gmail.com}
     password: ${SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: ${SMTP_AUTH:false}
+          auth: ${SMTP_AUTH:true}
           starttls:
-            enable: ${SMTP_STARTTLS_ENABLE:false}
+            enable: ${SMTP_STARTTLS_ENABLE:true}
   security:
     oauth2:
       resourceserver:
@@ -31,7 +31,7 @@ spring:
 mentify:
   registration:
     email:
-      from: ${SMTP_FROM:no-reply@mentify.local}
+      from: ${SMTP_FROM:mohanathasholins17@gmail.com}
       login-url: ${MENTIFY_LOGIN_URL:http://localhost:5173/login}
       retry-attempts: ${MENTIFY_WELCOME_EMAIL_RETRY_ATTEMPTS:2}
   security:
