@@ -274,7 +274,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     }
 
     private boolean isPaidCourse(CourseLookupResponse course) {
-        BigDecimal fee = course.getCourseFeeMonthly();
+        BigDecimal fee = course.getGradeMonthlyFee();
         return fee != null && fee.compareTo(BigDecimal.ZERO) > 0;
     }
 

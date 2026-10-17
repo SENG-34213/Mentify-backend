@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import com.mentify.entity.Grade;
 
 
 public class CourseMapper {
@@ -48,12 +49,18 @@ public class CourseMapper {
      * Maps a persisted Course entity to a CourseResponse DTO.
      */
     public static CourseResponse toCourseResponse(Course course) {
+        return toCourseResponse(course, null);
+    }
+
+    public static CourseResponse toCourseResponse(Course course, Grade grade) {
         return CourseResponse.builder()
                 .id(course.getId())
                 .courseName(course.getCourseName())
                 .courseDescription(course.getCourseDescription())
                 .courseThumbnail(course.getCourseThumbnail())
                 .courseFeeMonthly(course.getCourseFeeMonthly())
+                .gradeMonthlyFee(grade != null ? grade.getMonthlyFee() : null)
+                .gradeCurrencyCode(grade != null ? grade.getCurrencyCode() : null)
                 .assignedTeacherId(course.getAssignedTeacherId())
                 .courseEnrollmentId(course.getCourseEnrollmentId())
                 .gradeId(course.getGradeId())

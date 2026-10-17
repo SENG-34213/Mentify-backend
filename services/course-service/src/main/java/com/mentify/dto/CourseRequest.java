@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Data
 @Builder
@@ -29,8 +30,7 @@ public class CourseRequest {
 
     private String courseThumbnail;
 
-    @NotNull(message = "Monthly fee is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Monthly fee must be greater than zero")
+    @JsonIgnore
     private BigDecimal courseFeeMonthly;
 
     @NotNull(message = "Grade ID is required")
@@ -45,7 +45,7 @@ public class CourseRequest {
 
     private Boolean isOnline;
 
-    @DecimalMin(value = "0.0", inclusive = true, message = "Discount offer percent must not be negative")
+    @JsonIgnore
     private BigDecimal discountOfferPercent;
 
     private Boolean isVisible;

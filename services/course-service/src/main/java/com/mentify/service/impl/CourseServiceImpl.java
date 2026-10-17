@@ -4,6 +4,7 @@ import com.mentify.client.UserServiceClient;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.entity.Course;
+import com.mentify.entity.Grade;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.mapper.CourseMapper;
@@ -50,6 +51,8 @@ public class CourseServiceImpl implements CourseService {
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
+        course.setCourseFeeMonthly(null);
+        course.setDiscountOfferPercent(null);
         if (course.isPublished()) {
             course.setPublishedDate(LocalDate.now());
         } else {
@@ -58,7 +61,7 @@ public class CourseServiceImpl implements CourseService {
 
         Course savedCourse = courseRepository.save(course);
 
-        CourseResponse courseResponse = CourseMapper.toCourseResponse(savedCourse);
+        CourseResponse courseResponse = toCourseResponse(savedCourse);
         log.info("Course created successfully with ID [{}]", savedCourse.getId());
 
         return ApiResponse.<CourseResponse>builder()
@@ -93,17 +96,14 @@ public class CourseServiceImpl implements CourseService {
         existingCourse.setCourseName(request.getCourseName().trim());
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
         existingCourse.setCourseThumbnail(request.getCourseThumbnail());
-        existingCourse.setCourseFeeMonthly(request.getCourseFeeMonthly());
+        existingCourse.setCourseFeeMonthly(null);
         existingCourse.setGradeId(request.getGradeId());
         existingCourse.setAssignedTeacherId(request.getAssignedTeacherId());
         existingCourse.setCourseEnrollmentId(request.getCourseEnrollmentId());
         existingCourse.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
-        BigDecimal discountOfferPercent = request.getDiscountOfferPercent() != null
-                ? request.getDiscountOfferPercent()
-                : new BigDecimal("20.00");
-        existingCourse.setDiscountOfferPercent(discountOfferPercent);
+        existingCourse.setDiscountOfferPercent(null);
         existingCourse.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
 
         boolean isPublished = request.getIsPublished() != null ? request.getIsPublished() : false;
@@ -120,7 +120,7 @@ public class CourseServiceImpl implements CourseService {
 
         Course savedCourse = courseRepository.save(existingCourse);
 
-        CourseResponse courseResponse = CourseMapper.toCourseResponse(savedCourse);
+        CourseResponse courseResponse = toCourseResponse(savedCourse);
         log.info("Course updated successfully with ID [{}]", savedCourse.getId());
 
         return ApiResponse.<CourseResponse>builder()
@@ -155,7 +155,7 @@ public class CourseServiceImpl implements CourseService {
             teacherCourseAccessGuard.assertTeacherOwnsCourse(course);
         }
 
-        CourseResponse courseResponse = CourseMapper.toCourseResponse(course);
+        CourseResponse courseResponse = toCourseResponse(course);
 
         return ApiResponse.<CourseResponse>builder()
                 .message("Course fetched successfully")
@@ -169,7 +169,7 @@ public class CourseServiceImpl implements CourseService {
     @Transactional
     public ApiResponse<List<CourseResponse>> getAllCourses() {
         List<CourseResponse> courses = courseRepository.findAll().stream()
-                .map(CourseMapper::toCourseResponse)
+                .map(this::toCourseResponse)
                 .collect(Collectors.toList());
 
         return ApiResponse.<List<CourseResponse>>builder()
@@ -186,7 +186,7 @@ public class CourseServiceImpl implements CourseService {
         List<CourseResponse> courses = courseRepository
                 .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId)
                 .stream()
-                .map(CourseMapper::toCourseResponse)
+                .map(this::toCourseResponse)
                 .collect(Collectors.toList());
 
         return ApiResponse.<List<CourseResponse>>builder()
@@ -203,7 +203,7 @@ public class CourseServiceImpl implements CourseService {
         log.info("Fetching {} courses in bulk", ids.size());
 
         List<CourseResponse> courses = courseRepository.findAllById(ids).stream()
-                .map(CourseMapper::toCourseResponse)
+                .map(this::toCourseResponse)
                 .collect(Collectors.toList());
 
         return ApiResponse.<List<CourseResponse>>builder()
@@ -231,5 +231,10 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    private CourseResponse toCourseResponse(Course course) {
+        Grade grade = gradeRepository.findById(course.getGradeId()).orElse(null);
+        return CourseMapper.toCourseResponse(course, grade);
     }
 }

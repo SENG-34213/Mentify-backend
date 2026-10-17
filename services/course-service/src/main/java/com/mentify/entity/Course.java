@@ -34,7 +34,8 @@ public class Course extends BaseEntity {
     private CourseStatus status = CourseStatus.DRAFT;
 
 
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Deprecated
+    @Column(precision = 10, scale = 2)
     private BigDecimal courseFeeMonthly;
 
     @Column(length = 150)
@@ -44,7 +45,8 @@ public class Course extends BaseEntity {
     @Builder.Default
     private boolean isOnline = true;
 
-    @Column(nullable = false, precision = 5, scale = 2)
+    @Deprecated
+    @Column(precision = 5, scale = 2)
     @Builder.Default
     private BigDecimal discountOfferPercent = new BigDecimal("20.00");
 

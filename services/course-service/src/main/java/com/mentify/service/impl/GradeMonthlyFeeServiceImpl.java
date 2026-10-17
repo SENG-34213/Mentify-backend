@@ -53,6 +53,8 @@ public class GradeMonthlyFeeServiceImpl implements GradeMonthlyFeeService {
         GradeMonthlyFee fee = GradeMonthlyFee.builder()
                 .grade(grade).monthlyFee(request.getMonthlyFee()).currencyCode(normalizeCurrency(request.getCurrencyCode()))
                 .build();
+        grade.setMonthlyFee(fee.getMonthlyFee());
+        grade.setCurrencyCode(fee.getCurrencyCode());
         try {
             return new ApiResponse<>(HttpStatus.CREATED.value(), "Grade monthly fee created successfully",
                     toResponse(feeRepository.saveAndFlush(fee)), HttpStatus.CREATED);
@@ -67,6 +69,8 @@ public class GradeMonthlyFeeServiceImpl implements GradeMonthlyFeeService {
         GradeMonthlyFee fee = findByGrade(gradeId);
         fee.setMonthlyFee(request.getMonthlyFee());
         fee.setCurrencyCode(normalizeCurrency(request.getCurrencyCode()));
+        fee.getGrade().setMonthlyFee(fee.getMonthlyFee());
+        fee.getGrade().setCurrencyCode(fee.getCurrencyCode());
         return ok("Grade monthly fee updated successfully", toResponse(feeRepository.save(fee)));
     }
 
