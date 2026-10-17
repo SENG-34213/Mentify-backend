@@ -49,6 +49,13 @@ class CurrentUserServiceTest {
     }
 
     @Test
+    void localUserIdClaimTakesPrecedenceOverKeycloakSubject() {
+        UUID localId = UUID.randomUUID();
+        authenticate(jwt().subject(UUID.randomUUID().toString()).claim("local_user_id", localId.toString()).build());
+        assertEquals(localId, service.getCurrentUserId());
+    }
+
+    @Test
     void invalidIdentityIsRejected() {
         authenticate(jwt().subject("not-a-uuid").build());
         assertThrows(AccessDeniedException.class, service::getCurrentUserId);

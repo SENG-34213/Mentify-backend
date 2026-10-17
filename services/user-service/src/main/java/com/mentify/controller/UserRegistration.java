@@ -4,6 +4,7 @@ import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.SuperAdminRegisterAdminRequest;
 import com.mentify.dto.UpdateUserStatusRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.StudentLookupResponse;
 import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.UserRepository;
@@ -60,6 +61,18 @@ public class UserRegistration {
                 HttpStatus.OK.value(),
                 "Users fetched successfully",
                 users
+        ));
+    }
+
+    @GetMapping("/students/lookup")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<StudentLookupResponse>>> lookupStudents(
+            @RequestParam List<UUID> ids
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Students fetched successfully",
+                userRegistrationService.getStudentsByIds(ids)
         ));
     }
 
