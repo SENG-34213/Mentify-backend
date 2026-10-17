@@ -8,6 +8,8 @@ import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
+import com.mentify.ai.dto.tool.EnrollmentOverviewToolResult;
+import com.mentify.ai.dto.tool.MyEnrollmentCoursesToolResult;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
 import com.mentify.ai.entity.AiConversation;
@@ -27,6 +29,8 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiChatService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
+import com.mentify.ai.tool.EnrollmentOverviewTool;
+import com.mentify.ai.tool.MyEnrollmentCoursesTool;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
@@ -68,6 +72,8 @@ public class AiChatServiceImpl implements AiChatService {
     private final TodayQuizPerformanceTool todayQuizPerformanceTool;
     private final UserRegistrationOverviewTool userRegistrationOverviewTool;
     private final UpcomingCalendarEventsTool upcomingCalendarEventsTool;
+    private final MyEnrollmentCoursesTool myEnrollmentCoursesTool;
+    private final EnrollmentOverviewTool enrollmentOverviewTool;
     private final ObjectMapper objectMapper;
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
@@ -131,7 +137,7 @@ public class AiChatServiceImpl implements AiChatService {
             ConversationMemory conversationMemory
     ) {
         boolean contextualFollowUp = isContextualFollowUp(rawMessage);
-        if (contextualFollowUp && !conversationMemory.hasPriorContext()) {
+        if (contextualFollowUp && !conversationMemory.hasPriorContext() && !isMyEnrollmentRequest(rawMessage)) {
             return toolOnlyResponse(
                     "I need a little more context before I can answer that follow-up. Which students, class, quiz, or users do you mean?",
                     List.of(),
@@ -162,6 +168,15 @@ public class AiChatServiceImpl implements AiChatService {
 
         if (isUpcomingCalendarRequest(routingMessage)) {
             return answerUpcomingCalendarEvents(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
+        }
+
+        if (isMyEnrollmentRequest(routingMessage)) {
+            return answerMyEnrollmentCourses(rawMessage, conversationMemory.prompt(),
+                    authorizationHeader, traceId, userId);
+        }
+
+        if (isEnrollmentOverviewRequest(routingMessage)) {
+            return answerEnrollmentOverview(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
         if (isTodayQuizPerformanceRequest(routingMessage)) {
@@ -221,6 +236,68 @@ public class AiChatServiceImpl implements AiChatService {
         String groundedAnswer = generateGroundedCalendarAnswer(
                 rawMessage, conversationContext, events, traceId, userId);
         return response(groundedAnswer, List.of(upcomingCalendarEventsTool.getName()));
+    }
+
+    private AiChatResponse answerMyEnrollmentCourses(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        MyEnrollmentCoursesToolResult toolResult;
+        try {
+            toolResult = myEnrollmentCoursesTool.execute(userId, authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", myEnrollmentCoursesTool.getName());
+            throw new AccessDeniedException("Only students can access their own enrollments");
+        }
+
+        Objects.requireNonNull(toolResult, "Enrollment service returned no student enrollment data");
+        List<MyEnrollmentCoursesToolResult.EnrolledCourse> courses =
+                Objects.requireNonNull(toolResult.getCourses(), "Enrollment tool returned no course list");
+        if (courses.isEmpty()) {
+            return toolOnlyResponse(
+                    "You are not currently enrolled in any active courses.",
+                    List.of(myEnrollmentCoursesTool.getName()),
+                    traceId,
+                    userId
+            );
+        }
+
+        String groundedAnswer = generateGroundedMyEnrollmentAnswer(
+                rawMessage, conversationContext, toolResult, traceId, userId);
+        return response(groundedAnswer, List.of(myEnrollmentCoursesTool.getName()));
+    }
+
+    private AiChatResponse answerEnrollmentOverview(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        EnrollmentOverviewToolResult toolResult;
+        try {
+            toolResult = enrollmentOverviewTool.execute(authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", enrollmentOverviewTool.getName());
+            throw new AccessDeniedException("Only admins can access the enrollment overview");
+        }
+
+        Objects.requireNonNull(toolResult, "Enrollment service returned no enrollment overview data");
+        if (toolResult.getActiveEnrollmentCount() == 0) {
+            return toolOnlyResponse(
+                    "There are no active enrollments in the enrollment data I can access.",
+                    List.of(enrollmentOverviewTool.getName()),
+                    traceId,
+                    userId
+            );
+        }
+
+        String groundedAnswer = generateGroundedEnrollmentOverviewAnswer(
+                rawMessage, conversationContext, toolResult, traceId, userId);
+        return response(groundedAnswer, List.of(enrollmentOverviewTool.getName()));
     }
 
     private AiChatResponse answerTodayQuizPerformance(
@@ -414,6 +491,81 @@ public class AiChatServiceImpl implements AiChatService {
         return generateResponse.getContent();
     }
 
+    private String generateGroundedMyEnrollmentAnswer(
+            String rawMessage,
+            String conversationContext,
+            MyEnrollmentCoursesToolResult toolResult,
+            String traceId,
+            UUID userId
+    ) {
+        String toolJson = toJson(toolResult);
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant helping a student understand their active course enrollments.
+                        Use only the supplied tool_result JSON to answer.
+                        Use conversation history only to resolve references and follow-up wording.
+                        Do not invent course names, subjects, statuses, or enrollment dates.
+                        If a requested detail is not present, say it is unavailable.
+                        Keep the response concise and helpful.
+                        """)
+                .userInput("""
+                        tool_name: getMyEnrolledCourses
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toolJson, conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return generateResponse.getContent();
+    }
+
+    private String generateGroundedEnrollmentOverviewAnswer(
+            String rawMessage,
+            String conversationContext,
+            EnrollmentOverviewToolResult toolResult,
+            String traceId,
+            UUID userId
+    ) {
+        String toolJson = toJson(toolResult);
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant helping authorized administrators understand active enrollments.
+                        Use only the supplied tool_result JSON to answer.
+                        Use conversation history only to resolve references and follow-up wording.
+                        The result contains counts only; it contains no student identities or personal information.
+                        activeEnrollmentCount is the number of active enrollment records;
+                        studentCourseEnrollmentCount is the number of distinct student-course enrollments.
+                        Do not invent historical trends, individual students, or causes for enrollment counts.
+                        Explain course counts by course name if supplied, otherwise by course ID.
+                        Keep the response concise and operational.
+                        """)
+                .userInput("""
+                        tool_name: getEnrollmentOverview
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toolJson, conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return generateResponse.getContent();
+    }
+
     private boolean isUpcomingCalendarRequest(String message) {
         String normalized = normalize(message);
         return normalized.contains("calendar")
@@ -428,6 +580,37 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalized.contains("next assignment")
                 || normalized.contains("next meeting")
                 || normalized.contains("next event");
+    }
+
+    private boolean isMyEnrollmentRequest(String message) {
+        String normalized = normalize(message);
+        return normalized.contains("my enrollment")
+                || normalized.contains("my active enrollment")
+                || normalized.contains("my course")
+                || normalized.contains("courses am i enrolled")
+                || normalized.contains("courses i'm enrolled")
+                || normalized.contains("courses i am enrolled")
+                || normalized.contains("am i enrolled")
+                || normalized.contains("am i taking")
+                || normalized.contains("what courses am i taking")
+                || normalized.contains("what classes am i taking");
+    }
+
+    private boolean isEnrollmentOverviewRequest(String message) {
+        String normalized = normalize(message);
+        if (normalized.contains("my enrollment") || normalized.contains("my course")) {
+            return false;
+        }
+        boolean enrollmentIntent = normalized.contains("enrollment")
+                || normalized.contains("enrolled");
+        boolean overviewIntent = normalized.contains("overview")
+                || normalized.contains("how many")
+                || normalized.contains("count")
+                || normalized.contains("total")
+                || normalized.contains("summary")
+                || normalized.contains("students")
+                || normalized.contains("courses");
+        return enrollmentIntent && overviewIntent;
     }
 
     private boolean isTodayQuizPerformanceRequest(String message) {
@@ -475,6 +658,8 @@ public class AiChatServiceImpl implements AiChatService {
         boolean mentifyDataIntent = normalized.contains("my class")
                 || normalized.contains("my students")
                 || normalized.contains("student result")
+                || normalized.contains("enrollment")
+                || normalized.contains("enrolled")
                 || normalized.contains("attendance")
                 || normalized.contains("assignment")
                 || normalized.contains("last year")
@@ -524,7 +709,9 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalizedRoutingMessage.contains("class")
                 || normalizedRoutingMessage.contains("calendar")
                 || normalizedRoutingMessage.contains("event")
-                || normalizedRoutingMessage.contains("schedule");
+                || normalizedRoutingMessage.contains("schedule")
+                || normalizedRoutingMessage.contains("enrollment")
+                || normalizedRoutingMessage.contains("enrolled");
     }
 
     private boolean requiresClassClarification(String rawMessage, String routingMessage) {

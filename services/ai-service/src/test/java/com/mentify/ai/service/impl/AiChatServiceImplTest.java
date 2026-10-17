@@ -7,6 +7,8 @@ import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
+import com.mentify.ai.dto.tool.EnrollmentOverviewToolResult;
+import com.mentify.ai.dto.tool.MyEnrollmentCoursesToolResult;
 import com.mentify.ai.dto.tool.QuizPerformanceSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
@@ -23,6 +25,8 @@ import com.mentify.ai.security.AuthenticatedUserService;
 import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
+import com.mentify.ai.tool.EnrollmentOverviewTool;
+import com.mentify.ai.tool.MyEnrollmentCoursesTool;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
@@ -86,6 +90,12 @@ class AiChatServiceImplTest {
     private UpcomingCalendarEventsTool upcomingCalendarEventsTool;
 
     @Mock
+    private MyEnrollmentCoursesTool myEnrollmentCoursesTool;
+
+    @Mock
+    private EnrollmentOverviewTool enrollmentOverviewTool;
+
+    @Mock
     private AiConversationRepository conversationRepository;
 
     @Mock
@@ -104,6 +114,8 @@ class AiChatServiceImplTest {
         lenient().when(todayQuizPerformanceTool.getName()).thenReturn(TodayQuizPerformanceTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
         lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
+        lenient().when(myEnrollmentCoursesTool.getName()).thenReturn(MyEnrollmentCoursesTool.TOOL_NAME);
+        lenient().when(enrollmentOverviewTool.getName()).thenReturn(EnrollmentOverviewTool.TOOL_NAME);
 
         aiChatService = new AiChatServiceImpl(
                 properties,
@@ -115,6 +127,8 @@ class AiChatServiceImplTest {
                 todayQuizPerformanceTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,
+                myEnrollmentCoursesTool,
+                enrollmentOverviewTool,
                 new ObjectMapper().findAndRegisterModules(),
                 conversationRepository,
                 messageRepository
@@ -191,6 +205,143 @@ class AiChatServiceImplTest {
         verify(aiProvider).generate(executionCaptor.capture());
         assertThat(executionCaptor.getValue().getUserInput())
                 .contains(UpcomingCalendarEventsTool.TOOL_NAME, "Data Structures Lecture", "Room 204");
+    }
+
+    @Test
+    void studentEnrollmentQuestionUsesPersonalCoursesAndGroundedAiResponse() {
+        UUID studentId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(studentId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(studentId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(myEnrollmentCoursesTool.execute(studentId, AUTH_HEADER)).thenReturn(MyEnrollmentCoursesToolResult.builder()
+                .courses(List.of(MyEnrollmentCoursesToolResult.EnrolledCourse.builder()
+                        .courseId(UUID.randomUUID())
+                        .courseName("Introduction to Biology")
+                        .subject("Biology")
+                        .courseStatus("ACTIVE")
+                        .build()))
+                .build());
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("You are enrolled in Introduction to Biology.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Which courses am I enrolled in?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("Introduction to Biology");
+        assertThat(response.getToolsUsed()).containsExactly(MyEnrollmentCoursesTool.TOOL_NAME);
+        verify(myEnrollmentCoursesTool).execute(studentId, AUTH_HEADER);
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains(MyEnrollmentCoursesTool.TOOL_NAME, "Introduction to Biology", "Biology");
+    }
+
+    @Test
+    void studentEnrollmentCheckUsesOnlyTheirOwnCourses() {
+        UUID studentId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(studentId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(studentId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(myEnrollmentCoursesTool.execute(studentId, AUTH_HEADER)).thenReturn(MyEnrollmentCoursesToolResult.builder()
+                .courses(List.of(MyEnrollmentCoursesToolResult.EnrolledCourse.builder()
+                        .courseId(UUID.randomUUID())
+                        .courseName("Introduction to Biology")
+                        .subject("Biology")
+                        .courseStatus("ACTIVE")
+                        .build()))
+                .build());
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Yes, you are enrolled in Introduction to Biology.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Am I enrolled in Introduction to Biology?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getToolsUsed()).containsExactly(MyEnrollmentCoursesTool.TOOL_NAME);
+        verify(myEnrollmentCoursesTool).execute(studentId, AUTH_HEADER);
+    }
+
+    @Test
+    void noStudentEnrollmentsDoesNotCallAiProvider() {
+        UUID studentId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(studentId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(studentId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(myEnrollmentCoursesTool.execute(studentId, AUTH_HEADER)).thenReturn(
+                MyEnrollmentCoursesToolResult.builder().courses(List.of()).build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What are my active enrollments?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).isEqualTo("You are not currently enrolled in any active courses.");
+        assertThat(response.getToolsUsed()).containsExactly(MyEnrollmentCoursesTool.TOOL_NAME);
+        verify(aiProvider, never()).generate(any(AiExecutionRequest.class));
+    }
+
+    @Test
+    void adminEnrollmentQuestionUsesAggregateOverview() {
+        UUID adminId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(adminId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(adminId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(enrollmentOverviewTool.execute(AUTH_HEADER)).thenReturn(EnrollmentOverviewToolResult.builder()
+                .activeStudentCount(12)
+                .activeEnrollmentCount(13)
+                .studentCourseEnrollmentCount(18)
+                .enrollmentsByCourse(List.of(EnrollmentOverviewToolResult.CourseEnrollmentCount.builder()
+                        .courseId(UUID.randomUUID())
+                        .courseName("Introduction to Biology")
+                        .enrolledStudentCount(8)
+                        .build()))
+                .build());
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("There are 12 active students across 13 enrollment records.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Give me an enrollment overview.")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("12 active students");
+        assertThat(response.getToolsUsed()).containsExactly(EnrollmentOverviewTool.TOOL_NAME);
+        verify(enrollmentOverviewTool).execute(AUTH_HEADER);
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains(EnrollmentOverviewTool.TOOL_NAME, "Introduction to Biology", "18");
     }
 
     @Test
