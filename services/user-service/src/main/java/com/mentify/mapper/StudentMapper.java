@@ -33,6 +33,7 @@ public class StudentMapper {
         return StudentProfile.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
+                .schoolName(request.getSchoolName().trim())
                 .dateOfBirth(request.getDateOfBirth())
                 .phoneNumber(request.getPhoneNumber())
                 .guardianName(request.getGuardianName())

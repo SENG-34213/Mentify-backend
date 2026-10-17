@@ -133,6 +133,7 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getStudentProfile()).isNotNull();
         assertThat(savedUser.getStudentProfile().getStudentId()).isEqualTo("TIT-07-24");
         assertThat(savedUser.getStudentProfile().getGrade()).isEqualTo("07");
+        assertThat(savedUser.getStudentProfile().getSchoolName()).isEqualTo("Mentify Academy");
         assertThat(savedUser.getStudentProfile().getGuardianName()).isEqualTo(request.getStudentProfile().getGuardianName());
         assertThat(savedUser.getStudentProfile().getGuardianPhone()).isEqualTo(request.getStudentProfile().getGuardianPhone());
         assertThat(savedUser.getStudentProfile().getAttendanceMode()).isEqualTo(request.getStudentProfile().getAttendanceMode());
@@ -449,7 +450,8 @@ class UserRegistrationServiceTest {
                 "Sunil Perera",
                 "0771112222",
                 AttendanceMode.PHYSICAL,
-                "7"
+                "7",
+                "Mentify Academy"
         );
     }
 
