@@ -32,7 +32,7 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         verify(mailSender).send(mimeMessage);
         assertThat(mimeMessage.getSubject()).isEqualTo("Your temporary Mentify sign-in password");
         assertThat(mimeMessage.getAllRecipients()).isNotEmpty();
-        assertThat(mimeMessage.isMimeType("multipart/mixed")).isTrue();
+        assertThat(mimeMessage.isMimeType("multipart/related")).isTrue();
         jakarta.mail.Multipart messageParts = (jakarta.mail.Multipart) mimeMessage.getContent();
         assertThat(messageParts.getBodyPart(0).isMimeType("multipart/alternative")).isTrue();
         String content = contentAsText(mimeMessage.getContent());
