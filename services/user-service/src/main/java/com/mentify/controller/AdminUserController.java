@@ -56,8 +56,7 @@ public class AdminUserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(
                         HttpStatus.CREATED.value(),
-                        "User registered successfully. Temporary sign-in credentials "
-                                + "and a password setup email will be sent.",
+                        "User registered successfully. Sign-in credentials will be sent by email.",
                         response
                 )
         );
@@ -73,8 +72,7 @@ public class AdminUserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(
                         HttpStatus.CREATED.value(),
-                        "Admin registered successfully. Temporary sign-in credentials "
-                                + "and a password setup email will be sent.",
+                        "Admin registered successfully. Sign-in credentials will be sent by email.",
                         response
                 )
         );

@@ -13,7 +13,7 @@ import com.mentify.repository.UserRepository;
 import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.service.registration.AdminCodeGenerator;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
@@ -57,7 +57,7 @@ class AdminRegistrationServiceTest {
     private AdminProfileRepository adminProfileRepository;
 
     @Mock
-    private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private RegistrationEmailDispatcher registrationEmailDispatcher;
 
     private AdminRegistrationService adminRegistrationService;
 
@@ -73,7 +73,7 @@ class AdminRegistrationServiceTest {
                 userRepository,
                 keycloakUserService,
                 factory,
-                passwordSetupEmailDispatcher,
+                registrationEmailDispatcher,
                 new TemporaryPasswordGenerator()
         );
     }
@@ -104,14 +104,16 @@ class AdminRegistrationServiceTest {
         assertThat(response.getAdminProfile().getAdminCode()).isEqualTo("TIT-ADM-005");
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "ADMIN");
-        verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getRole()).isEqualTo(Role.ADMIN);
         assertThat(savedUser.getPassword()).isNull();
+        assertThat(savedUser.isEmailVerified()).isTrue();
         assertThat(savedUser.getAdminProfile()).isNotNull();
         assertThat(savedUser.getAdminProfile().getNic()).isEqualTo(request.getAdminProfile().getNic());
         assertThat(savedUser.getAddress()).isNotNull();

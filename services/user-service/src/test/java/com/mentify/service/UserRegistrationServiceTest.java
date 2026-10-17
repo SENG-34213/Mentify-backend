@@ -17,7 +17,7 @@ import com.mentify.repository.AdminProfileRepository;
 import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.repository.UserRepository;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.AdminCodeGenerator;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.RegistrationRequestValidator;
@@ -66,7 +66,7 @@ class UserRegistrationServiceTest {
     private KeycloakUserService keycloakUserService;
 
     @Mock
-    private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private RegistrationEmailDispatcher registrationEmailDispatcher;
 
     private UserRegistrationService userRegistrationService;
 
@@ -82,7 +82,7 @@ class UserRegistrationServiceTest {
                 keycloakUserService,
                 validator,
                 factory,
-                passwordSetupEmailDispatcher,
+                registrationEmailDispatcher,
                 new TemporaryPasswordGenerator()
         );
     }
@@ -112,19 +112,21 @@ class UserRegistrationServiceTest {
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "STUDENT");
         ArgumentCaptor<String> temporaryPasswordCaptor = ArgumentCaptor.forClass(String.class);
-        verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
         String temporaryPassword = temporaryPasswordCaptor.getValue();
         assertThat(temporaryPassword).hasSize(32)
                 .matches(".*[A-Z].*")
                 .matches(".*[a-z].*")
                 .matches(".*[0-9].*")
                 .matches(".*[^A-Za-z0-9].*");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getPassword()).isNull();
+        assertThat(savedUser.isEmailVerified()).isTrue();
         assertThat(savedUser.getFirstName()).isEqualTo(request.getFirstName());
         assertThat(savedUser.getLastName()).isEqualTo(request.getLastName());
         assertThat(savedUser.getPhoneNumber()).isEqualTo(request.getPhoneNumber());
@@ -165,7 +167,7 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getAddress().getCity()).isEqualTo(request.getAddress().getCity());
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "TEACHER");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
+        verify(registrationEmailDispatcher).sendAfterCommit(eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
     }
 
     @Test
@@ -298,14 +300,14 @@ class UserRegistrationServiceTest {
         when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
         org.mockito.Mockito.doThrow(new KeycloakUserCreationException(
                         "Generated temporary password violates the configured Keycloak password policy"))
-                .when(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
+                .when(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
 
         assertThatThrownBy(() -> userRegistrationService.registerUser(request))
                 .isInstanceOf(KeycloakUserCreationException.class);
 
         verify(keycloakUserService).deleteUser(keycloakUserId);
         verify(userRepository, never()).saveAndFlush(any());
-        verify(passwordSetupEmailDispatcher, never()).sendAfterCommit(any());
+        verify(registrationEmailDispatcher, never()).sendAfterCommit(any(), any(), any(), any());
     }
 
     @Test
@@ -334,9 +336,10 @@ class UserRegistrationServiceTest {
         userRegistrationService.resendInvitation(userId);
 
         ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
-        verify(keycloakUserService).setTemporaryPassword(eq("keycloak-user-id"), passwordCaptor.capture());
+        verify(keycloakUserService).setInitialPassword(eq("keycloak-user-id"), passwordCaptor.capture());
         assertThat(passwordCaptor.getValue()).hasSize(32);
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq("keycloak-user-id"));
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq("keycloak-user-id"), eq(user.getEmail()), eq(user.getFirstName()), eq(passwordCaptor.getValue()));
     }
 
     @Test
@@ -349,7 +352,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("User not found");
 
-        verify(keycloakUserService, never()).setTemporaryPassword(any(), any());
+        verify(keycloakUserService, never()).setInitialPassword(any(), any());
     }
 
     @Test
@@ -364,7 +367,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(InvalidUserStateException.class)
                 .hasMessage("Invitation can only be resent for invited users");
 
-        verify(keycloakUserService, never()).setTemporaryPassword(any(), any());
+        verify(keycloakUserService, never()).setInitialPassword(any(), any());
     }
 
     @Test
@@ -378,7 +381,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(InvalidUserStateException.class)
                 .hasMessage("User is not linked to Keycloak");
 
-        verify(keycloakUserService, never()).setTemporaryPassword(any(), any());
+        verify(keycloakUserService, never()).setInitialPassword(any(), any());
     }
 
     @Test

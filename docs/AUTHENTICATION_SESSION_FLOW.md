@@ -25,24 +25,13 @@ Successful responses use the common `ApiResponse` shape:
 }
 ```
 
-Newly registered accounts have the Keycloak `UPDATE_PASSWORD` and `VERIFY_EMAIL` required actions
-and a temporary Keycloak credential. The password-grant login bridge cannot complete interactive
-required actions. When Keycloak reports `invalid_grant` with `Account is not fully set up`, the
-bridge returns HTTP `428 Precondition Required` with instructions to complete the secure setup link
-from the Mentify invitation email. It does not return or create access or refresh tokens, and it
-does not count this as a bad-password attempt. Keycloak's browser action link validates the token,
-enforces its expiry and one-time use, and accepts the permanent password under the realm policy.
-After setup is complete, the existing login endpoint continues to authenticate permanent-password
-users normally. Frontends should route this 428 response to the invitation/setup instructions; this
-backend repository does not contain the frontend application.
-
-After both required actions finish, the Keycloak action link returns to the configured
-`MENTIFY_LOGIN_URL` using `KEYCLOAK_FRONTEND_CLIENT_ID`. The URI must be registered as an allowed
-redirect URI for that Keycloak client. The user then signs in through `POST /api/v1/auth/login`; its
-authenticated response contains the server-resolved `user.role` (`STUDENT`, `TEACHER`, `ADMIN`, or
-`SUPER_ADMIN`). The frontend must use that value to select its role-specific dashboard and keep the
-route behind its authenticated session guard. API authorization remains enforced by the existing
-JWT resource-server checks and frontend route guards must be tested in the frontend repository.
+Newly registered accounts receive an email from user-service with their registered email and
+generated initial password. Keycloak does not add `UPDATE_PASSWORD` or `VERIFY_EMAIL` actions to
+these accounts and stores the credential as non-temporary, so the existing password-grant login
+bridge can issue a normal session. Users can change the password later through the forgot-password
+flow. The login response contains the server-resolved `user.role` (`STUDENT`, `TEACHER`, `ADMIN`, or
+`SUPER_ADMIN`). The frontend uses that value for role-specific routing, while API authorization
+remains enforced by the existing JWT resource-server checks.
 
 ## Refresh Access Token
 

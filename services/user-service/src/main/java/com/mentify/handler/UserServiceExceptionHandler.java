@@ -140,7 +140,7 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
-                "Account was created, but setup email delivery failed. An administrator can reissue credentials.", request);
+                "Account was created, but the credentials email could not be delivered. An administrator can reissue credentials.", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

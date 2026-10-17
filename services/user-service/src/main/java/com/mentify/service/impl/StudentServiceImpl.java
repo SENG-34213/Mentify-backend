@@ -14,7 +14,7 @@ import com.mentify.repository.UserRepository;
 import com.mentify.service.KeycloakUserService;
 import com.mentify.service.StudentService;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class StudentServiceImpl implements StudentService {
     private final UserRepository userRepository;
     private final StudentMapper studentMapper;
     private final KeycloakUserService keycloakUserService;
-    private final PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private final RegistrationEmailDispatcher registrationEmailDispatcher;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     @Override
@@ -47,12 +47,13 @@ public class StudentServiceImpl implements StudentService {
         try {
             keycloakUserId = keycloakUserService.createUser(new KeycloakUserProvisionRequest(
                     request.getEmail(), request.getFirstName(), request.getLastName()));
-            keycloakUserService.setTemporaryPassword(keycloakUserId, temporaryPassword);
+            keycloakUserService.setInitialPassword(keycloakUserId, temporaryPassword);
             keycloakUserService.assignRealmRole(keycloakUserId, Role.STUDENT.name());
 
             User user = studentMapper.toUserEntity(request);
             user.setKeycloakUserId(keycloakUserId);
             user.setAccountStatus(AccountStatus.INVITED);
+            user.setEmailVerified(true);
             StudentProfile profile = studentMapper.toStudentProfileEntity(request);
             Address address = studentMapper.toAddressEntity(request.getAddress());
 
@@ -60,12 +61,13 @@ public class StudentServiceImpl implements StudentService {
             user.setAddress(address);
 
             User savedUser = userRepository.saveAndFlush(user);
-            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
+            registrationEmailDispatcher.sendAfterCommit(
+                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
 
             UserResponse userResponse = studentMapper.toUserResponse(savedUser);
 
             return ApiResponse.<UserResponse>builder()
-                    .message("Student registered. Temporary credentials and a password setup email will be sent.")
+                    .message("Student registered. Sign-in credentials will be sent by email.")
                     .data(userResponse)
                     .status(HttpStatus.CREATED)
                     .build();

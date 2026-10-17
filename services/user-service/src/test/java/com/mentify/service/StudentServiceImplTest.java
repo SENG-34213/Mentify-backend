@@ -15,7 +15,7 @@ import com.mentify.repository.UserRepository;
 import com.mentify.service.impl.StudentServiceImpl;
 import com.mentify.service.KeycloakUserService;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,7 +52,7 @@ class StudentServiceImplTest {
     private KeycloakUserService keycloakUserService;
 
     @Mock
-    private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private RegistrationEmailDispatcher registrationEmailDispatcher;
 
     private StudentServiceImpl studentServiceImpl;
 
@@ -62,7 +62,7 @@ class StudentServiceImplTest {
                 userRepository,
                 studentMapper,
                 keycloakUserService,
-                passwordSetupEmailDispatcher,
+                registrationEmailDispatcher,
                 new TemporaryPasswordGenerator());
     }
 
@@ -105,9 +105,11 @@ class StudentServiceImplTest {
         assertThat(user.getKeycloakUserId()).isEqualTo(keycloakUserId);
         assertThat(user.getAccountStatus()).isEqualTo(AccountStatus.INVITED);
         assertThat(user.getPassword()).isNull();
+        assertThat(user.isEmailVerified()).isTrue();
         verify(keycloakUserService).assignRealmRole(keycloakUserId, Role.STUDENT.name());
-        verify(keycloakUserService).setTemporaryPassword(eq(keycloakUserId), anyString());
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(eq(keycloakUserId));
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
     }
 
     @Test

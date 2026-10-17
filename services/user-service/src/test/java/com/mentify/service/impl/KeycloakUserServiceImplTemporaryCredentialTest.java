@@ -12,8 +12,6 @@ import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,27 +23,7 @@ import static org.mockito.Mockito.when;
 class KeycloakUserServiceImplTemporaryCredentialTest {
 
     @Test
-    void sendPasswordSetupEmail_redirectsToConfiguredFrontendLoginAfterActions() {
-        Keycloak keycloak = mock(Keycloak.class);
-        RealmResource realm = mock(RealmResource.class);
-        UsersResource users = mock(UsersResource.class);
-        UserResource user = mock(UserResource.class);
-        KeycloakProperties properties = new KeycloakProperties();
-        properties.setRealm("mentify");
-        properties.setFrontendClientId("mentify-web-client");
-        properties.setFirstLoginRedirectUri("http://localhost:5173/login");
-        when(keycloak.realm("mentify")).thenReturn(realm);
-        when(realm.users()).thenReturn(users);
-        when(users.get("kc-user")).thenReturn(user);
-
-        new KeycloakUserServiceImpl(keycloak, properties).sendPasswordSetupEmail("kc-user");
-
-        verify(user).executeActionsEmail(
-                "mentify-web-client", "http://localhost:5173/login", List.of("UPDATE_PASSWORD", "VERIFY_EMAIL"));
-    }
-
-    @Test
-    void createUser_setsRequiredSetupActions() {
+    void createUser_doesNotRequireActionEmailBeforeTemporaryPasswordLogin() {
         Keycloak keycloak = mock(Keycloak.class);
         RealmResource realm = mock(RealmResource.class);
         UsersResource users = mock(UsersResource.class);
@@ -55,7 +33,8 @@ class KeycloakUserServiceImplTemporaryCredentialTest {
         when(realm.users()).thenReturn(users);
         when(users.create(any(UserRepresentation.class))).thenAnswer(invocation -> {
             UserRepresentation user = invocation.getArgument(0);
-            assertThat(user.getRequiredActions()).contains("UPDATE_PASSWORD", "VERIFY_EMAIL");
+            assertThat(user.getRequiredActions()).isEmpty();
+            assertThat(user.isEmailVerified()).isTrue();
             assertThat(user.getCredentials()).isNull();
             return Response.created(java.net.URI.create("http://keycloak/admin/realms/mentify/users/kc-user")).build();
         });
@@ -69,7 +48,7 @@ class KeycloakUserServiceImplTemporaryCredentialTest {
     }
 
     @Test
-    void setTemporaryPassword_usesKeycloakPasswordEndpointAndMarksCredentialTemporary() {
+    void setInitialPassword_usesKeycloakPasswordEndpointAndAllowsPasswordGrantLogin() {
         Keycloak keycloak = mock(Keycloak.class);
         RealmResource realm = mock(RealmResource.class);
         UsersResource users = mock(UsersResource.class);
@@ -79,21 +58,27 @@ class KeycloakUserServiceImplTemporaryCredentialTest {
         when(keycloak.realm("mentify")).thenReturn(realm);
         when(realm.users()).thenReturn(users);
         when(users.get("kc-user")).thenReturn(user);
+        when(user.toRepresentation()).thenReturn(new UserRepresentation());
         doAnswer(invocation -> {
             CredentialRepresentation credential = invocation.getArgument(0);
             assertThat(credential.getType()).isEqualTo(CredentialRepresentation.PASSWORD);
             assertThat(credential.getValue()).isEqualTo("Secure!Temp123");
-            assertThat(credential.isTemporary()).isTrue();
+            assertThat(credential.isTemporary()).isFalse();
             return null;
         }).when(user).resetPassword(any(CredentialRepresentation.class));
 
-        new KeycloakUserServiceImpl(keycloak, properties).setTemporaryPassword("kc-user", "Secure!Temp123");
+        new KeycloakUserServiceImpl(keycloak, properties).setInitialPassword("kc-user", "Secure!Temp123");
 
+        org.mockito.ArgumentCaptor<UserRepresentation> userCaptor =
+                org.mockito.ArgumentCaptor.forClass(UserRepresentation.class);
+        verify(user).update(userCaptor.capture());
+        assertThat(userCaptor.getValue().getRequiredActions()).isEmpty();
+        assertThat(userCaptor.getValue().isEmailVerified()).isTrue();
         verify(user).resetPassword(any(CredentialRepresentation.class));
     }
 
     @Test
-    void setTemporaryPassword_whenKeycloakPolicyRejectsPassword_returnsSafeFailure() {
+    void setInitialPassword_whenKeycloakPolicyRejectsPassword_returnsSafeFailure() {
         Keycloak keycloak = mock(Keycloak.class);
         RealmResource realm = mock(RealmResource.class);
         UsersResource users = mock(UsersResource.class);
@@ -103,11 +88,12 @@ class KeycloakUserServiceImplTemporaryCredentialTest {
         when(keycloak.realm("mentify")).thenReturn(realm);
         when(realm.users()).thenReturn(users);
         when(users.get("kc-user")).thenReturn(user);
+        when(user.toRepresentation()).thenReturn(new UserRepresentation());
         org.mockito.Mockito.doThrow(new WebApplicationException(Response.status(400).build()))
                 .when(user).resetPassword(any(CredentialRepresentation.class));
 
         assertThatThrownBy(() -> new KeycloakUserServiceImpl(keycloak, properties)
-                .setTemporaryPassword("kc-user", "PolicyRejected!123"))
+                .setInitialPassword("kc-user", "PolicyRejected!123"))
                 .isInstanceOf(com.mentify.exception.KeycloakUserCreationException.class)
                 .hasMessage("Generated temporary password violates the configured Keycloak password policy")
                 .hasMessageNotContaining("PolicyRejected!123");

@@ -28,10 +28,6 @@ public class KeycloakProperties {
     @NotBlank
     private String authClientSecret;
 
-    private String frontendClientId = "mentify-web-client";
-
-    private String firstLoginRedirectUri = "http://localhost:5173/login";
-
     private boolean includeRefreshTokenInLoginResponse = true;
 
     private BootstrapSuperAdmin bootstrapSuperAdmin = new BootstrapSuperAdmin();
