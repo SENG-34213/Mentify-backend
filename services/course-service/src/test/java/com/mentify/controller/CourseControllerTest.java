@@ -235,13 +235,14 @@ class CourseControllerTest {
     }
 
     @Test
-    void updateCourse_hasAdminAndSuperAdminPreAuthorize() throws NoSuchMethodException {
+    void updateCourse_allowsTeacherAndAdminRoles() throws NoSuchMethodException {
         Method updateMethod = CourseController.class.getDeclaredMethod("updateCourse", UUID.class, CourseRequest.class, String.class);
         PreAuthorize preAuthorize = updateMethod.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
         assertThat(preAuthorize.value()).contains("ADMIN");
         assertThat(preAuthorize.value()).contains("SUPER_ADMIN");
+        assertThat(preAuthorize.value()).contains("TEACHER");
     }
 
         @Test

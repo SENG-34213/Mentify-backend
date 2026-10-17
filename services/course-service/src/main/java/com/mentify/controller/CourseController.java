@@ -35,7 +35,7 @@ public class CourseController {
 
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     @NotifyOnSuccess(type = "COURSE_CREATED", title = "Course created", message = "Your course was created successfully.")
     public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
             @Valid @RequestBody CourseRequest request,
@@ -46,7 +46,7 @@ public class CourseController {
     }
 
     @PutMapping("/{courseId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     @NotifyOnSuccess(type = "COURSE_UPDATED", title = "Course updated", message = "Your course was updated successfully.")
     public ResponseEntity<ApiResponse<CourseResponse>> updateCourse(
             @PathVariable UUID courseId,
@@ -58,7 +58,7 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(@PathVariable UUID courseId) {
         ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
         return new ResponseEntity<>(response, response.getStatus());

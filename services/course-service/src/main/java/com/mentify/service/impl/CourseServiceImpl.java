@@ -32,6 +32,7 @@ public class CourseServiceImpl implements CourseService {
     private final CourseRepository courseRepository;
     private final GradeRepository gradeRepository;
     private final UserServiceClient userServiceClient;
+    private final TeacherCourseAccessGuard teacherCourseAccessGuard;
 
     @Override
     @Transactional
@@ -45,6 +46,7 @@ public class CourseServiceImpl implements CourseService {
         }
 
         validateGradeExists(request.getGradeId());
+        teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
@@ -74,6 +76,11 @@ public class CourseServiceImpl implements CourseService {
 
         Course existingCourse = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
+
+        if (teacherCourseAccessGuard.isTeacherAuthenticated()) {
+            teacherCourseAccessGuard.assertTeacherOwnsCourse(existingCourse);
+            teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
+        }
 
         if (courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId)) {
             log.warn("Duplicate course title attempted on update: '{}'", request.getCourseName());
@@ -143,6 +150,10 @@ public class CourseServiceImpl implements CourseService {
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
+
+        if (teacherCourseAccessGuard.isTeacherAuthenticated()) {
+            teacherCourseAccessGuard.assertTeacherOwnsCourse(course);
+        }
 
         CourseResponse courseResponse = CourseMapper.toCourseResponse(course);
 
