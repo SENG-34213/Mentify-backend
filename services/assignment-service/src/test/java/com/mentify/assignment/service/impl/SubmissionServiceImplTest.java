@@ -7,6 +7,7 @@ import com.mentify.assignment.enums.AssignmentStatus;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.SubmissionService;
+import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.client.UserServiceClient;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +46,9 @@ class SubmissionServiceImplTest {
     @Mock
     private CurrentUserService currentUserService;
 
+    @Mock
+    private SubmissionResponseMapper submissionResponseMapper;
+
     private SubmissionService submissionService;
 
     @BeforeEach
@@ -53,7 +58,8 @@ class SubmissionServiceImplTest {
                 submissionRepository,
                 enrollmentServiceClient,
                 userServiceClient,
-                currentUserService
+                currentUserService,
+                submissionResponseMapper
         );
     }
 
@@ -87,6 +93,10 @@ class SubmissionServiceImplTest {
             submission.setId(UUID.randomUUID());
             return submission;
         });
+        when(submissionResponseMapper.toResponse(any(Submission.class), anyString()))
+                .thenAnswer(invocation -> com.mentify.assignment.dto.response.SubmissionResponse.builder()
+                        .attemptNumber(invocation.<Submission>getArgument(0).getAttemptNumber())
+                        .build());
 
         ApiResponse<com.mentify.assignment.dto.response.SubmissionResponse> response =
                 submissionService.createSubmission(assignmentId, new CreateSubmissionRequest(), "Bearer token");

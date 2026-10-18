@@ -3,6 +3,8 @@ package com.mentify.service;
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.StudentDirectoryProfileResponse;
+import com.mentify.dto.StudentLookupRequest;
+import com.mentify.dto.StudentLookupResponse;
 import com.mentify.entity.User;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
@@ -95,6 +97,21 @@ public class UserRegistrationService {
         User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return UserRegistrationResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentLookupResponse> lookupStudents(StudentLookupRequest request) {
+        List<String> keycloakUserIds = request.getStudentIds().stream()
+                .map(UUID::toString)
+                .distinct()
+                .toList();
+        return userRepository.findAllByKeycloakUserIdInAndRole(keycloakUserIds, Role.STUDENT).stream()
+                .map(user -> StudentLookupResponse.builder()
+                        .studentId(UUID.fromString(user.getKeycloakUserId()))
+                        .firstName(user.getFirstName())
+                        .lastName(user.getLastName())
+                        .build())
+                .toList();
     }
 
     @Transactional

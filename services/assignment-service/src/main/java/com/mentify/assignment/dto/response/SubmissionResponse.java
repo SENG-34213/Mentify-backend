@@ -18,6 +18,7 @@ public class SubmissionResponse {
     private UUID id;
     private UUID assignmentId;
     private UUID studentId;
+    private String studentName;
     private Integer attemptNumber;
     private SubmissionStatus status;
     private String content;

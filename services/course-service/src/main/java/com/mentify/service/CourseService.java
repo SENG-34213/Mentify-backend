@@ -7,8 +7,11 @@ import com.mentify.payload.response.ApiResponse;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import com.mentify.dto.TeacherDashboardResponse;
 
 public interface CourseService {
+
+    ApiResponse<TeacherDashboardResponse> getTeacherDashboard(String authorizationHeader);
     ApiResponse<CourseResponse> createCourse(CourseRequest request, String authorizationHeader);
 
     ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request, String authorizationHeader);

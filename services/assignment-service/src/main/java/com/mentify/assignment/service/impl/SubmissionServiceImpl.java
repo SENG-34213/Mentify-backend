@@ -9,6 +9,7 @@ import com.mentify.assignment.enums.SubmissionStatus;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.SubmissionService;
+import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.client.UserServiceClient;
@@ -31,6 +32,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
+    private final SubmissionResponseMapper submissionResponseMapper;
 
     @Override
     @Transactional
@@ -63,7 +65,8 @@ public class SubmissionServiceImpl implements SubmissionService {
                 .build();
 
         Submission saved = submissionRepository.save(submission);
-        return response(HttpStatus.CREATED, "Submission created successfully", mapToResponse(saved));
+        return response(HttpStatus.CREATED, "Submission created successfully",
+                submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
 
     @Override
@@ -75,7 +78,8 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new RuntimeException("Submission can only be updated while in DRAFT status");
         }
         submission.setContent(request.getContent());
-        return response(HttpStatus.OK, "Submission updated successfully", mapToResponse(submissionRepository.save(submission)));
+        return response(HttpStatus.OK, "Submission updated successfully",
+                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
     }
 
     @Override
@@ -103,14 +107,16 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setSubmittedAt(LocalDateTime.now());
         submission.setIsLate(LocalDateTime.now().isAfter(assignment.getDueDate()));
 
-        return response(HttpStatus.OK, "Assignment submitted successfully", mapToResponse(submissionRepository.save(submission)));
+        return response(HttpStatus.OK, "Assignment submitted successfully",
+                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
     }
 
     @Override
     public ApiResponse<SubmissionResponse> getSubmission(UUID submissionId, String authorizationHeader) {
         Submission submission = getSubmissionOrThrow(submissionId);
         ensureCanAccessSubmission(submission);
-        return response(HttpStatus.OK, "Submission fetched successfully", mapToResponse(submission));
+        return response(HttpStatus.OK, "Submission fetched successfully",
+                submissionResponseMapper.toResponse(submission, authorizationHeader));
     }
 
     @Override
@@ -119,20 +125,20 @@ public class SubmissionServiceImpl implements SubmissionService {
         if (!canTeacherAccess(assignment)) {
             throw new RuntimeException("Access denied");
         }
-        List<SubmissionResponse> submissions = submissionRepository.findByAssignmentIdAndIsActiveTrueOrderByAttemptNumberAsc(assignmentId)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        List<SubmissionResponse> submissions = submissionResponseMapper.toResponses(
+                submissionRepository.findByAssignmentIdAndIsActiveTrueOrderByAttemptNumberAsc(assignmentId),
+                authorizationHeader
+        );
         return response(HttpStatus.OK, "Submissions fetched successfully", submissions);
     }
 
     @Override
     public ApiResponse<List<SubmissionResponse>> listMySubmissions(String authorizationHeader) {
         UUID currentUserId = currentUserService.getCurrentUserId();
-        List<SubmissionResponse> submissions = submissionRepository.findByStudentIdAndIsActiveTrueOrderBySubmittedAtDesc(currentUserId)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        List<SubmissionResponse> submissions = submissionResponseMapper.toResponses(
+                submissionRepository.findByStudentIdAndIsActiveTrueOrderBySubmittedAtDesc(currentUserId),
+                authorizationHeader
+        );
         return response(HttpStatus.OK, "Your submissions fetched successfully", submissions);
     }
 
@@ -168,26 +174,6 @@ public class SubmissionServiceImpl implements SubmissionService {
             return false;
         }
         return currentUserService.getCurrentUserId().equals(assignment.getTeacherId());
-    }
-
-    private SubmissionResponse mapToResponse(Submission submission) {
-        return SubmissionResponse.builder()
-                .id(submission.getId())
-                .assignmentId(submission.getAssignment() != null ? submission.getAssignment().getId() : null)
-                .studentId(submission.getStudentId())
-                .attemptNumber(submission.getAttemptNumber())
-                .status(submission.getStatus())
-                .content(submission.getContent())
-                .isLate(submission.getIsLate())
-                .submittedAt(submission.getSubmittedAt())
-                .marks(submission.getMarks())
-                .feedback(submission.getFeedback())
-                .gradedAt(submission.getGradedAt())
-                .gradedBy(submission.getGradedBy())
-                .returnedAt(submission.getReturnedAt())
-                .createdAt(submission.getCreatedAt())
-                .updatedAt(submission.getUpdatedAt())
-                .build();
     }
 
     private <T> ApiResponse<T> response(HttpStatus status, String message, T data) {

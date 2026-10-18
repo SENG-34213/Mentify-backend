@@ -94,13 +94,13 @@ payment verification.
 
 | Method | Path | Roles | Request / result |
 |---|---|---|---|
-| POST, PUT | `/api/v1/assignments[/{assignmentId}]` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `CreateAssignmentRequest`, `UpdateAssignmentRequest` |
-| GET | `/api/v1/assignments/{assignmentId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN`, `STUDENT` | Assignment |
-| GET | `/api/v1/courses/{courseId}/assignments` | `TEACHER`, `ADMIN`, `SUPER_ADMIN`, `STUDENT` | Course assignments |
+| POST, PUT, PATCH | `/api/v1/assignments[/{assignmentId}]` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `CreateAssignmentRequest`, full `UpdateAssignmentRequest`, or sparse `PatchAssignmentRequest` |
+| GET | `/api/v1/assignments/{assignmentId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN`, `STUDENT` | Assignment, rubric items, total submission count, and graded count |
+| GET | `/api/v1/courses/{courseId}/assignments` | `TEACHER`, `ADMIN`, `SUPER_ADMIN`, `STUDENT` | Course assignments with rubric items and submission counts |
 | DELETE | `/api/v1/assignments/{assignmentId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Delete assignment |
 | POST | `/api/v1/assignments/{assignmentId}/publish` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Publish assignment |
 | POST | `/api/v1/assignments/{assignmentId}/close` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Close assignment |
-| GET | `/api/v1/assignments/{assignmentId}/submissions` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | List submissions |
+| GET | `/api/v1/assignments/{assignmentId}/submissions` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | List submissions including student names |
 | POST | `/api/v1/submissions/{submissionId}/grade` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `GradeSubmissionRequest` |
 | POST | `/api/v1/submissions/{submissionId}/return` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Return graded submission |
 | POST | `/api/v1/assignments/{assignmentId}/attachments` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `AttachAssignmentMaterialRequest` |
@@ -117,8 +117,24 @@ payment verification.
 
 Assignment creation requires `courseId`, `moduleId`, title (nonblank, max
 150), `startDate`, `dueDate`, `maxMarks >= 1`, `allowedAttempts >= 1`, and
-`allowLateSubmission`; update requires the same editable fields. Late penalty,
-if supplied, is 0–100. Quiz creation requires `courseId`, nonblank title (max
+`allowLateSubmission`; full update requires the same editable fields. Both
+requests may include up to 50 `rubricItems`, each with a nonblank `criterion`
+(max 150) and nonnegative `marks`; the sum of rubric marks cannot exceed
+`maxMarks`. Assignment responses include ordered rubric items and
+`totalSubmissions`/`gradedCount`; graded counts include submissions with saved
+marks. `PATCH /api/v1/assignments/{assignmentId}` accepts any subset of
+editable assignment fields and preserves fields omitted from the request; an
+empty patch is rejected. A supplied rubric array replaces the current rubric,
+while an omitted rubric leaves it unchanged. Late penalty, if supplied, is
+0–100.
+
+The user service exposes `POST /api/v1/users/students/lookup` with
+`{"studentIds": ["<uuid>"]}` and returns each matching student's
+`studentId`, `firstName`, and `lastName`. Teachers and administrators may look
+up requested students; students may only look up their own ID. The assignment
+service uses this endpoint to add `studentName` to submission responses.
+
+Quiz creation requires `courseId`, nonblank title (max
 150), duration of at least one minute, nonnegative pass mark, and at least one
 attempt. Update has the same title, duration, pass-mark, and attempt
 constraints. A quiz question requires

@@ -2,6 +2,8 @@ package com.mentify.service;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.StudentLookupRequest;
+import com.mentify.dto.StudentLookupResponse;
 import com.mentify.dto.AddressDto;
 import com.mentify.entity.User;
 import com.mentify.enums.AccountStatus;
@@ -85,6 +87,29 @@ class UserRegistrationServiceTest {
                 registrationEmailDispatcher,
                 new TemporaryPasswordGenerator()
         );
+    }
+
+    @Test
+    void lookupStudents_returnsOnlyStudentNamesForRequestedKeycloakIds() {
+        UUID studentId = UUID.randomUUID();
+        User student = User.builder()
+                .keycloakUserId(studentId.toString())
+                .firstName("Jane")
+                .lastName("Doe")
+                .role(Role.STUDENT)
+                .build();
+        when(userRepository.findAllByKeycloakUserIdInAndRole(List.of(studentId.toString()), Role.STUDENT))
+                .thenReturn(List.of(student));
+
+        List<StudentLookupResponse> result = userRegistrationService.lookupStudents(
+                StudentLookupRequest.builder().studentIds(List.of(studentId)).build()
+        );
+
+        assertThat(result).containsExactly(StudentLookupResponse.builder()
+                .studentId(studentId)
+                .firstName("Jane")
+                .lastName("Doe")
+                .build());
     }
 
     @Test

@@ -1,11 +1,16 @@
 package com.mentify.assignment.service.impl;
 
 import com.mentify.assignment.dto.request.CreateAssignmentRequest;
+import com.mentify.assignment.dto.request.PatchAssignmentRequest;
+import com.mentify.assignment.dto.request.RubricItemRequest;
 import com.mentify.assignment.dto.request.UpdateAssignmentRequest;
 import com.mentify.assignment.dto.response.AssignmentResponse;
+import com.mentify.assignment.dto.response.RubricItemResponse;
 import com.mentify.assignment.entity.Assignment;
+import com.mentify.assignment.entity.AssignmentRubricItem;
 import com.mentify.assignment.enums.AssignmentStatus;
 import com.mentify.assignment.repository.AssignmentRepository;
+import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.AssignmentService;
 import com.mentify.assignment.service.CalendarProjectionService;
 import com.mentify.payload.response.ApiResponse;
@@ -19,13 +24,17 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AssignmentServiceImpl implements AssignmentService {
 
     private final AssignmentRepository assignmentRepository;
+    private final SubmissionRepository submissionRepository;
     private final CourseServiceClient courseServiceClient;
     private final CurrentUserService currentUserService;
     private final CalendarProjectionService calendarProjectionService;
@@ -36,6 +45,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         CourseLookupResponse course = getCourseOrThrow(request.getCourseId(), authorizationHeader);
         assertTeacherCanManageCourse(course);
         validateAssignmentDates(request.getStartDate(), request.getDueDate());
+        validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
 
         Assignment assignment = Assignment.builder()
                 .courseId(request.getCourseId())
@@ -53,6 +63,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .latePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
                 .status(AssignmentStatus.DRAFT)
                 .build();
+        replaceRubricItems(assignment, request.getRubricItems());
 
         Assignment saved = assignmentRepository.save(assignment);
         return response(HttpStatus.CREATED, "Assignment created successfully", mapToResponse(saved));
@@ -67,6 +78,7 @@ public class AssignmentServiceImpl implements AssignmentService {
             throw new RuntimeException("Assignment can only be updated while it is in DRAFT status");
         }
         validateAssignmentDates(request.getStartDate(), request.getDueDate());
+        validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
         getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
         assignment.setTitle(request.getTitle().trim());
@@ -78,6 +90,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setAllowedAttempts(request.getAllowedAttempts());
         assignment.setAllowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()));
         assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage());
+        if (request.getRubricItems() != null) {
+            replaceRubricItems(assignment, request.getRubricItems());
+        }
 
         Assignment saved = assignmentRepository.save(assignment);
         calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
@@ -85,17 +100,98 @@ public class AssignmentServiceImpl implements AssignmentService {
     }
 
     @Override
-    public ApiResponse<AssignmentResponse> getAssignment(UUID assignmentId) {
+    @Transactional
+    public ApiResponse<AssignmentResponse> patchAssignment(
+            UUID assignmentId,
+            PatchAssignmentRequest request,
+            String authorizationHeader
+    ) {
+        if (request.isEmpty()) {
+            throw new IllegalArgumentException("At least one assignment field must be provided");
+        }
         Assignment assignment = getAssignmentOrThrow(assignmentId);
-        return response(HttpStatus.OK, "Assignment fetched successfully", mapToResponse(assignment));
+        assertTeacherCanManageAssignment(assignment);
+        if (assignment.getStatus() != AssignmentStatus.DRAFT) {
+            throw new RuntimeException("Assignment can only be updated while in DRAFT status");
+        }
+        getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
+
+        LocalDateTime startDate = request.getStartDate() == null ? assignment.getStartDate() : request.getStartDate();
+        LocalDateTime dueDate = request.getDueDate() == null ? assignment.getDueDate() : request.getDueDate();
+        validateAssignmentDates(startDate, dueDate);
+        int maxMarks = request.getMaxMarks() == null ? assignment.getMaxMarks() : request.getMaxMarks();
+        validateRubricMarks(request.getRubricItems() == null
+                ? assignment.getRubricItems().stream()
+                        .map(item -> RubricItemRequest.builder()
+                                .criterion(item.getCriterion())
+                                .marks(item.getMarks())
+                                .build())
+                        .toList()
+                : request.getRubricItems(), maxMarks);
+
+        if (request.getTitle() != null) {
+            if (request.getTitle().isBlank()) {
+                throw new IllegalArgumentException("Assignment title cannot be blank");
+            }
+            assignment.setTitle(request.getTitle().trim());
+        }
+        if (request.getDescription() != null) {
+            assignment.setDescription(trimToNull(request.getDescription()));
+        }
+        if (request.getInstructions() != null) {
+            assignment.setInstructions(trimToNull(request.getInstructions()));
+        }
+        assignment.setStartDate(startDate);
+        assignment.setDueDate(dueDate);
+        assignment.setMaxMarks(maxMarks);
+        if (request.getAllowedAttempts() != null) {
+            assignment.setAllowedAttempts(request.getAllowedAttempts());
+        }
+        if (request.getAllowLateSubmission() != null) {
+            assignment.setAllowLateSubmission(request.getAllowLateSubmission());
+        }
+        if (request.getLatePenaltyPercentage() != null) {
+            assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage());
+        }
+        if (request.getRubricItems() != null) {
+            replaceRubricItems(assignment, request.getRubricItems());
+        }
+
+        Assignment saved = assignmentRepository.save(assignment);
+        calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
+        return response(HttpStatus.OK, "Assignment updated successfully", mapToResponse(saved));
     }
 
     @Override
+    @Transactional
+    public ApiResponse<AssignmentResponse> getAssignment(UUID assignmentId) {
+        Assignment assignment = getAssignmentOrThrow(assignmentId);
+        return response(HttpStatus.OK, "Assignment fetched successfully", mapToResponse(
+                assignment,
+                submissionRepository.findSubmissionCountsByAssignmentIds(
+                        List.of(assignmentId)
+                ).stream().findFirst().orElse(null)
+        ));
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<List<AssignmentResponse>> listAssignmentsForCourse(UUID courseId, String authorizationHeader) {
         getCourseOrThrow(courseId, authorizationHeader);
-        List<AssignmentResponse> assignments = assignmentRepository.findByCourseIdAndIsActiveTrueOrderByStartDateDesc(courseId)
-                .stream()
-                .map(this::mapToResponse)
+        List<Assignment> assignmentEntities =
+                assignmentRepository.findByCourseIdAndIsActiveTrueOrderByStartDateDesc(courseId);
+        if (assignmentEntities.isEmpty()) {
+            return response(HttpStatus.OK, "Assignments fetched successfully", List.of());
+        }
+        List<UUID> assignmentIds = assignmentEntities.stream().map(Assignment::getId).toList();
+        Map<UUID, SubmissionRepository.AssignmentSubmissionCounts> countsByAssignmentId =
+                submissionRepository.findSubmissionCountsByAssignmentIds(assignmentIds).stream()
+                        .collect(Collectors.toMap(
+                                SubmissionRepository.AssignmentSubmissionCounts::getAssignmentId,
+                                Function.identity()
+                        ));
+        List<AssignmentResponse> assignments = assignmentEntities.stream()
+                .map(assignment -> mapToResponse(assignment, countsByAssignmentId.get(assignment.getId())))
                 .toList();
         return response(HttpStatus.OK, "Assignments fetched successfully", assignments);
     }
@@ -206,7 +302,49 @@ public class AssignmentServiceImpl implements AssignmentService {
         return value.trim();
     }
 
+    private void replaceRubricItems(Assignment assignment, List<RubricItemRequest> rubricItems) {
+        assignment.getRubricItems().clear();
+        if (rubricItems == null) {
+            return;
+        }
+
+        for (int index = 0; index < rubricItems.size(); index++) {
+            RubricItemRequest rubricItem = rubricItems.get(index);
+            assignment.getRubricItems().add(AssignmentRubricItem.builder()
+                    .assignment(assignment)
+                    .criterion(rubricItem.getCriterion().trim())
+                    .marks(rubricItem.getMarks())
+                    .displayOrder(index)
+                    .build());
+        }
+    }
+
+    private void validateRubricMarks(List<RubricItemRequest> rubricItems, int maxMarks) {
+        if (rubricItems == null) {
+            return;
+        }
+        int totalRubricMarks = rubricItems.stream()
+                .map(RubricItemRequest::getMarks)
+                .filter(marks -> marks != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+        if (totalRubricMarks > maxMarks) {
+            throw new IllegalArgumentException("Total rubric marks cannot exceed assignment maximum marks");
+        }
+    }
+
     private AssignmentResponse mapToResponse(Assignment assignment) {
+        SubmissionRepository.AssignmentSubmissionCounts counts =
+                submissionRepository.findSubmissionCountsByAssignmentIds(
+                        List.of(assignment.getId())
+                ).stream().findFirst().orElse(null);
+        return mapToResponse(assignment, counts);
+    }
+
+    private AssignmentResponse mapToResponse(
+            Assignment assignment,
+            SubmissionRepository.AssignmentSubmissionCounts counts
+    ) {
         return AssignmentResponse.builder()
                 .id(assignment.getId())
                 .courseId(assignment.getCourseId())
@@ -226,6 +364,18 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .publishedAt(assignment.getPublishedAt())
                 .createdAt(assignment.getCreatedAt())
                 .updatedAt(assignment.getUpdatedAt())
+                .rubricItems(assignment.getRubricItems() == null
+                        ? List.of()
+                        : assignment.getRubricItems().stream()
+                                .map(item -> RubricItemResponse.builder()
+                                        .id(item.getId())
+                                        .criterion(item.getCriterion())
+                                        .marks(item.getMarks())
+                                        .displayOrder(item.getDisplayOrder())
+                                        .build())
+                                .toList())
+                .totalSubmissions(counts == null ? 0L : counts.getTotalSubmissions())
+                .gradedCount(counts == null ? 0L : counts.getGradedSubmissions())
                 .build();
     }
 

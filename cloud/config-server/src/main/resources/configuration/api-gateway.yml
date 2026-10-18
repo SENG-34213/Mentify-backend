@@ -72,6 +72,10 @@ spring:
           uri: lb://course-service
           predicates:
             - Path=/api/v1/course/**
+        - id: teacher-dashboard-course-service
+          uri: lb://course-service
+          predicates:
+            - Path=/api/v1/teacher/**
           filters:
             - StripPrefix=0
 
