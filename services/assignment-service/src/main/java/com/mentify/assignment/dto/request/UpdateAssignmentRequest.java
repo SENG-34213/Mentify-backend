@@ -1,5 +1,6 @@
 package com.mentify.assignment.dto.request;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -42,4 +44,8 @@ public class UpdateAssignmentRequest {
     @Min(value = 0, message = "Late penalty cannot be negative")
     @Max(value = 100, message = "Late penalty cannot exceed 100")
     private Integer latePenaltyPercentage;
+
+    @Valid
+    @Size(max = 50, message = "An assignment cannot have more than 50 rubric items")
+    private List<RubricItemRequest> rubricItems;
 }

@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -32,4 +33,7 @@ public class AssignmentResponse {
     private LocalDateTime publishedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<RubricItemResponse> rubricItems;
+    private Long totalSubmissions;
+    private Long gradedCount;
 }

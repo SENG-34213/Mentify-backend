@@ -2,6 +2,7 @@ package com.mentify.assignment.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentify.assignment.dto.request.CreateAssignmentRequest;
+import com.mentify.assignment.dto.request.PatchAssignmentRequest;
 import com.mentify.assignment.dto.request.UpdateAssignmentRequest;
 import com.mentify.assignment.dto.response.AssignmentResponse;
 import com.mentify.assignment.enums.AssignmentStatus;
@@ -154,6 +155,40 @@ class AssignmentControllerTest {
                 .andExpect(jsonPath("$.data.title").value("Updated Essay Assignment"));
 
         verify(assignmentService).updateAssignment(eq(assignmentId), any(UpdateAssignmentRequest.class), eq(AUTH_HEADER));
+    }
+
+    @Test
+    void patchAssignment_whenOnlyTitleIsProvided_preservesSparseRequest() throws Exception {
+        UUID assignmentId = UUID.randomUUID();
+        AssignmentResponse response = AssignmentResponse.builder()
+                .id(assignmentId)
+                .title("Renamed assignment")
+                .status(AssignmentStatus.DRAFT)
+                .build();
+        when(assignmentService.patchAssignment(
+                eq(assignmentId),
+                any(PatchAssignmentRequest.class),
+                eq(AUTH_HEADER)
+        )).thenReturn(ApiResponse.<AssignmentResponse>builder()
+                .status(HttpStatus.OK)
+                .message("Assignment updated successfully")
+                .data(response)
+                .build());
+
+        mockMvc.perform(patch("/api/v1/assignments/{assignmentId}", assignmentId)
+                        .header("Authorization", AUTH_HEADER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Renamed assignment"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("Renamed assignment"));
+
+        verify(assignmentService).patchAssignment(
+                eq(assignmentId),
+                any(PatchAssignmentRequest.class),
+                eq(AUTH_HEADER)
+        );
     }
 
     @Test

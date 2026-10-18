@@ -2,6 +2,8 @@ package com.mentify.controller;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.SuperAdminRegisterAdminRequest;
+import com.mentify.dto.StudentLookupRequest;
+import com.mentify.dto.StudentLookupResponse;
 import com.mentify.dto.UpdateUserStatusRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.enums.Role;
@@ -13,8 +15,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -136,5 +140,29 @@ public class UserRegistration {
     public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
         boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
         return ResponseEntity.ok(exists);
+    }
+
+    @PostMapping("/students/lookup")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN', 'STUDENT')")
+    public ResponseEntity<ApiResponse<List<StudentLookupResponse>>> lookupStudents(
+            @Valid @RequestBody StudentLookupRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication
+    ) {
+        boolean mayLookupAllStudents = authentication.getAuthorities().stream()
+                .anyMatch(authority -> List.of("ROLE_TEACHER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .contains(authority.getAuthority()));
+        if (!mayLookupAllStudents) {
+            UUID currentStudentId = UUID.fromString(jwt.getSubject());
+            if (request.getStudentIds().stream().anyMatch(studentId -> !studentId.equals(currentStudentId))) {
+                throw new AccessDeniedException("Students can only look up their own profile");
+            }
+        }
+        List<StudentLookupResponse> students = userRegistrationService.lookupStudents(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Student summaries fetched successfully",
+                students
+        ));
     }
 }

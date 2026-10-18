@@ -7,6 +7,7 @@ import com.mentify.assignment.entity.Submission;
 import com.mentify.assignment.enums.SubmissionStatus;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.GradingService;
+import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.security.CurrentUserService;
 import jakarta.transaction.Transactional;
@@ -24,6 +25,7 @@ public class GradingServiceImpl implements GradingService {
 
     private final SubmissionRepository submissionRepository;
     private final CurrentUserService currentUserService;
+    private final SubmissionResponseMapper submissionResponseMapper;
 
     @Override
     @Transactional
@@ -42,7 +44,8 @@ public class GradingServiceImpl implements GradingService {
         submission.setGradedAt(LocalDateTime.now());
         submission.setGradedBy(currentUserService.getCurrentUserId());
 
-        return response(HttpStatus.OK, "Submission graded successfully", mapToResponse(submissionRepository.save(submission)));
+        return response(HttpStatus.OK, "Submission graded successfully",
+                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
     }
 
     @Override
@@ -52,7 +55,8 @@ public class GradingServiceImpl implements GradingService {
         ensureTeacherCanGrade(submission);
         submission.setStatus(SubmissionStatus.RETURNED);
         submission.setReturnedAt(LocalDateTime.now());
-        return response(HttpStatus.OK, "Submission returned successfully", mapToResponse(submissionRepository.save(submission)));
+        return response(HttpStatus.OK, "Submission returned successfully",
+                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
     }
 
     private void ensureTeacherCanGrade(Submission submission) {
@@ -71,26 +75,6 @@ public class GradingServiceImpl implements GradingService {
     private Submission getSubmissionOrThrow(UUID submissionId) {
         return submissionRepository.findByIdAndIsActiveTrue(submissionId)
                 .orElseThrow(() -> new RuntimeException("Submission not found"));
-    }
-
-    private SubmissionResponse mapToResponse(Submission submission) {
-        return SubmissionResponse.builder()
-                .id(submission.getId())
-                .assignmentId(submission.getAssignment() != null ? submission.getAssignment().getId() : null)
-                .studentId(submission.getStudentId())
-                .attemptNumber(submission.getAttemptNumber())
-                .status(submission.getStatus())
-                .content(submission.getContent())
-                .isLate(submission.getIsLate())
-                .submittedAt(submission.getSubmittedAt())
-                .marks(submission.getMarks())
-                .feedback(submission.getFeedback())
-                .gradedAt(submission.getGradedAt())
-                .gradedBy(submission.getGradedBy())
-                .returnedAt(submission.getReturnedAt())
-                .createdAt(submission.getCreatedAt())
-                .updatedAt(submission.getUpdatedAt())
-                .build();
     }
 
     private <T> ApiResponse<T> response(HttpStatus status, String message, T data) {
