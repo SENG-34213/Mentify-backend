@@ -11,6 +11,18 @@ routes; the listed HTTP methods apply to the appropriate path variant.
 
 ## Courses and course content (`course-service`)
 
+### Teacher dashboard aggregation
+
+| Method | Path | Roles | Result |
+|---|---|---|---|
+| GET | `/api/v1/teacher/dashboard` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `TeacherDashboardResponse` |
+
+For a teacher, the aggregation is restricted to courses assigned to the
+authenticated teacher. It returns course and distinct-student counts, active
+assignments, pending submission review, upcoming scheduled exams, today's
+classes and schedule, pending grading items, and per-course submission/grading
+performance. The response uses the standard `ApiResponse` envelope.
+
 | Method | Path | Roles | Request / result |
 |---|---|---|---|
 | GET | `/api/v1/course/my-courses` | `TEACHER` | Teacher's assigned courses |
