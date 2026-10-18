@@ -6,6 +6,7 @@ import com.mentify.dto.StudentLookupRequest;
 import com.mentify.dto.StudentLookupResponse;
 import com.mentify.dto.UpdateUserStatusRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.StudentDirectoryProfileResponse;
 import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.UserRepository;
@@ -140,6 +141,16 @@ public class UserRegistration {
     public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
         boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
         return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/students/lookup")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<StudentDirectoryProfileResponse>>> getStudentsByIds(
+            @RequestParam List<UUID> ids
+    ) {
+        List<StudentDirectoryProfileResponse> students = userRegistrationService.getStudentsByIds(ids);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(), "Student profiles fetched successfully", students));
     }
 
     @PostMapping("/students/lookup")

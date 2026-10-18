@@ -79,6 +79,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: teacher-course-service
+          uri: lb://course-service
+          predicates:
+            - Path=/api/v1/teacher/**
+          filters:
+            - StripPrefix=0
+
         - id: entrollment-service
           uri: lb://entrollment-service
           predicates:

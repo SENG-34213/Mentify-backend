@@ -11,17 +11,17 @@ routes; the listed HTTP methods apply to the appropriate path variant.
 
 ## Courses and course content (`course-service`)
 
-### Teacher dashboard aggregation
+### Teacher student directory
 
 | Method | Path | Roles | Result |
 |---|---|---|---|
-| GET | `/api/v1/teacher/dashboard` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `TeacherDashboardResponse` |
+| GET | `/api/v1/teacher/students?courseId={courseId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Student directory entries |
 
-For a teacher, the aggregation is restricted to courses assigned to the
-authenticated teacher. It returns course and distinct-student counts, active
-assignments, pending submission review, upcoming scheduled exams, today's
-classes and schedule, pending grading items, and per-course submission/grading
-performance. The response uses the standard `ApiResponse` envelope.
+The course service verifies that a teacher owns the requested course before
+reading its active enrollment IDs. It then resolves the IDs through the user
+service and returns name, email, student number, account status, and the course
+scope in the standard `ApiResponse` envelope. Avatar and program are currently
+returned as `null` because those fields are not persisted in `student_profiles`.
 
 | Method | Path | Roles | Request / result |
 |---|---|---|---|

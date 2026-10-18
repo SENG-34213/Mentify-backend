@@ -2,6 +2,7 @@ package com.mentify.service;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.StudentDirectoryProfileResponse;
 import com.mentify.dto.StudentLookupRequest;
 import com.mentify.dto.StudentLookupResponse;
 import com.mentify.entity.User;
@@ -72,6 +73,23 @@ public class UserRegistrationService {
         return userRepository.findAllByRoleOrderByCreatedAtDesc(role).stream()
                 .map(UserRegistrationResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentDirectoryProfileResponse> getStudentsByIds(List<UUID> ids) {
+        return userRepository.findAllByIdInAndRole(ids, Role.STUDENT).stream()
+                .map(user -> StudentDirectoryProfileResponse.builder()
+                        .id(user.getId())
+                        .name(user.getFirstName() + " " + user.getLastName())
+                        .email(user.getEmail())
+                        .studentNumber(user.getStudentProfile() != null
+                                ? user.getStudentProfile().getStudentId() : null)
+                        .avatar(null)
+                        .program(null)
+                        .status(!user.isActive() ? "INACTIVE"
+                                : user.getAccountStatus() != null ? user.getAccountStatus().name() : null)
+                        .build())
+                .toList();
     }
 
     @Transactional(readOnly = true)
