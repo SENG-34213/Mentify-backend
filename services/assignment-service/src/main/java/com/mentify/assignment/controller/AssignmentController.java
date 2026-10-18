@@ -1,6 +1,7 @@
 package com.mentify.assignment.controller;
 
 import com.mentify.assignment.dto.request.CreateAssignmentRequest;
+import com.mentify.assignment.dto.request.PatchAssignmentRequest;
 import com.mentify.assignment.dto.request.UpdateAssignmentRequest;
 import com.mentify.assignment.dto.response.AssignmentResponse;
 import com.mentify.common.notification.NotifyOnSuccess;
@@ -42,6 +43,19 @@ public class AssignmentController {
             @RequestHeader("Authorization") String authorizationHeader
     ) {
         ApiResponse<AssignmentResponse> response = assignmentService.updateAssignment(assignmentId, request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PatchMapping("/assignments/{assignmentId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @NotifyOnSuccess(type = "ASSIGNMENT_UPDATED", title = "Assignment updated", message = "Your assignment was updated successfully.")
+    public ResponseEntity<ApiResponse<AssignmentResponse>> patchAssignment(
+            @PathVariable UUID assignmentId,
+            @Valid @RequestBody PatchAssignmentRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<AssignmentResponse> response =
+                assignmentService.patchAssignment(assignmentId, request, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

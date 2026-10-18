@@ -33,7 +33,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: ${HIBERNATE_DDL_AUTO:create-drop}
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
