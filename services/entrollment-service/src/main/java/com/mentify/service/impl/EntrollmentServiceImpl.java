@@ -2,10 +2,12 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CommunicationServiceClient;
 import com.mentify.client.CourseServiceClient;
+import com.mentify.client.PaymentServiceClient;
 import com.mentify.client.UserServiceClient;
 import com.mentify.client.dto.AddStudentToGroupRequest;
 import com.mentify.client.dto.CourseBulkLookupRequest;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.client.dto.PaymentVerificationResponse;
 import com.mentify.client.dto.UserLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
@@ -13,6 +15,7 @@ import com.mentify.dto.EntrollmentUpdateRequest;
 import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
+import com.mentify.exception.PaymentRequiredException;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
@@ -24,8 +27,10 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -41,6 +46,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
     private final EntrollmentRepository entrollmentRepository;
     private final CourseServiceClient courseServiceClient;
+    private final PaymentServiceClient paymentServiceClient;
     private final CommunicationServiceClient communicationServiceClient;
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
@@ -51,8 +57,14 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         log.info("Creating enrollment for student [{}]", request.getStudentId());
 
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
-        validateCoursesExist(requestedCourseIds, authorizationHeader);
+        List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
         validateNoDuplicateEnrollment(request.getStudentId(), requestedCourseIds);
+        validateSuccessfulPaymentsForPaidCourses(
+                request.getStudentId(),
+                courses,
+                requestedCourseIds,
+                authorizationHeader
+        );
 
         return saveEnrollment(request.getStudentId(), requestedCourseIds, authorizationHeader, true);
     }
@@ -67,8 +79,9 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         log.info("Creating self-service enrollment for student [{}]", studentId);
 
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
-        lookupCoursesForStudent(requestedCourseIds, authorizationHeader);
+        List<CourseLookupResponse> courses = lookupCoursesForStudent(requestedCourseIds, authorizationHeader);
         validateNoDuplicateEnrollment(studentId, requestedCourseIds);
+        validateSuccessfulPaymentsForPaidCourses(studentId, courses, requestedCourseIds, authorizationHeader);
 
         return saveEnrollment(studentId, requestedCourseIds, authorizationHeader, false);
     }
@@ -87,10 +100,16 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
         Set<UUID> existingCourseIds = new HashSet<>(existingEnrollment.getCourseIds());
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
-        validateCoursesExist(requestedCourseIds, authorizationHeader);
+        List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
         Set<UUID> newlyAddedCourseIds = requestedCourseIds.stream()
                 .filter(courseId -> !existingCourseIds.contains(courseId))
                 .collect(Collectors.toSet());
+        validateSuccessfulPaymentsForPaidCourses(
+                existingEnrollment.getStudentId(),
+                courses,
+                newlyAddedCourseIds,
+                authorizationHeader
+        );
         existingEnrollment.setCourseIds(requestedCourseIds);
         Entrollment savedEnrollment = entrollmentRepository.save(existingEnrollment);
         syncStudentToCommunicationGroups(savedEnrollment.getStudentId(), newlyAddedCourseIds, authorizationHeader, true);
@@ -243,6 +262,44 @@ public class EntrollmentServiceImpl implements EntrollmentService {
             throw new ResourceNotFoundException("Course", "id", courseId);
         } catch (FeignException ex) {
             throw new IllegalStateException("Failed to validate course " + courseId, ex);
+        }
+    }
+
+    private void validateSuccessfulPaymentsForPaidCourses(
+            UUID studentId,
+            List<CourseLookupResponse> courses,
+            Set<UUID> courseIdsToValidate,
+            String authorizationHeader
+    ) {
+        courses.stream()
+                .filter(course -> courseIdsToValidate.contains(course.getId()))
+                .filter(this::isPaidCourse)
+                .forEach(course -> validateSuccessfulPayment(studentId, course.getId(), authorizationHeader));
+    }
+
+    private boolean isPaidCourse(CourseLookupResponse course) {
+        BigDecimal monthlyFee = course.getGradeMonthlyFee();
+        return monthlyFee != null && monthlyFee.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private void validateSuccessfulPayment(UUID studentId, UUID courseId, String authorizationHeader) {
+        try {
+            ApiResponse<PaymentVerificationResponse> response =
+                    paymentServiceClient.verifySuccessfulPayment(studentId, courseId, authorizationHeader);
+            PaymentVerificationResponse verification = response != null ? response.getData() : null;
+
+            if (verification == null
+                    || !studentId.equals(verification.getStudentId())
+                    || !courseId.equals(verification.getCourseId())
+                    || !verification.isSuccessfulPaymentExists()) {
+                throw new PaymentRequiredException(
+                        "Successful payment is required before enrolling in paid course " + courseId
+                );
+            }
+        } catch (FeignException.Forbidden ex) {
+            throw new AccessDeniedException("Payment verification is not allowed", ex);
+        } catch (FeignException ex) {
+            throw new IllegalStateException("Failed to verify payment for course " + courseId, ex);
         }
     }
 
