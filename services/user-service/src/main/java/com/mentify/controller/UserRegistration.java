@@ -151,6 +151,8 @@ public class UserRegistration {
         List<StudentDirectoryProfileResponse> students = userRegistrationService.getStudentsByIds(ids);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK.value(), "Student profiles fetched successfully", students));
+    }
+
     @PostMapping("/students/lookup")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN', 'STUDENT')")
     public ResponseEntity<ApiResponse<List<StudentLookupResponse>>> lookupStudents(
