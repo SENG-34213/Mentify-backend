@@ -11,6 +11,18 @@ routes; the listed HTTP methods apply to the appropriate path variant.
 
 ## Courses and course content (`course-service`)
 
+### Teacher student directory
+
+| Method | Path | Roles | Result |
+|---|---|---|---|
+| GET | `/api/v1/teacher/students?courseId={courseId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Student directory entries |
+
+The course service verifies that a teacher owns the requested course before
+reading its active enrollment IDs. It then resolves the IDs through the user
+service and returns name, email, student number, account status, and the course
+scope in the standard `ApiResponse` envelope. Avatar and program are currently
+returned as `null` because those fields are not persisted in `student_profiles`.
+
 | Method | Path | Roles | Request / result |
 |---|---|---|---|
 | GET | `/api/v1/course/my-courses` | `TEACHER` | Teacher's assigned courses |
