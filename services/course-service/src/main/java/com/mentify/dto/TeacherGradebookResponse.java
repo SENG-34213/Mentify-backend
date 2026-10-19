@@ -11,6 +11,8 @@ import java.util.UUID;
 @Builder
 public class TeacherGradebookResponse {
     UUID courseId;
+    String courseName;
     Map<String, Integer> gradingScale;
     List<TeacherGradebookStudentResponse> students;
+    TeacherGradebookSummaryResponse summary;
 }

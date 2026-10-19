@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,8 +23,10 @@ public class TeacherGradebookQuizController {
     @GetMapping("/api/v1/teacher/gradebook/quizzes")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<TeacherGradebookQuizResponse>>> getQuizzes(
-            @RequestParam UUID courseId) {
-        ApiResponse<List<TeacherGradebookQuizResponse>> response = gradebookQuizService.getQuizzes(courseId);
+            @RequestParam UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        ApiResponse<List<TeacherGradebookQuizResponse>> response =
+                gradebookQuizService.getQuizzes(courseId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 }
