@@ -126,7 +126,7 @@ Mentify implements a multi-layered security architecture:
 
 The **AI Service** provides a "Grounded Tool" architecture:
 *   **Tutor Chat**: An interactive chatbot for teachers and admins that uses context-aware conversation history.
-*   **Grounded Tool Analysis**: Instead of raw LLM generation, the AI uses authorized backend tools (e.g., `TodayQuizPerformanceTool` and `UpcomingCalendarEventsTool`) to fetch real-time data from other services before summarizing it. Calendar insights use the upcoming events visible to the authenticated user.
+*   **Grounded Tool Analysis**: Instead of raw LLM generation, the AI uses authorized backend tools (e.g., `TodayQuizPerformanceTool`, `UpcomingCalendarEventsTool`, and Enrollment Service tools) to fetch real-time data from other services before summarizing it. Calendar insights use the upcoming events visible to the authenticated user; students can ask about their active courses, and administrators can request active-enrollment aggregates.
 *   **AI Quiz Generation**: Automatically generates MCQ quizzes based on course materials and lessons.
 *   **Content Guardrails**: All AI interactions pass through a `UsageGuard` and `ContentGuard` to ensure policy compliance and quota management.
 
