@@ -1,6 +1,6 @@
 package com.mentify.controller;
 
-import com.mentify.dto.TeacherSearchResultResponse;
+import com.mentify.dto.TeacherSearchResponse;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.TeacherSearchService;
 import lombok.RequiredArgsConstructor;
@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/teacher")
 @RequiredArgsConstructor
@@ -22,11 +20,12 @@ public class TeacherSearchController {
 
     @GetMapping("/search")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<TeacherSearchResultResponse>>> search(
+    public ResponseEntity<ApiResponse<TeacherSearchResponse>> search(
             @RequestParam String q,
-            @RequestParam(required = false, defaultValue = "all") String type,
+            @RequestParam(required = false, defaultValue = "course,student,assignment,quiz,exam") String types,
+            @RequestParam(required = false, defaultValue = "50") int limit,
             @RequestHeader("Authorization") String authorizationHeader) {
-        ApiResponse<List<TeacherSearchResultResponse>> response = searchService.search(q, type, authorizationHeader);
+        ApiResponse<TeacherSearchResponse> response = searchService.search(q, types, limit, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 }
