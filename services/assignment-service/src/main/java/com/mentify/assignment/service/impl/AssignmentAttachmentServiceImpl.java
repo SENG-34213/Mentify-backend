@@ -1,8 +1,11 @@
 package com.mentify.assignment.service.impl;
 
 import com.mentify.assignment.client.MaterialServiceClient;
+import com.mentify.assignment.client.MaterialInternalServiceClient;
 import com.mentify.assignment.client.dto.MaterialDownloadResponse;
 import com.mentify.assignment.client.dto.MaterialLookupResponse;
+import com.mentify.assignment.client.dto.MaterialUploadResponse;
+import com.mentify.assignment.client.dto.MaterialAssociationRequest;
 import com.mentify.assignment.dto.request.AttachAssignmentMaterialRequest;
 import com.mentify.assignment.dto.response.AssignmentAttachmentDownloadResponse;
 import com.mentify.assignment.dto.response.AssignmentAttachmentResponse;
@@ -13,7 +16,6 @@ import com.mentify.assignment.repository.AssignmentAttachmentRepository;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.service.AssignmentAttachmentService;
 import com.mentify.assignment.storage.FileStorageService;
-import com.mentify.assignment.storage.StoredFile;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.CourseServiceClient;
@@ -21,7 +23,7 @@ import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.security.CurrentUserService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -33,16 +35,50 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class AssignmentAttachmentServiceImpl implements AssignmentAttachmentService {
 
     private final AssignmentRepository assignmentRepository;
     private final AssignmentAttachmentRepository attachmentRepository;
     private final FileStorageService fileStorageService;
     private final MaterialServiceClient materialServiceClient;
+    private final MaterialInternalServiceClient materialInternalServiceClient;
     private final CourseServiceClient courseServiceClient;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final CurrentUserService currentUserService;
+
+    public AssignmentAttachmentServiceImpl(
+            AssignmentRepository assignmentRepository,
+            AssignmentAttachmentRepository attachmentRepository,
+            FileStorageService fileStorageService,
+            MaterialServiceClient materialServiceClient,
+            CourseServiceClient courseServiceClient,
+            EnrollmentServiceClient enrollmentServiceClient,
+            CurrentUserService currentUserService
+    ) {
+        this(assignmentRepository, attachmentRepository, fileStorageService, materialServiceClient, null,
+                courseServiceClient, enrollmentServiceClient, currentUserService);
+    }
+
+    @Autowired
+    public AssignmentAttachmentServiceImpl(
+            AssignmentRepository assignmentRepository,
+            AssignmentAttachmentRepository attachmentRepository,
+            FileStorageService fileStorageService,
+            MaterialServiceClient materialServiceClient,
+            MaterialInternalServiceClient materialInternalServiceClient,
+            CourseServiceClient courseServiceClient,
+            EnrollmentServiceClient enrollmentServiceClient,
+            CurrentUserService currentUserService
+    ) {
+        this.assignmentRepository = assignmentRepository;
+        this.attachmentRepository = attachmentRepository;
+        this.fileStorageService = fileStorageService;
+        this.materialServiceClient = materialServiceClient;
+        this.materialInternalServiceClient = materialInternalServiceClient;
+        this.courseServiceClient = courseServiceClient;
+        this.enrollmentServiceClient = enrollmentServiceClient;
+        this.currentUserService = currentUserService;
+    }
 
     @Override
     @Transactional
@@ -59,6 +95,7 @@ public class AssignmentAttachmentServiceImpl implements AssignmentAttachmentServ
         if (material.courseId() == null || !material.courseId().equals(assignment.getCourseId())) {
             throw new AccessDeniedException("Material does not belong to this assignment course");
         }
+        associateMaterialReference(assignment, material.id(), material.uploadedBy(), authorizationHeader);
 
         AssignmentAttachment attachment = AssignmentAttachment.builder()
                 .assignment(assignment)
@@ -85,18 +122,49 @@ public class AssignmentAttachmentServiceImpl implements AssignmentAttachmentServ
         assertTeacherCanManageAssignment(assignment);
         validateCourseExists(assignment.getCourseId(), authorizationHeader);
 
-        StoredFile storedFile = fileStorageService.store(file);
-        AssignmentAttachment attachment = AssignmentAttachment.builder()
-                .assignment(assignment)
-                .originalFilename(storedFile.getOriginalFilename())
-                .storedFilename(storedFile.getStoredFilename())
-                .contentType(storedFile.getContentType())
-                .fileSize(storedFile.getFileSize())
-                .uploadedBy(currentUserService.getCurrentUserId())
-                .build();
-
-        AssignmentAttachment saved = attachmentRepository.save(attachment);
-        return response(HttpStatus.CREATED, "Assignment attachment uploaded successfully", mapToResponse(saved));
+        ApiResponse<MaterialUploadResponse> upload = materialServiceClient.upload(
+                file.getOriginalFilename() == null ? "Assignment attachment" : file.getOriginalFilename(),
+                null,
+                "ASSIGNMENT_ATTACHMENT",
+                assignment.getCourseId(),
+                file,
+                authorizationHeader
+        );
+        if (upload == null || upload.getData() == null || upload.getData().id() == null) {
+            throw new IllegalStateException("Material Service did not return an uploaded attachment");
+        }
+        MaterialUploadResponse material = upload.getData();
+        try {
+            materialInternalServiceClient.associate(
+                    material.id(),
+                    new MaterialAssociationRequest(
+                            "ASSIGNMENT",
+                            assignment.getId(),
+                            assignment.getCourseId(),
+                            material.uploadedBy(),
+                            "COURSE_MEMBERS"
+                    ),
+                    authorizationHeader
+            );
+            AssignmentAttachment attachment = AssignmentAttachment.builder()
+                    .assignment(assignment)
+                    .materialId(material.id())
+                    .storedFilename("material:" + material.id())
+                    .originalFilename(material.originalFilename())
+                    .contentType(material.contentType())
+                    .fileSize(material.fileSize() == null ? 0 : material.fileSize())
+                    .uploadedBy(currentUserService.getCurrentUserId())
+                    .build();
+            AssignmentAttachment saved = attachmentRepository.save(attachment);
+            return response(HttpStatus.CREATED, "Assignment attachment uploaded successfully", mapToResponse(saved));
+        } catch (RuntimeException ex) {
+            try {
+                materialServiceClient.deleteMaterial(material.id(), authorizationHeader);
+            } catch (RuntimeException ignored) {
+                // Reconciliation can remove an unreferenced material later.
+            }
+            throw new IllegalStateException("Assignment attachment association failed after upload", ex);
+        }
     }
 
     @Override
@@ -191,6 +259,20 @@ public class AssignmentAttachmentServiceImpl implements AssignmentAttachmentServ
         } catch (FeignException.Forbidden | FeignException.Unauthorized ex) {
             throw new AccessDeniedException("Material access denied", ex);
         }
+    }
+
+    private void associateMaterialReference(
+            Assignment assignment, UUID materialId, UUID ownerId, String authorizationHeader) {
+        if (materialInternalServiceClient == null) {
+            return;
+        }
+        materialInternalServiceClient.associate(
+                materialId,
+                new MaterialAssociationRequest(
+                        "ASSIGNMENT", assignment.getId(), assignment.getCourseId(), ownerId, "COURSE_MEMBERS"
+                ),
+                authorizationHeader
+        );
     }
 
     private MaterialDownloadResponse createMaterialDownload(UUID materialId, String authorizationHeader) {

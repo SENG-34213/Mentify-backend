@@ -29,9 +29,11 @@ public class CurrentMaterialUserService {
     }
 
     private UUID resolveUserId(Jwt jwt) {
-        String subject = jwt.getSubject();
+        // Course Service resolves the application user from local_user_id first.
+        // Keycloak's subject is a different identifier in the normal realm setup.
+        String subject = jwt.getClaimAsString("local_user_id");
         if (subject == null || subject.isBlank()) {
-            subject = jwt.getClaimAsString("local_user_id");
+            subject = jwt.getSubject();
         }
         if (subject == null || subject.isBlank()) {
             throw new AccessDeniedException("Authenticated user identity is missing");

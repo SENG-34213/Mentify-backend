@@ -23,4 +23,5 @@ public class GeneratedQuizDraftResponse {
     private String provider;
     private String model;
     private LocalDateTime generatedAt;
+    private List<AiSourceReference> sources;
 }

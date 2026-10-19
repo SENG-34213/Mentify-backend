@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -153,6 +155,23 @@ public class CourseContentController {
     ) {
         ApiResponse<LearningMaterialResponse> response =
             learningMaterialService.createLearningMaterial(courseId, moduleId, request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping("/{moduleId}/learning-materials/upload")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<LearningMaterialResponse>> uploadLearningMaterial(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) UUID lessonId,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(
+                courseId, moduleId, lessonId, title, description, file, authorizationHeader
+        );
         return new ResponseEntity<>(response, response.getStatus());
     }
 

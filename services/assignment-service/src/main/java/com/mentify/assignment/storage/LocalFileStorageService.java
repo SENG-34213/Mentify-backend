@@ -12,9 +12,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Service
-// TODO: Replace local filesystem storage with S3 bucket upload later when the cloud setup is ready.
-// Cloud push command for later: aws s3 cp ./uploads/assignment-files s3://<your-bucket-name>/assignment-files --recursive
-// This is kept local for now; same TODO should be added in the course service when file upload is implemented there.
+// Legacy storage reader/deleter retained for records created before Material Service integration.
+// New assignment and submission uploads are sent to Material Service and must not write here.
 public class LocalFileStorageService implements FileStorageService {
     private final Path uploadDirectory;
 
