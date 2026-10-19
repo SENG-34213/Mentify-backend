@@ -18,11 +18,15 @@ public interface EntrollmentService {
 
     ApiResponse<EntrollmentResponse> updateEntrollment(UUID enrollmentId, EntrollmentUpdateRequest request, String authorizationHeader);
 
+    ApiResponse<Void> deleteEntrollment(UUID enrollmentId, String authorizationHeader);
+
     boolean isStudentEnrolledInCourse(UUID studentId, UUID courseId);
 
     ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId);
 
-    ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId);
+    ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId, String authorizationHeader);
+
+    ApiResponse<List<EntrollmentResponse>> getActiveEntrollmentsByCourse(UUID courseId, String authorizationHeader);
 
     ApiResponse<List<EntrollmentResponse>> getActiveEntrollments();
 

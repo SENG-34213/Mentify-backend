@@ -1,5 +1,6 @@
 package com.mentify.dto;
 
+import com.mentify.enums.EnrollmentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,5 +25,7 @@ public class EntrollmentResponse {
     private UUID lastModifiedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private EnrollmentStatus status;
 }
 

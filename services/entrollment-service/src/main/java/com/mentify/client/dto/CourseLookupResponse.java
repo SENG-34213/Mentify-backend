@@ -11,6 +11,7 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CourseLookupResponse {
     private UUID id;
+    private UUID assignedTeacherId;
     private BigDecimal gradeMonthlyFee;
 
     /** @deprecated Course pricing is now owned by the grade. */

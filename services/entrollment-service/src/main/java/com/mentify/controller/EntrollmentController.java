@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.util.UUID;
 import java.util.List;
@@ -40,7 +41,7 @@ public class EntrollmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> createEntrollment(
             @Valid @RequestBody EntrollmentCreateRequest request,
             @RequestHeader("Authorization") String authorizationHeader
@@ -62,7 +63,7 @@ public class EntrollmentController {
     }
 
     @PutMapping("/{enrollmentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<EntrollmentResponse>> updateEntrollment(
             @PathVariable UUID enrollmentId,
             @Valid @RequestBody EntrollmentUpdateRequest request,
@@ -70,6 +71,16 @@ public class EntrollmentController {
     ) {
         ApiResponse<EntrollmentResponse> response =
                 entrollmentService.updateEntrollment(enrollmentId, request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @DeleteMapping("/{enrollmentId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteEntrollment(
+            @PathVariable UUID enrollmentId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<Void> response = entrollmentService.deleteEntrollment(enrollmentId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -94,8 +105,22 @@ public class EntrollmentController {
 
     @GetMapping("/courses/{courseId}/students")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<UUID>>> getEnrolledStudentIdsByCourse(@PathVariable UUID courseId) {
-        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId);
+    public ResponseEntity<ApiResponse<List<UUID>>> getEnrolledStudentIdsByCourse(
+            @PathVariable UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/courses/{courseId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<EntrollmentResponse>>> getActiveEntrollmentsByCourse(
+            @PathVariable UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<EntrollmentResponse>> response =
+                entrollmentService.getActiveEntrollmentsByCourse(courseId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
