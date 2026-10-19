@@ -76,13 +76,26 @@ provided, must be a three-letter code. Monthly-fee create/update requests use
 | Method | Path | Roles | Request / result |
 |---|---|---|---|
 | GET | `/api/v1/enrollments` | `ADMIN`, `SUPER_ADMIN` | Active enrollments |
-| POST | `/api/v1/enrollments` | `ADMIN`, `SUPER_ADMIN` | `EntrollmentCreateRequest` |
+| GET | `/api/v1/enrollments/courses/{courseId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Active enrollment records for one course |
+| POST | `/api/v1/enrollments` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `EntrollmentCreateRequest` |
 | POST | `/api/v1/enrollments/me` | `STUDENT` | `StudentEntrollmentCreateRequest`; student identity comes from JWT |
-| PUT | `/api/v1/enrollments/{enrollmentId}` | `ADMIN`, `SUPER_ADMIN` | `EntrollmentUpdateRequest` |
+| PUT | `/api/v1/enrollments/{enrollmentId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `EntrollmentUpdateRequest` |
+| DELETE | `/api/v1/enrollments/{enrollmentId}` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Soft-deletes the enrollment |
 | GET | `/api/v1/enrollments/students/{studentId}/courses/{courseId}/exists` | `STUDENT`, `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Boolean |
 | GET | `/api/v1/enrollments/courses/{courseId}/students` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | Enrolled student IDs |
 | GET | `/api/v1/enrollments/students/{studentId}/courses` | `STUDENT` | Active course IDs |
 | GET | `/api/v1/enrollments/students/unenrolled` | `ADMIN`, `SUPER_ADMIN` | Unenrolled students |
+
+Teacher enrollment mutations and course-scoped reads are restricted to courses
+assigned to the authenticated teacher. Admin and super-admin users retain
+cross-course access. The delete operation deactivates the enrollment record so
+historical audit data remains available.
+
+Enrollment creation accepts an optional `status` (`PENDING`, `APPROVED`, or
+`REJECTED`); direct staff-created enrollments default to `APPROVED`, while
+student self-enrollment defaults to `PENDING`. Enrollment updates may send only
+`status` to approve or reject an existing enrollment, or may update `courseIds`
+and status together.
 
 Admin create enrollment accepts a non-null `studentId` and a non-empty list of
 `courseIds`. Self-enrollment accepts a non-empty `courseIds` list and does not

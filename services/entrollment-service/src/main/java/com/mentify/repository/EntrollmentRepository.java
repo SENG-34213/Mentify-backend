@@ -15,6 +15,16 @@ public interface EntrollmentRepository extends JpaRepository<Entrollment, UUID> 
 
     List<Entrollment> findAllByIsActiveTrueOrderByCreatedAtDesc();
 
+    @Query("""
+            select distinct e
+            from Entrollment e
+            join e.courseIds courseId
+            where courseId = :courseId
+              and e.isActive = true
+            order by e.createdAt desc
+            """)
+    List<Entrollment> findAllByCourseIdAndIsActiveTrue(@Param("courseId") UUID courseId);
+
     Optional<Entrollment> findByIdAndIsActiveTrue(UUID id);
 
     @Query("""
