@@ -1,11 +1,9 @@
 package com.mentify.service;
 
-import com.mentify.dto.TeacherSearchResultResponse;
+import com.mentify.dto.TeacherSearchResponse;
 import com.mentify.payload.response.ApiResponse;
 
-import java.util.List;
-
 public interface TeacherSearchService {
-    ApiResponse<List<TeacherSearchResultResponse>> search(
-            String query, String type, String authorizationHeader);
+    ApiResponse<TeacherSearchResponse> search(
+            String query, String types, int limit, String authorizationHeader);
 }

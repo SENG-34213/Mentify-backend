@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "users")
@@ -60,6 +61,12 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean pushNotifications = true;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean dailyDigestEnabled = false;
+
+    private LocalTime dailyDigestTime;
 
     private LocalDateTime lastLogin;
 

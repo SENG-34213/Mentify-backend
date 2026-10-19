@@ -13,4 +13,5 @@ public class TeacherSearchResultResponse {
     String title;
     String subtitle;
     UUID courseId;
+    String navigationTarget;
 }

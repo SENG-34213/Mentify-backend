@@ -116,6 +116,12 @@ public class UserRegistrationService {
         if (request.getPushNotifications() != null) {
             user.setPushNotifications(request.getPushNotifications());
         }
+        if (request.getDailyDigestEnabled() != null) {
+            user.setDailyDigestEnabled(request.getDailyDigestEnabled());
+        }
+        if (request.getDailyDigestTime() != null) {
+            user.setDailyDigestTime(request.getDailyDigestTime());
+        }
         return UserRegistrationResponse.from(userRepository.save(user));
     }
 
@@ -141,6 +147,12 @@ public class UserRegistrationService {
             profile.setPhoneNumber(request.getPhoneNumber().trim());
             user.setPhoneNumber(request.getPhoneNumber().trim());
         }
+        if (request.getTitle() != null) profile.setAcademicTitle(request.getTitle().trim());
+        if (request.getDepartment() != null) profile.setDepartment(request.getDepartment().trim());
+        if (request.getOfficeLocation() != null) profile.setOfficeLocation(request.getOfficeLocation().trim());
+        if (request.getOfficeHours() != null) profile.setOfficeHours(request.getOfficeHours().trim());
+        if (request.getBio() != null) profile.setBiography(request.getBio().trim());
+        if (request.getAvatarUrl() != null) profile.setAvatarUrl(request.getAvatarUrl().trim());
         return UserRegistrationResponse.from(userRepository.save(user));
     }
 

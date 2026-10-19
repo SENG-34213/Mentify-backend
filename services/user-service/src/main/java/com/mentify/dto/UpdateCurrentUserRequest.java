@@ -4,6 +4,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.time.LocalTime;
+
 @Data
 public class UpdateCurrentUserRequest {
     @Size(max = 100, message = "Display name must not exceed 100 characters")
@@ -16,4 +18,6 @@ public class UpdateCurrentUserRequest {
     private String phoneNumber;
     private Boolean emailNotifications;
     private Boolean pushNotifications;
+    private Boolean dailyDigestEnabled;
+    private LocalTime dailyDigestTime;
 }

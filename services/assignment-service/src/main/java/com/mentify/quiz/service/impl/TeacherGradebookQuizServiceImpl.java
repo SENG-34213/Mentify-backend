@@ -65,6 +65,7 @@ public class TeacherGradebookQuizServiceImpl implements TeacherGradebookQuizServ
                                         .studentId(attempt.getStudentId())
                                         .score(attempt.getScore())
                                         .percentage(attempt.getPercentage())
+                                        .submittedAt(attempt.getSubmittedAt())
                                         .build())
                                 .toList())
                         .build()).toList();
