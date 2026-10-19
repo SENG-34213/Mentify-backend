@@ -10,6 +10,7 @@ public class AssignmentDashboardResponse {
     private UUID id;
     private UUID courseId;
     private String title;
+    private Integer maxMarks;
     private LocalDateTime dueDate;
     private String status;
     private Long totalSubmissions;

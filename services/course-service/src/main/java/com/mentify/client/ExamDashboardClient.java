@@ -1,6 +1,7 @@
 package com.mentify.client;
 
 import com.mentify.client.dto.ExamDashboardResponse;
+import com.mentify.client.dto.ExamResultSheetResponse;
 import com.mentify.payload.response.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,12 @@ public interface ExamDashboardClient {
     @GetMapping("/courses/{courseId}")
     ApiResponse<List<ExamDashboardResponse>> getExams(
             @PathVariable UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader
+    );
+
+    @GetMapping("/{examId}/results")
+    ApiResponse<ExamResultSheetResponse> getExamResults(
+            @PathVariable UUID examId,
             @RequestHeader("Authorization") String authorizationHeader
     );
 }
