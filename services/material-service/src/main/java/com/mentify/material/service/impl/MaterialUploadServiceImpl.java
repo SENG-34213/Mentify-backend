@@ -6,7 +6,9 @@ import com.mentify.material.dto.response.S3UploadResult;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialPurpose;
+import com.mentify.material.enums.MaterialResourceType;
 import com.mentify.material.enums.MaterialStatus;
+import com.mentify.material.enums.MaterialVisibility;
 import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.security.MaterialAuthorizationService;
@@ -59,6 +61,12 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
                     .status(MaterialStatus.UPLOADED)
                     .uploadedBy(uploadedBy)
                     .courseId(authorizedCourseId)
+                    .resourceType(MaterialResourceType.COURSE)
+                    .resourceId(authorizedCourseId)
+                    .ownerId(uploadedBy)
+                    .visibility(resolvedPurpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                            ? MaterialVisibility.OWNER_ONLY
+                            : MaterialVisibility.COURSE_MEMBERS)
                     .build();
 
             Material saved = materialRepository.saveAndFlush(material);

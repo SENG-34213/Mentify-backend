@@ -5,6 +5,7 @@ import com.mentify.material.client.EnrollmentServiceClient;
 import com.mentify.material.client.dto.CourseLookupResponse;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialPurpose;
+import com.mentify.material.enums.MaterialVisibility;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
 import com.mentify.material.exception.MaterialValidationException;
@@ -183,6 +184,24 @@ class MaterialAuthorizationServiceTest {
                 .isEqualTo(courseId);
         assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void studentCannotDownloadAnotherStudentsPrivateSubmission() {
+        UUID studentId = UUID.randomUUID();
+        UUID otherStudentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        authenticate(studentId, "STUDENT");
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, AUTH_HEADER)).thenReturn(true);
+
+        Material submission = material(courseId, otherStudentId);
+        submission.setPurpose(MaterialPurpose.SUBMISSION_ATTACHMENT);
+        submission.setOwnerId(otherStudentId);
+        submission.setVisibility(MaterialVisibility.OWNER_ONLY);
+
+        assertThatThrownBy(() -> authorizationService.assertCanDownload(submission, AUTH_HEADER))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("User is not authorized to download this material");
     }
 
     private ApiResponse<CourseLookupResponse> courseResponse(UUID courseId, UUID assignedTeacherId) {

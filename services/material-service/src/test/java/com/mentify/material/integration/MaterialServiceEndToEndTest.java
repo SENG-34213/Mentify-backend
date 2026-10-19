@@ -6,13 +6,16 @@ import com.mentify.material.client.CourseServiceClient;
 import com.mentify.material.client.EnrollmentServiceClient;
 import com.mentify.material.client.dto.CourseLookupResponse;
 import com.mentify.material.client.dto.MaterialScopeLookupResponse;
+import com.mentify.material.dto.request.MaterialAssociationRequest;
 import com.mentify.material.dto.ValidatedMaterialFile;
 import com.mentify.material.dto.response.S3DownloadResult;
 import com.mentify.material.dto.response.S3UploadResult;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialAuditAction;
 import com.mentify.material.enums.MaterialPurpose;
+import com.mentify.material.enums.MaterialResourceType;
 import com.mentify.material.enums.MaterialStatus;
+import com.mentify.material.enums.MaterialVisibility;
 import com.mentify.material.repository.MaterialAuditEventRepository;
 import com.mentify.material.repository.MaterialRepository;
 import com.mentify.material.service.MaterialStorageService;
@@ -206,6 +209,47 @@ class MaterialServiceEndToEndTest {
                         .with(jwtUser(teacherId, "TEACHER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.purpose").value("SUBMISSION_ATTACHMENT"));
+    }
+
+    @Test
+    void privateSubmissionIsNotVisibleToAnotherEnrolledStudentAndCanBeAssociated() throws Exception {
+        UUID teacherId = UUID.randomUUID();
+        UUID ownerStudentId = UUID.randomUUID();
+        UUID otherStudentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        mockCourse(courseId, teacherId);
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(ownerStudentId, courseId, AUTH_HEADER)).thenReturn(true);
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(otherStudentId, courseId, AUTH_HEADER)).thenReturn(true);
+
+        UUID materialId = uploadMaterial(
+                ownerStudentId,
+                "STUDENT",
+                courseId,
+                MaterialPurpose.SUBMISSION_ATTACHMENT,
+                "Private submission",
+                pdf("submission.pdf")
+        );
+
+        mockMvc.perform(get("/api/v1/materials/{materialId}/download", materialId)
+                        .header("Authorization", AUTH_HEADER)
+                        .with(jwtUser(otherStudentId, "STUDENT")))
+                .andExpect(status().isForbidden());
+
+        MaterialAssociationRequest association = new MaterialAssociationRequest(
+                MaterialResourceType.SUBMISSION,
+                UUID.randomUUID(),
+                courseId,
+                ownerStudentId,
+                MaterialVisibility.OWNER_ONLY
+        );
+        mockMvc.perform(post("/api/v1/internal/materials/{materialId}/association", materialId)
+                        .header("Authorization", AUTH_HEADER)
+                        .with(jwtUser(UUID.randomUUID(), "ADMIN"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(association)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resourceType").value("SUBMISSION"))
+                .andExpect(jsonPath("$.data.visibility").value("OWNER_ONLY"));
     }
 
     @Test
