@@ -47,6 +47,7 @@ public class TeacherGradebookQuizServiceImpl implements TeacherGradebookQuizServ
                 TeacherGradebookQuizResponse.builder()
                         .quizId(quiz.getId())
                         .title(quiz.getTitle())
+                        .startTime(quiz.getStartTime())
                         .totalMarks(quiz.getTotalMarks())
                         .results(attemptsByQuiz.getOrDefault(quiz.getId(), List.of()).stream()
                                 .collect(Collectors.toMap(
