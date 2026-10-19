@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -15,4 +16,5 @@ public class ExamDashboardResponse {
     private LocalTime startTime;
     private LocalTime endTime;
     private String status;
+    private BigDecimal totalMarks;
 }
