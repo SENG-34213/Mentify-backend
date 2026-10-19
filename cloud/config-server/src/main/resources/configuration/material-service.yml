@@ -43,9 +43,10 @@ mentify:
 material:
   storage:
     s3:
-      bucket: ${MATERIAL_S3_BUCKET:}
-      region: ${AWS_REGION:${AWS_DEFAULT_REGION:us-east-1}}
+      bucket: ${MATERIAL_S3_BUCKET:mentify-materials-dev-unique123-193908537177-ap-south-1-an}
+      region: ${AWS_REGION:${AWS_DEFAULT_REGION:ap-south-1}}
       download-url-expiration: ${MATERIAL_DOWNLOAD_URL_EXPIRATION:PT5M}
+      profile: ${AWS_PROFILE:mentify-dev}
   validation:
     max-upload-size: ${MATERIAL_MAX_UPLOAD_SIZE:100MB}
     file-types:
