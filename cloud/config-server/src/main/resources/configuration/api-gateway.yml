@@ -86,6 +86,13 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: material-service
+          uri: lb://material-service
+          predicates:
+            - Path=/api/v1/materials,/api/v1/materials/**
+          filters:
+            - StripPrefix=0
+
         - id: entrollment-service
           uri: lb://entrollment-service
           predicates:
