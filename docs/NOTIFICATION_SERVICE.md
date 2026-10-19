@@ -63,8 +63,10 @@ operations, material upload/maintenance, calendar events, communication-group ac
 initiation, and refund operations. Internal reconciliation, reads, and routine AI chat/generation
 are intentionally excluded to avoid noisy email.
 
-Kafka delivery is asynchronous so broker outages do not turn a completed business operation into
-an API failure; publish failures are logged. The notification database deduplicates repeated Kafka
+Kafka event publication is dispatched through a bounded background queue, so broker outages or a
+full Kafka producer buffer do not hold up the originating business API. Publish failures and queue
+saturation are logged; saturated events are dropped rather than blocking the business operation.
+The notification database deduplicates repeated Kafka
 deliveries by event ID and recipient. SMTP work is recorded with the in-app notification and
 retried by the service, so an SMTP outage does not lose the inbox notification.
 
