@@ -157,6 +157,20 @@ class MaterialAuthorizationServiceTest {
     }
 
     @Test
+    void localUserIdClaimMatchesCourseServiceIdentityResolution() {
+        UUID keycloakSubject = UUID.randomUUID();
+        UUID localUserId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        authenticate(keycloakSubject, localUserId, "TEACHER");
+        when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
+                .thenReturn(courseResponse(courseId, localUserId));
+
+        assertThat(authorizationService.requireUploadCourseAccess(
+                courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER
+        )).isEqualTo(courseId);
+    }
+
+    @Test
     void enrolledStudentCanUploadSubmissionAttachmentOnly() {
         UUID studentId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
@@ -199,9 +213,14 @@ class MaterialAuthorizationServiceTest {
     }
 
     private void authenticate(UUID userId, String role) {
+        authenticate(userId, userId, role);
+    }
+
+    private void authenticate(UUID subject, UUID localUserId, String role) {
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .subject(userId.toString())
+                .subject(subject.toString())
+                .claim("local_user_id", localUserId.toString())
                 .build();
         SecurityContextHolder.getContext().setAuthentication(
                 new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("ROLE_" + role)))
