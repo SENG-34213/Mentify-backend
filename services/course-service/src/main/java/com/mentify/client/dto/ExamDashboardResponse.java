@@ -17,4 +17,5 @@ public class ExamDashboardResponse {
     private LocalTime endTime;
     private String status;
     private BigDecimal totalMarks;
+    private BigDecimal passMarks;
 }
