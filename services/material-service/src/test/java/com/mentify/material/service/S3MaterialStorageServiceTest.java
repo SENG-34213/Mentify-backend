@@ -175,7 +175,7 @@ class S3MaterialStorageServiceTest {
         return new S3MaterialStorageService(
                 recordingS3Client.client(),
                 recordingPresigner.presigner(),
-                new S3Properties("material-service-test-bucket", "us-east-1", Duration.ofMinutes(7))
+                new S3Properties("material-service-test-bucket", "us-east-1", Duration.ofMinutes(7), null)
         );
     }
 

@@ -8,6 +8,7 @@ import java.time.Duration;
 public record S3Properties(
         String bucket,
         String region,
-        Duration downloadUrlExpiration
+        Duration downloadUrlExpiration,
+        String profile
 ) {
 }
