@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +29,18 @@ import java.util.UUID;
 public class SubmissionFileController {
 
     private final SubmissionFileService submissionFileService;
+
+    @PostMapping(value = "/submissions/{submissionId}/files/upload", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<SubmissionFileResponse>> uploadFile(
+            @PathVariable UUID submissionId,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<SubmissionFileResponse> response =
+                submissionFileService.uploadFile(submissionId, file, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 
     @PostMapping("/submissions/{submissionId}/files")
     @PreAuthorize("hasRole('STUDENT')")

@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +39,18 @@ public class AssignmentAttachmentController {
     ) {
         ApiResponse<AssignmentAttachmentResponse> response =
                 attachmentService.attachMaterial(assignmentId, request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping(value = "/assignments/{assignmentId}/attachments/upload", consumes = "multipart/form-data")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AssignmentAttachmentResponse>> uploadAttachment(
+            @PathVariable UUID assignmentId,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<AssignmentAttachmentResponse> response =
+                attachmentService.uploadAttachment(assignmentId, file, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

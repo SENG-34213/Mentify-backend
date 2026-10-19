@@ -1,7 +1,9 @@
 package com.mentify.service;
 
 import com.mentify.client.MaterialServiceClient;
+import com.mentify.client.MaterialInternalServiceClient;
 import com.mentify.client.dto.MaterialLookupResponse;
+import com.mentify.client.dto.MaterialUploadResponse;
 import com.mentify.dto.LearningMaterialCreateRequest;
 import com.mentify.dto.LearningMaterialResponse;
 import com.mentify.entity.Course;
@@ -25,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -60,6 +63,9 @@ class LearningMaterialServiceImplTest {
     @Mock
     private MaterialServiceClient materialServiceClient;
 
+    @Mock
+    private MaterialInternalServiceClient materialInternalServiceClient;
+
     private LearningMaterialServiceImpl learningMaterialService;
 
     @BeforeEach
@@ -70,8 +76,37 @@ class LearningMaterialServiceImplTest {
                 learningMaterialRepository,
                 teacherCourseAccessGuard,
                 courseContentAccessGuard,
-                materialServiceClient
+                materialServiceClient,
+                materialInternalServiceClient
         );
+    }
+
+    @Test
+    void uploadLearningMaterial_delegatesStorageAndPersistsReference() {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Module module = baseModule(courseId, moduleId);
+        MockMultipartFile file = new MockMultipartFile("file", "lesson.pdf", "application/pdf", "pdf".getBytes());
+
+        when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
+        when(materialServiceClient.upload("Lesson PDF", "Notes", "LEARNING_MATERIAL", courseId, file, AUTH_HEADER))
+                .thenReturn(ApiResponse.success(HttpStatus.CREATED.value(), "uploaded", new MaterialUploadResponse(
+                        materialId, "Lesson PDF", "lesson.pdf", "application/pdf", 3L, "PDF",
+                        "LEARNING_MATERIAL", "AVAILABLE", teacherId, courseId, "checksum", null, null)));
+        when(learningMaterialRepository.save(any(LearningMaterial.class))).thenAnswer(invocation -> {
+            LearningMaterial material = invocation.getArgument(0);
+            material.setId(UUID.randomUUID());
+            return material;
+        });
+
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(
+                courseId, moduleId, null, "Lesson PDF", "Notes", file, AUTH_HEADER);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getData().getMaterialId()).isEqualTo(materialId);
+        verify(materialInternalServiceClient).associate(any(), any(), any());
     }
 
     @Test
