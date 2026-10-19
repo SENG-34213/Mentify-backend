@@ -16,6 +16,7 @@ import com.mentify.client.dto.SubmissionDashboardResponse;
 import com.mentify.dto.TeacherGradebookItemResponse;
 import com.mentify.dto.TeacherGradebookResponse;
 import com.mentify.dto.TeacherGradebookStudentResponse;
+import com.mentify.dto.TeacherGradebookSummaryResponse;
 import com.mentify.entity.Course;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
@@ -27,11 +28,15 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -56,22 +61,27 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
         }
 
         List<UUID> studentIds = enrolledStudentIds(courseId, authorizationHeader);
-        Map<UUID, String> names = studentNames(studentIds, authorizationHeader);
+        Map<UUID, StudentDirectoryProfileResponse> profiles = studentProfiles(studentIds, authorizationHeader);
         List<AssignmentDashboardResponse> assignments = assignments(courseId, authorizationHeader);
         Map<UUID, List<SubmissionDashboardResponse>> submissions = new LinkedHashMap<>();
         assignments.forEach(assignment -> submissions.put(assignment.getId(),
                 submissions(assignment.getId(), authorizationHeader)));
         List<QuizGradebookResponse> quizzes = quizzes(courseId, authorizationHeader);
         List<ExamDashboardResponse> exams = exams(courseId, authorizationHeader);
+        Map<UUID, ExamResultSheetResponse> examResults = new LinkedHashMap<>();
+        exams.forEach(exam -> examResults.put(exam.getId(), examResults(exam.getId(), authorizationHeader)));
 
         List<TeacherGradebookStudentResponse> students = studentIds.stream().distinct().map(studentId -> {
             List<TeacherGradebookItemResponse> assignmentItems = assignments.stream()
                     .map(assignment -> assignmentItem(assignment, submissions.getOrDefault(assignment.getId(), List.of()), studentId))
-                    .filter(item -> item != null).toList();
+                    .filter(Objects::nonNull)
+                    .toList();
             List<TeacherGradebookItemResponse> quizItems = quizzes.stream()
-                    .map(quiz -> quizItem(quiz, studentId)).filter(item -> item != null).toList();
+                    .map(quiz -> quizItem(quiz, studentId)).filter(Objects::nonNull).toList();
             List<TeacherGradebookItemResponse> examItems = exams.stream()
-                    .map(exam -> examItem(exam, studentId, authorizationHeader)).filter(item -> item != null).toList();
+                    .map(exam -> examItem(exam, studentId, examResults.get(exam.getId())))
+                    .filter(Objects::nonNull)
+                    .toList();
             List<TeacherGradebookItemResponse> allItems = new ArrayList<>();
             allItems.addAll(assignmentItems); allItems.addAll(quizItems); allItems.addAll(examItems);
             BigDecimal total = allItems.stream().map(TeacherGradebookItemResponse::getScore)
@@ -80,52 +90,94 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal percentage = possible.signum() == 0 ? BigDecimal.ZERO
                     : total.multiply(BigDecimal.valueOf(100)).divide(possible, 2, RoundingMode.HALF_UP);
-            return TeacherGradebookStudentResponse.builder().studentId(studentId)
-                    .studentName(names.getOrDefault(studentId, "Unknown Student"))
-                    .assignments(assignmentItems).quizzes(quizItems).exams(examItems)
-                    .total(total.setScale(2, RoundingMode.HALF_UP)).percentage(percentage)
-                    .grade(gradeFor(percentage)).build();
+            StudentDirectoryProfileResponse profile = profiles.get(studentId);
+            String letterGrade = gradeFor(percentage);
+            return TeacherGradebookStudentResponse.builder()
+                    .studentId(studentId)
+                    .studentNumber(profile == null ? null : profile.getStudentNumber())
+                    .studentName(profile == null || profile.getName() == null ? "Unknown Student" : profile.getName())
+                    .email(profile == null ? null : profile.getEmail())
+                    .assignments(assignmentItems)
+                    .quizzes(quizItems)
+                    .exams(examItems)
+                    .assignmentScores(assignmentItems)
+                    .quizScores(quizItems)
+                    .examScores(examItems)
+                    .total(total.setScale(2, RoundingMode.HALF_UP))
+                    .percentage(percentage)
+                    .grade(letterGrade)
+                    .overallPercentage(percentage)
+                    .letterGrade(letterGrade)
+                    .status(percentage.compareTo(BigDecimal.valueOf(60)) < 0 ? "AT_RISK" : "ON_TRACK")
+                    .build();
         }).toList();
+        BigDecimal averagePercentage = students.isEmpty() ? BigDecimal.ZERO
+                : students.stream().map(TeacherGradebookStudentResponse::getOverallPercentage)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(students.size()), 2, RoundingMode.HALF_UP);
+        BigDecimal highestPercentage = students.stream()
+                .map(TeacherGradebookStudentResponse::getOverallPercentage)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+        long atRiskCount = students.stream().filter(student -> "AT_RISK".equals(student.getStatus())).count();
 
         TeacherGradebookResponse data = TeacherGradebookResponse.builder()
-                .courseId(courseId).gradingScale(GRADING_SCALE).students(students).build();
+                .courseId(courseId)
+                .courseName(course.getCourseName())
+                .gradingScale(GRADING_SCALE)
+                .students(students)
+                .summary(TeacherGradebookSummaryResponse.builder()
+                        .studentCount(students.size())
+                        .averagePercentage(averagePercentage)
+                        .highestPercentage(highestPercentage)
+                        .atRiskCount(atRiskCount)
+                        .build())
+                .build();
         return ApiResponse.<TeacherGradebookResponse>builder().statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK).message("Teacher gradebook fetched successfully").data(data).build();
     }
 
     private TeacherGradebookItemResponse assignmentItem(AssignmentDashboardResponse assignment,
                                                         List<SubmissionDashboardResponse> submissions, UUID studentId) {
-        SubmissionDashboardResponse selected = null;
-        for (SubmissionDashboardResponse submission : submissions) {
-            if (studentId.equals(submission.getStudentId()) && submission.getMarks() != null) selected = submission;
-        }
-        if (selected == null || assignment.getMaxMarks() == null || assignment.getMaxMarks() <= 0) return null;
-        return item(assignment.getId(), assignment.getTitle(), selected.getMarks(),
-                BigDecimal.valueOf(assignment.getMaxMarks()), selected.getStatus());
+        SubmissionDashboardResponse selected = submissions.stream()
+                .filter(submission -> studentId.equals(submission.getStudentId()) && submission.getMarks() != null)
+                .max(Comparator.comparing(SubmissionDashboardResponse::getAttemptNumber,
+                                Comparator.nullsFirst(Integer::compareTo))
+                        .thenComparing(SubmissionDashboardResponse::getSubmittedAt,
+                                Comparator.nullsFirst(LocalDateTime::compareTo)))
+                .orElse(null);
+        BigDecimal maxMarks = assignment.getMaxMarks() == null ? null : BigDecimal.valueOf(assignment.getMaxMarks());
+        if (maxMarks == null || maxMarks.signum() <= 0) return null;
+        return item(assignment.getId(), assignment.getTitle(),
+                selected == null ? BigDecimal.ZERO : selected.getMarks(),
+                maxMarks, selected == null ? "MISSING" : selected.getStatus());
     }
 
     private TeacherGradebookItemResponse quizItem(QuizGradebookResponse quiz, UUID studentId) {
-        if (quiz.getResults() == null) return null;
-        QuizGradebookResultResponse result = quiz.getResults().stream()
-                .filter(item -> studentId.equals(item.getStudentId()) && item.getScore() != null).findFirst().orElse(null);
-        return result == null || quiz.getTotalMarks() == null || quiz.getTotalMarks().signum() <= 0 ? null
-                : item(quiz.getQuizId(), quiz.getTitle(), result.getScore(), quiz.getTotalMarks(), "GRADED");
+        QuizGradebookResultResponse result = quiz.getResults() == null ? null : quiz.getResults().stream()
+                .filter(item -> studentId.equals(item.getStudentId()) && item.getScore() != null)
+                .findFirst().orElse(null);
+        if (quiz.getTotalMarks() == null || quiz.getTotalMarks().signum() <= 0) return null;
+        return item(quiz.getQuizId(), quiz.getTitle(), result == null ? BigDecimal.ZERO : result.getScore(),
+                quiz.getTotalMarks(), result == null ? "MISSING" : "GRADED");
     }
 
-    private TeacherGradebookItemResponse examItem(ExamDashboardResponse exam, UUID studentId, String auth) {
-        ApiResponse<ExamResultSheetResponse> response = examDashboardClient.getExamResults(exam.getId(), auth);
-        ExamResultSheetResponse sheet = response == null ? null : response.getData();
-        if (sheet == null || sheet.getResults() == null) return null;
-        ExamResultResponse result = sheet.getResults().stream()
+    private TeacherGradebookItemResponse examItem(
+            ExamDashboardResponse exam, UUID studentId, ExamResultSheetResponse sheet) {
+        ExamResultResponse result = sheet == null || sheet.getResults() == null ? null : sheet.getResults().stream()
                 .filter(item -> studentId.equals(item.getStudentId()) && item.getMarksObtained() != null).findFirst().orElse(null);
-        BigDecimal max = exam.getTotalMarks() != null ? exam.getTotalMarks() : sheet.getTotalMarks();
-        return result == null || max == null || max.signum() <= 0 ? null
-                : item(exam.getId(), exam.getTitle(), result.getMarksObtained(), max, result.getGrade());
+        BigDecimal max = exam.getTotalMarks() != null ? exam.getTotalMarks()
+                : sheet == null ? null : sheet.getTotalMarks();
+        if (max == null || max.signum() <= 0) return null;
+        return item(exam.getId(), exam.getTitle(),
+                result == null ? BigDecimal.ZERO : result.getMarksObtained(), max,
+                result == null ? "MISSING" : result.getGrade());
     }
 
     private TeacherGradebookItemResponse item(UUID id, String title, BigDecimal score, BigDecimal max, String status) {
         return TeacherGradebookItemResponse.builder().assessmentId(id).title(title).score(score).maxScore(max)
-                .percentage(score.multiply(BigDecimal.valueOf(100)).divide(max, 2, RoundingMode.HALF_UP)).status(status).build();
+                .percentage(score.multiply(BigDecimal.valueOf(100)).divide(max, 2, RoundingMode.HALF_UP))
+                .status(status).marksObtained(score).maxMarks(max).build();
     }
 
     private String gradeFor(BigDecimal percentage) {
@@ -141,18 +193,19 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
         return response == null || response.getData() == null ? List.of() : response.getData();
     }
 
-    private Map<UUID, String> studentNames(List<UUID> ids, String auth) {
+    private Map<UUID, StudentDirectoryProfileResponse> studentProfiles(List<UUID> ids, String auth) {
         if (ids.isEmpty()) return Map.of();
         ApiResponse<List<StudentDirectoryProfileResponse>> response = userServiceClient.getStudentsByIds(ids, auth);
         if (response == null || response.getData() == null) return Map.of();
         return response.getData().stream().filter(profile -> profile.getId() != null)
-                .collect(java.util.stream.Collectors.toMap(StudentDirectoryProfileResponse::getId,
-                        profile -> profile.getName() == null ? "Unknown Student" : profile.getName(), (a, b) -> a));
+                .collect(Collectors.toMap(StudentDirectoryProfileResponse::getId, profile -> profile, (a, b) -> a));
     }
 
     private List<AssignmentDashboardResponse> assignments(UUID courseId, String auth) {
         ApiResponse<List<AssignmentDashboardResponse>> response = assignmentDashboardClient.getAssignments(courseId, auth);
-        return response == null || response.getData() == null ? List.of() : response.getData();
+        return response == null || response.getData() == null ? List.of() : response.getData().stream()
+                .filter(assignment -> "CLOSED".equals(assignment.getStatus()))
+                .toList();
     }
 
     private List<SubmissionDashboardResponse> submissions(UUID assignmentId, String auth) {
@@ -167,6 +220,13 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
 
     private List<ExamDashboardResponse> exams(UUID courseId, String auth) {
         ApiResponse<List<ExamDashboardResponse>> response = examDashboardClient.getExams(courseId, auth);
-        return response == null || response.getData() == null ? List.of() : response.getData();
+        return response == null || response.getData() == null ? List.of() : response.getData().stream()
+                .filter(exam -> "COMPLETED".equals(exam.getStatus()))
+                .toList();
+    }
+
+    private ExamResultSheetResponse examResults(UUID examId, String auth) {
+        ApiResponse<ExamResultSheetResponse> response = examDashboardClient.getExamResults(examId, auth);
+        return response == null ? null : response.getData();
     }
 }

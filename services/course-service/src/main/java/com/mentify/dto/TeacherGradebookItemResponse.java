@@ -15,4 +15,6 @@ public class TeacherGradebookItemResponse {
     BigDecimal maxScore;
     BigDecimal percentage;
     String status;
+    BigDecimal marksObtained;
+    BigDecimal maxMarks;
 }

@@ -6,7 +6,9 @@ import com.mentify.quiz.dto.request.CreateQuizRequest;
 import com.mentify.quiz.dto.request.UpdateQuizRequest;
 import com.mentify.quiz.dto.response.QuizResponse;
 import com.mentify.quiz.dto.response.StudentQuizResponse;
+import com.mentify.quiz.dto.response.TeacherQuizResultsResponse;
 import com.mentify.quiz.service.QuizService;
+import com.mentify.quiz.service.TeacherQuizResultsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class QuizController {
 
     private final QuizService quizService;
+    private final TeacherQuizResultsService teacherQuizResultsService;
 
     @PostMapping("/api/quizzes")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
@@ -56,6 +59,16 @@ public class QuizController {
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<QuizResponse>> getTeacherQuiz(@PathVariable UUID quizId) {
         ApiResponse<QuizResponse> response = quizService.getTeacherQuiz(quizId);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @GetMapping("/api/quizzes/{quizId}/results")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<TeacherQuizResultsResponse>> getTeacherQuizResults(
+            @PathVariable UUID quizId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        ApiResponse<TeacherQuizResultsResponse> response =
+                teacherQuizResultsService.getResults(quizId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

@@ -1,6 +1,7 @@
 package com.mentify.controller;
 
 import com.mentify.dto.TeacherAnalyticsResponse;
+import com.mentify.enums.TeacherAnalyticsPeriod;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.TeacherAnalyticsService;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +25,13 @@ public class TeacherAnalyticsController {
     @GetMapping("/analytics")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<TeacherAnalyticsResponse>> getAnalytics(
-            @RequestParam(required = false) UUID courseId,
+            @RequestParam UUID courseId,
+            @RequestParam(defaultValue = "TERM") TeacherAnalyticsPeriod period,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
             @RequestHeader("Authorization") String authorizationHeader) {
         ApiResponse<TeacherAnalyticsResponse> response = analyticsService
-                .getAnalytics(courseId, from, to, authorizationHeader);
+                .getAnalytics(courseId, period, from, to, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 }

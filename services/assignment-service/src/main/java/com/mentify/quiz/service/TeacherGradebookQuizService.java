@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TeacherGradebookQuizService {
-    ApiResponse<List<TeacherGradebookQuizResponse>> getQuizzes(UUID courseId);
+    ApiResponse<List<TeacherGradebookQuizResponse>> getQuizzes(UUID courseId, String authorizationHeader);
 }

@@ -2,6 +2,7 @@ package com.mentify.quiz.service;
 
 import com.mentify.quiz.client.CourseServiceClient;
 import com.mentify.quiz.client.dto.CourseLookupResponse;
+import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.exception.CourseNotFoundException;
 import com.mentify.quiz.exception.UnauthorizedQuizAccessException;
 import com.mentify.quiz.security.CurrentUserService;
@@ -24,18 +25,31 @@ public class CourseQuizAuthorizationService {
             return course;
         }
 
-//        if (currentUserService.hasAnyRole("TEACHER")
-//                && currentUserService.getCurrentUserId().equals(course.getAssignedTeacherId())) {
-//            return course;
-//        }
+        if (currentUserService.hasAnyRole("TEACHER")
+                && currentUserService.getCurrentUserId().equals(course.getAssignedTeacherId())) {
+            return course;
+        }
 
-//        throw new UnauthorizedQuizAccessException("Teacher can only create quizzes for assigned courses");
-        return course;
+        throw new UnauthorizedQuizAccessException("Teacher can only access assigned courses");
+    }
+
+    public CourseLookupResponse assertTeacherAssignedToCourse(UUID courseId, String authorizationHeader) {
+        CourseLookupResponse course = getCourseOrThrow(courseId, authorizationHeader);
+        if (currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return course;
+        }
+        if (currentUserService.hasAnyRole("TEACHER")
+                && currentUserService.getCurrentUserId().equals(course.getAssignedTeacherId())) {
+            return course;
+        }
+        throw new UnauthorizedQuizAccessException("Teacher can only access results for assigned courses");
     }
 
     public CourseLookupResponse getCourseOrThrow(UUID courseId, String authorizationHeader) {
         try {
-            CourseLookupResponse course = courseServiceClient.getCourseById(courseId, authorizationHeader).getData();
+            ApiResponse<CourseLookupResponse> response =
+                    courseServiceClient.getCourseById(courseId, authorizationHeader);
+            CourseLookupResponse course = response == null ? null : response.getData();
             if (course == null || course.getId() == null) {
                 throw new CourseNotFoundException(courseId);
             }
