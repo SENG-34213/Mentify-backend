@@ -53,6 +53,14 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private boolean emailVerified = false;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean emailNotifications = true;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean pushNotifications = true;
+
     private LocalDateTime lastLogin;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
