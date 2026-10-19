@@ -6,6 +6,7 @@ import com.mentify.ai.dto.internal.AiExecutionContext;
 import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.internal.MaterialDocument;
 import com.mentify.ai.dto.response.AiGenerateResponse;
+import com.mentify.ai.dto.response.AiSourceReference;
 import com.mentify.ai.dto.response.InternalLessonResponse;
 import com.mentify.ai.dto.response.LessonSummaryResponse;
 import com.mentify.ai.enums.AiFeatureType;
@@ -123,6 +124,7 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
                     .latencyMs(generateResponse.getLatencyMs())
                     .finishReason(generateResponse.getFinishReason())
                     .providerRequestId(generateResponse.getProviderRequestId())
+                    .sources(List.of())
                     .build();
         } catch (RuntimeException ex) {
             if (isGuardrailBlock(ex)) {
@@ -192,6 +194,8 @@ public class LessonSummarizationServiceImpl implements LessonSummarizationServic
                     .latencyMs(generateResponse.getLatencyMs())
                     .finishReason(generateResponse.getFinishReason())
                     .providerRequestId(generateResponse.getProviderRequestId())
+                    .sources(List.of(AiSourceReference.builder()
+                            .materialId(material.id()).title(material.title()).originalFilename(material.originalFilename()).build()))
                     .build();
         } catch (RuntimeException ex) {
             if (isGuardrailBlock(ex)) {

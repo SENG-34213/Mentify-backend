@@ -12,6 +12,7 @@ import com.mentify.ai.dto.request.QuizGenerationRequest;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.response.GeneratedQuestionResponse;
 import com.mentify.ai.dto.response.GeneratedQuizDraftResponse;
+import com.mentify.ai.dto.response.AiSourceReference;
 import com.mentify.ai.enums.AiFeatureType;
 import com.mentify.ai.enums.AiResponseFormat;
 import com.mentify.ai.exception.AiContentPolicyException;
@@ -98,6 +99,8 @@ public class QuizGenerationServiceImpl implements QuizGenerationService {
                     .provider(generateResponse.getProvider())
                     .model(generateResponse.getModel())
                     .generatedAt(generateResponse.getGeneratedAt())
+                    .sources(request.getMaterialId() == null ? List.of() : List.of(AiSourceReference.builder()
+                            .materialId(request.getMaterialId()).title(null).originalFilename(documentInput.filename()).build()))
                     .build();
         } catch (RuntimeException ex) {
             if (isGuardrailBlock(ex)) {
