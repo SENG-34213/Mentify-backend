@@ -31,10 +31,23 @@ public class UserRegistrationResponse {
     private String phoneNumber;
     private Role role;
     private AccountStatus accountStatus;
+    private boolean emailNotifications;
+    private boolean pushNotifications;
     private StudentProfileResponse studentProfile;
     private TeacherProfileResponse teacherProfile;
     private AdminProfileResponse adminProfile;
     private AddressResponse address;
+
+    public UserRegistrationResponse(UUID id, String keycloakUserId, String email,
+                                    String firstName, String lastName, String phoneNumber,
+                                    Role role, AccountStatus accountStatus,
+                                    StudentProfileResponse studentProfile,
+                                    TeacherProfileResponse teacherProfile,
+                                    AdminProfileResponse adminProfile,
+                                    AddressResponse address) {
+        this(id, keycloakUserId, email, firstName, lastName, phoneNumber, role, accountStatus,
+                true, true, studentProfile, teacherProfile, adminProfile, address);
+    }
 
     public static UserRegistrationResponse from(User user) {
         return UserRegistrationResponse.builder()
@@ -46,6 +59,8 @@ public class UserRegistrationResponse {
                 .phoneNumber(user.getPhoneNumber())
                 .role(user.getRole())
                 .accountStatus(user.getAccountStatus())
+                .emailNotifications(user.isEmailNotifications())
+                .pushNotifications(user.isPushNotifications())
                 .studentProfile(StudentProfileResponse.from(user.getStudentProfile()))
                 .teacherProfile(TeacherProfileResponse.from(user.getTeacherProfile()))
                 .adminProfile(AdminProfileResponse.from(user.getAdminProfile()))

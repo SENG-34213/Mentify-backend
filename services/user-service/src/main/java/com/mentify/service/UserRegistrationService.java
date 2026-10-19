@@ -2,10 +2,13 @@ package com.mentify.service;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.UpdateCurrentUserRequest;
+import com.mentify.dto.UpdateTeacherProfileRequest;
 import com.mentify.dto.StudentDirectoryProfileResponse;
 import com.mentify.dto.StudentLookupRequest;
 import com.mentify.dto.StudentLookupResponse;
 import com.mentify.entity.User;
+import com.mentify.entity.TeacherProfile;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
@@ -97,6 +100,66 @@ public class UserRegistrationService {
         User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return UserRegistrationResponse.from(user);
+    }
+
+    @Transactional
+    public UserRegistrationResponse updateCurrentUser(String keycloakUserId, UpdateCurrentUserRequest request) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        applyNameUpdate(user, request);
+        if (request.getPhoneNumber() != null) {
+            user.setPhoneNumber(request.getPhoneNumber().trim());
+        }
+        if (request.getEmailNotifications() != null) {
+            user.setEmailNotifications(request.getEmailNotifications());
+        }
+        if (request.getPushNotifications() != null) {
+            user.setPushNotifications(request.getPushNotifications());
+        }
+        return UserRegistrationResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserRegistrationResponse updateTeacherProfile(
+            String keycloakUserId, UpdateTeacherProfileRequest request) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getRole() != Role.TEACHER || user.getTeacherProfile() == null) {
+            throw new InvalidUserStateException("Current user does not have a teacher profile");
+        }
+        TeacherProfile profile = user.getTeacherProfile();
+        if (request.getSpecializations() != null) {
+            List<String> specializations = request.getSpecializations().stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(String::trim).distinct().toList();
+            if (specializations.isEmpty()) {
+                throw new InvalidUserStateException("At least one specialization is required");
+            }
+            profile.setSpecializations(specializations);
+        }
+        if (request.getPhoneNumber() != null) {
+            profile.setPhoneNumber(request.getPhoneNumber().trim());
+            user.setPhoneNumber(request.getPhoneNumber().trim());
+        }
+        return UserRegistrationResponse.from(userRepository.save(user));
+    }
+
+    private void applyNameUpdate(User user, UpdateCurrentUserRequest request) {
+        if (request.getDisplayName() != null && !request.getDisplayName().isBlank()) {
+            String[] parts = request.getDisplayName().trim().split("\\s+", 2);
+            user.setFirstName(parts[0]);
+            user.setLastName(parts.length > 1 ? parts[1] : parts[0]);
+        }
+        if (request.getFirstName() != null && !request.getFirstName().isBlank()) {
+            user.setFirstName(request.getFirstName().trim());
+        }
+        if (request.getLastName() != null && !request.getLastName().isBlank()) {
+            user.setLastName(request.getLastName().trim());
+        }
+        if (user.getTeacherProfile() != null) {
+            user.getTeacherProfile().setFirstName(user.getFirstName());
+            user.getTeacherProfile().setLastName(user.getLastName());
+        }
     }
 
     @Transactional(readOnly = true)

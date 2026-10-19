@@ -5,6 +5,8 @@ import com.mentify.dto.SuperAdminRegisterAdminRequest;
 import com.mentify.dto.StudentLookupRequest;
 import com.mentify.dto.StudentLookupResponse;
 import com.mentify.dto.UpdateUserStatusRequest;
+import com.mentify.dto.UpdateCurrentUserRequest;
+import com.mentify.dto.UpdateTeacherProfileRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.StudentDirectoryProfileResponse;
 import com.mentify.enums.Role;
@@ -53,6 +55,28 @@ public class UserRegistration {
                 "Current user fetched successfully",
                 response
         ));
+    }
+
+    @PatchMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<UserRegistrationResponse>> updateCurrentUser(
+            @Valid @RequestBody UpdateCurrentUserRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UserRegistrationResponse response = userRegistrationService
+                .updateCurrentUser(jwt.getSubject(), request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(), "Current user updated successfully", response));
+    }
+
+    @PatchMapping("/teachers/me")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<UserRegistrationResponse>> updateTeacherProfile(
+            @Valid @RequestBody UpdateTeacherProfileRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UserRegistrationResponse response = userRegistrationService
+                .updateTeacherProfile(jwt.getSubject(), request);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(), "Teacher profile updated successfully", response));
     }
 
     @GetMapping
