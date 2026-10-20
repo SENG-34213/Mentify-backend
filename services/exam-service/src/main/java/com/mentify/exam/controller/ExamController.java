@@ -16,6 +16,7 @@ import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +26,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +52,17 @@ public class ExamController {
             @RequestHeader("Authorization") String authorizationHeader) {
         return respond(HttpStatus.CREATED, "Exam created successfully",
                 examService.createExam(request, authorizationHeader));
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @NotifyOnSuccess(type = "EXAM_CREATED", title = "Exam created", message = "Your exam was created successfully.")
+    public ResponseEntity<ApiResponse<ExamResponse>> createExamWithInstructions(
+            @Valid @RequestPart("exam") CreateExamRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam(defaultValue = "true") boolean studentVisible,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.CREATED, "Exam created successfully",
+                examService.createExam(request, file, studentVisible, authorizationHeader));
     }
 
     @GetMapping("/{examId}")
@@ -74,6 +89,18 @@ public class ExamController {
             @RequestHeader("Authorization") String authorizationHeader) {
         return respond(HttpStatus.OK, "Exam updated successfully",
                 examService.updateExam(examId, request, authorizationHeader));
+    }
+
+    @PutMapping(value = "/{examId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @NotifyOnSuccess(type = "EXAM_UPDATED", title = "Exam updated", message = "Your exam was updated successfully.")
+    public ResponseEntity<ApiResponse<ExamResponse>> updateExamWithInstructions(
+            @PathVariable UUID examId,
+            @Valid @RequestPart("exam") UpdateExamRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam(defaultValue = "true") boolean studentVisible,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return respond(HttpStatus.OK, "Exam updated successfully",
+                examService.updateExam(examId, request, file, studentVisible, authorizationHeader));
     }
 
     @PostMapping("/{examId}/cancel")

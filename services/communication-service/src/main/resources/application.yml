@@ -18,6 +18,10 @@ spring:
       minimum-idle: ${DB_POOL_MIN_IDLE:0}
       connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:10000}
       idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
+  servlet:
+    multipart:
+      max-file-size: ${COMMUNICATION_MAX_FILE_SIZE:25MB}
+      max-request-size: ${COMMUNICATION_MAX_REQUEST_SIZE:25MB}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:

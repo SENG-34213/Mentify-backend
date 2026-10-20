@@ -19,6 +19,10 @@ public class LearningMaterialResponse {
     private String title;
     private MaterialType type;
     private String fileUrl;
+    private String originalFilename;
+    private String contentType;
+    private Long fileSize;
+    private String status;
     private UUID materialId;
     private UUID moduleId;
     private UUID lessonId;

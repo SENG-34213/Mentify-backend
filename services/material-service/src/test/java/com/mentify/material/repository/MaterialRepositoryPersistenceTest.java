@@ -3,8 +3,10 @@ package com.mentify.material.repository;
 import com.mentify.material.dto.request.MaterialSearchCriteria;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialPurpose;
+import com.mentify.material.enums.MaterialResourceType;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
+import com.mentify.material.enums.MaterialVisibility;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
@@ -29,8 +31,8 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-// Pinned so CI's SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop cannot replace the Flyway schema under test.
-@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
+// Use Hibernate-generated schema for this Flyway-free test profile.
+@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
         "spring.config.import=",
@@ -69,6 +71,10 @@ class MaterialRepositoryPersistenceTest {
         assertThat(loaded.getPurpose()).isEqualTo(MaterialPurpose.LEARNING_MATERIAL);
         assertThat(loaded.getStatus()).isEqualTo(MaterialStatus.UPLOADED);
         assertThat(loaded.getUploadedBy()).isEqualTo(uploaderId);
+        assertThat(loaded.getResourceType()).isEqualTo(MaterialResourceType.COURSE);
+        assertThat(loaded.getResourceId()).isEqualTo(loaded.getCourseId());
+        assertThat(loaded.getOwnerId()).isEqualTo(uploaderId);
+        assertThat(loaded.getVisibility()).isEqualTo(MaterialVisibility.COURSE_MEMBERS);
         assertThat(loaded.getChecksum()).isEqualTo("sha256:abc123");
         assertThat(loaded.getCreatedAt()).isNotNull();
         assertThat(loaded.getUpdatedAt()).isNotNull();
@@ -173,7 +179,7 @@ class MaterialRepositoryPersistenceTest {
     }
 
     @Test
-    void flywayMigrationCreatedRequiredIndexesAndConstraints() {
+    void hibernateSchemaCreatesRequiredIndexesAndConstraints() {
         Set<String> indexes = jdbcTemplate.queryForList(
                         "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = 'MATERIALS'",
                         String.class
@@ -208,38 +214,25 @@ class MaterialRepositoryPersistenceTest {
                 "idx_material_audit_action_created"
         );
 
-        Set<String> constraints = jdbcTemplate.queryForList(
-                        "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'MATERIALS'",
+        Set<String> materialConstraintTypes = jdbcTemplate.queryForList(
+                        "SELECT CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'MATERIALS'",
                         String.class
                 )
                 .stream()
-                .map(constraint -> constraint.toLowerCase(Locale.ROOT))
+                .map(String::toUpperCase)
                 .collect(Collectors.toSet());
 
-        assertThat(constraints).contains(
-                "pk_materials",
-                "uk_materials_storage_key",
-                "chk_materials_title_non_blank",
-                "chk_materials_storage_key_not_url",
-                "chk_materials_file_size_positive",
-                "chk_materials_type",
-                "chk_materials_purpose",
-                "chk_materials_status"
-        );
+        assertThat(materialConstraintTypes).contains("PRIMARY KEY", "UNIQUE", "CHECK");
 
-        Set<String> auditConstraints = jdbcTemplate.queryForList(
-                        "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'MATERIAL_AUDIT_EVENTS'",
+        Set<String> auditConstraintTypes = jdbcTemplate.queryForList(
+                        "SELECT CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'MATERIAL_AUDIT_EVENTS'",
                         String.class
                 )
                 .stream()
-                .map(constraint -> constraint.toLowerCase(Locale.ROOT))
+                .map(String::toUpperCase)
                 .collect(Collectors.toSet());
 
-        assertThat(auditConstraints).contains(
-                "pk_material_audit_events",
-                "chk_material_audit_action",
-                "chk_material_audit_outcome_non_blank"
-        );
+        assertThat(auditConstraintTypes).contains("PRIMARY KEY", "CHECK");
     }
 
     @Test

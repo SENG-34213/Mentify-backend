@@ -6,8 +6,19 @@ import com.mentify.payload.response.ApiResponse;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface LearningMaterialService {
+
+    ApiResponse<LearningMaterialResponse> uploadLearningMaterial(
+            UUID courseId,
+            UUID moduleId,
+            UUID lessonId,
+            String title,
+            String description,
+            MultipartFile file,
+            String authorizationHeader
+    );
 
     ApiResponse<LearningMaterialResponse> createLearningMaterial(
             UUID courseId,
@@ -34,6 +45,13 @@ public interface LearningMaterialService {
     ApiResponse<List<LearningMaterialResponse>> getLearningMaterials(
             UUID courseId,
             UUID moduleId,
+            String authorizationHeader
+    );
+
+    ApiResponse<List<LearningMaterialResponse>> getLessonLearningMaterials(
+            UUID courseId,
+            UUID moduleId,
+            UUID lessonId,
             String authorizationHeader
     );
 

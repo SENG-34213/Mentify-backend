@@ -13,10 +13,11 @@ import com.mentify.repository.UserRepository;
 import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.service.registration.AdminCodeGenerator;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,7 +57,7 @@ class AdminRegistrationServiceTest {
     private AdminProfileRepository adminProfileRepository;
 
     @Mock
-    private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private RegistrationEmailDispatcher registrationEmailDispatcher;
 
     private AdminRegistrationService adminRegistrationService;
 
@@ -70,7 +73,8 @@ class AdminRegistrationServiceTest {
                 userRepository,
                 keycloakUserService,
                 factory,
-                passwordSetupEmailDispatcher
+                registrationEmailDispatcher,
+                new TemporaryPasswordGenerator()
         );
     }
 
@@ -100,13 +104,16 @@ class AdminRegistrationServiceTest {
         assertThat(response.getAdminProfile().getAdminCode()).isEqualTo("TIT-ADM-005");
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "ADMIN");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getRole()).isEqualTo(Role.ADMIN);
         assertThat(savedUser.getPassword()).isNull();
+        assertThat(savedUser.isEmailVerified()).isTrue();
         assertThat(savedUser.getAdminProfile()).isNotNull();
         assertThat(savedUser.getAdminProfile().getNic()).isEqualTo(request.getAdminProfile().getNic());
         assertThat(savedUser.getAddress()).isNotNull();

@@ -11,6 +11,7 @@ import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
 import com.mentify.repository.GradeRepository;
 import com.mentify.service.impl.CourseServiceImpl;
+import com.mentify.service.impl.TeacherCourseAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,11 +48,14 @@ class CourseServiceImplTest {
     @Mock
     private UserServiceClient userServiceClient;
 
+    @Mock
+    private TeacherCourseAccessGuard teacherCourseAccessGuard;
+
     private CourseServiceImpl courseService;
 
     @BeforeEach
     void setUp() {
-        courseService = new CourseServiceImpl(courseRepository, gradeRepository, userServiceClient);
+        courseService = new CourseServiceImpl(courseRepository, gradeRepository, userServiceClient, teacherCourseAccessGuard);
     }
 
     @Test
@@ -82,7 +86,6 @@ class CourseServiceImplTest {
         assertThat(response.getData().getNumberOfStudents()).isZero();
         assertThat(response.getData().getSubject()).isEqualTo("Mathematics");
         assertThat(response.getData().isOnline()).isTrue();
-        assertThat(response.getData().getDiscountOfferPercent()).isEqualByComparingTo("20.00");
         assertThat(response.getData().isVisible()).isTrue();
 
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
@@ -91,7 +94,6 @@ class CourseServiceImplTest {
         assertThat(savedCourse.getCourseName()).isEqualTo("Mathematics");
         assertThat(savedCourse.getCourseDescription()).isEqualTo("Grade 10 mathematics");
         assertThat(savedCourse.getCourseThumbnail()).isEqualTo(request.getCourseThumbnail());
-        assertThat(savedCourse.getCourseFeeMonthly()).isEqualByComparingTo(request.getCourseFeeMonthly());
         assertThat(savedCourse.getGradeId()).isEqualTo(request.getGradeId());
         assertThat(savedCourse.getAssignedTeacherId()).isEqualTo(request.getAssignedTeacherId());
         assertThat(savedCourse.getStatus()).isEqualTo(CourseStatus.DRAFT);
@@ -99,7 +101,6 @@ class CourseServiceImplTest {
         assertThat(savedCourse.getNumberOfStudents()).isZero();
         assertThat(savedCourse.getSubject()).isEqualTo("Mathematics");
         assertThat(savedCourse.isOnline()).isTrue();
-        assertThat(savedCourse.getDiscountOfferPercent()).isEqualByComparingTo("20.00");
         assertThat(savedCourse.isVisible()).isTrue();
         verify(userServiceClient).isTeacherExists(request.getAssignedTeacherId().toString(), AUTH_HEADER);
     }
@@ -145,12 +146,10 @@ class CourseServiceImplTest {
                 .courseName("Mathematics")
                 .courseDescription("Grade 10 mathematics")
                 .courseThumbnail("math.png")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(gradeId)
                 .assignedTeacherId(teacherId)
                 .subject("Mathematics")
                 .isOnline(true)
-                .discountOfferPercent(new BigDecimal("20.00"))
                 .isVisible(true)
                 .isPublished(false)
                 .status(CourseStatus.DRAFT)
@@ -162,12 +161,10 @@ class CourseServiceImplTest {
                 .courseName("  Advanced Mathematics  ")
                 .courseDescription("  Updated description  ")
                 .courseThumbnail("math-v2.png")
-                .courseFeeMonthly(new BigDecimal("3000.00"))
                 .gradeId(gradeId)
                 .assignedTeacherId(teacherId)
                 .subject("  Mathematics  ")
                 .isOnline(false)
-                .discountOfferPercent(new BigDecimal("10.00"))
                 .isVisible(true)
                 .isPublished(true)
                 .build();
@@ -198,10 +195,8 @@ class CourseServiceImplTest {
         assertThat(savedCourse.getCourseName()).isEqualTo("Advanced Mathematics");
         assertThat(savedCourse.getCourseDescription()).isEqualTo("Updated description");
         assertThat(savedCourse.getCourseThumbnail()).isEqualTo("math-v2.png");
-        assertThat(savedCourse.getCourseFeeMonthly()).isEqualByComparingTo("3000.00");
         assertThat(savedCourse.getSubject()).isEqualTo("Mathematics");
         assertThat(savedCourse.isOnline()).isFalse();
-        assertThat(savedCourse.getDiscountOfferPercent()).isEqualByComparingTo("10.00");
         assertThat(savedCourse.isVisible()).isTrue();
         assertThat(savedCourse.isPublished()).isTrue();
         assertThat(savedCourse.getStatus()).isEqualTo(CourseStatus.PUBLISHED);
@@ -313,12 +308,10 @@ class CourseServiceImplTest {
                     .courseName("Mathematics")
                     .courseDescription("Grade 10 mathematics")
                     .courseThumbnail("math.png")
-                    .courseFeeMonthly(new BigDecimal("2500.00"))
                     .gradeId(gradeId)
                     .assignedTeacherId(teacherId)
                     .subject("Mathematics")
                     .isOnline(true)
-                    .discountOfferPercent(new BigDecimal("20.00"))
                     .isVisible(true)
                     .isPublished(false)
                     .status(CourseStatus.DRAFT)
@@ -334,12 +327,10 @@ class CourseServiceImplTest {
                 .courseName("  Mathematics  ")
                 .courseDescription("  Grade 10 mathematics  ")
                 .courseThumbnail("https://cdn.example.com/math.png")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .gradeId(UUID.randomUUID())
                 .assignedTeacherId(UUID.randomUUID())
                 .subject("Mathematics")
                 .isOnline(true)
-                .discountOfferPercent(new BigDecimal("20.00"))
                 .isVisible(true)
                 .isPublished(false)
                 .build();

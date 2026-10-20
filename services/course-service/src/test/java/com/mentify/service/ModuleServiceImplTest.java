@@ -247,7 +247,6 @@ class ModuleServiceImplTest {
         Course course = Course.builder()
                 .courseName("Mathematics")
                 .courseDescription("Grade 10 mathematics")
-                .courseFeeMonthly(new BigDecimal("2500.00"))
                 .subject("Mathematics")
                 .assignedTeacherId(UUID.randomUUID())
                 .gradeId(UUID.randomUUID())

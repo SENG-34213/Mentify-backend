@@ -52,5 +52,23 @@ public class TeacherProfile extends BaseEntity {
     @Builder.Default
     private List<String> specializations = new ArrayList<>();
 
+    @Column(length = 100)
+    private String academicTitle;
+
+    @Column(length = 150)
+    private String department;
+
+    @Column(length = 150)
+    private String officeLocation;
+
+    @Column(length = 255)
+    private String officeHours;
+
+    @Column(length = 2000)
+    private String biography;
+
+    @Column(length = 500)
+    private String avatarUrl;
+
     private LocalDate hireDate;
 }

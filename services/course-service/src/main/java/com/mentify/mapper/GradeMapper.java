@@ -13,6 +13,8 @@ public class GradeMapper {
         return Grade.builder()
                 .name(request.getName().trim())
                 .description(trimToNull(request.getDescription()))
+                .monthlyFee(request.getMonthlyFee())
+                .currencyCode(request.getCurrencyCode() == null ? "LKR" : request.getCurrencyCode().toUpperCase())
                 .build();
     }
 
@@ -21,6 +23,8 @@ public class GradeMapper {
                 .id(grade.getId())
                 .name(grade.getName())
                 .description(grade.getDescription())
+                .monthlyFee(grade.getMonthlyFee())
+                .currencyCode(grade.getCurrencyCode())
                 .active(grade.isActive())
                 .createdBy(grade.getCreatedBy())
                 .lastModifiedBy(grade.getUpdatedBy())

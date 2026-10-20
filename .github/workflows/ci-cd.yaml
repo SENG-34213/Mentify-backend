@@ -92,7 +92,7 @@
 
         - name: Run Checkstyle / Validate
           working-directory: .
-          run: mvn ${{ env.MVN_FLAGS }} validate -pl ${{ matrix.path }} -am
+          run: bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} validate -pl ${{ matrix.path }} -am
 
     build:
       name: "Build (${{ matrix.service }})"
@@ -144,7 +144,7 @@
 
         - name: Compile service
           working-directory: .
-          run: mvn ${{ env.MVN_FLAGS }} compile -pl ${{ matrix.path }} -am -DskipTests
+          run: bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} compile -pl ${{ matrix.path }} -am -DskipTests
 
         - name: Cache compiled output
           uses: actions/cache@v4
@@ -184,6 +184,8 @@
               path: services/exam-service
             - service: material-service
               path: services/material-service
+            - service: calender-service
+              path: services/calender-service
             - service: notification-service
               path: services/notification-service
 
@@ -207,7 +209,7 @@
         - name: Run unit tests with JaCoCo
           working-directory: .
           run: |
-            mvn ${{ env.MVN_FLAGS }} test \
+            bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} test \
               -pl ${{ matrix.path }} -am \
               -Djacoco.skip=false
 
@@ -503,7 +505,7 @@
             SPRING_PROFILES_ACTIVE: ${{ env.SPRING_PROFILES_ACTIVE }}
 
           run: |
-            mvn ${{ env.MVN_FLAGS }} verify \
+            bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} verify \
               -pl ${{ matrix.path }} -am \
               -Djacoco.skip=false
 

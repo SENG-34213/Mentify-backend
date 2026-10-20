@@ -15,6 +15,7 @@ import com.mentify.dto.EntrollmentUpdateRequest;
 import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
+import com.mentify.enums.EnrollmentStatus;
 import com.mentify.exception.PaymentRequiredException;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
@@ -28,6 +29,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -46,9 +50,9 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
     private final EntrollmentRepository entrollmentRepository;
     private final CourseServiceClient courseServiceClient;
+    private final PaymentServiceClient paymentServiceClient;
     private final CommunicationServiceClient communicationServiceClient;
     private final UserServiceClient userServiceClient;
-    private final PaymentServiceClient paymentServiceClient;
     private final CurrentUserService currentUserService;
 
     @Override
@@ -58,10 +62,19 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
         Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
         List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
+        assertTeacherCanManageCourses(courses);
         validateNoDuplicateEnrollment(request.getStudentId(), requestedCourseIds);
-        validateSuccessfulPaymentsForPaidCourses(request.getStudentId(), courses, requestedCourseIds, authorizationHeader);
+        validateSuccessfulPaymentsForPaidCourses(
+                request.getStudentId(),
+                courses,
+                requestedCourseIds,
+                authorizationHeader
+        );
 
-        return saveEnrollment(request.getStudentId(), requestedCourseIds, authorizationHeader, true);
+        EnrollmentStatus status = request.getStatus() != null
+                ? request.getStatus()
+                : EnrollmentStatus.APPROVED;
+        return saveEnrollment(request.getStudentId(), requestedCourseIds, authorizationHeader, true, status);
     }
 
     @Override
@@ -78,7 +91,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         validateNoDuplicateEnrollment(studentId, requestedCourseIds);
         validateSuccessfulPaymentsForPaidCourses(studentId, courses, requestedCourseIds, authorizationHeader);
 
-        return saveEnrollment(studentId, requestedCourseIds, authorizationHeader, false);
+        return saveEnrollment(studentId, requestedCourseIds, authorizationHeader, false, EnrollmentStatus.PENDING);
     }
 
     @Override
@@ -94,8 +107,20 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment", "id", enrollmentId));
 
         Set<UUID> existingCourseIds = new HashSet<>(existingEnrollment.getCourseIds());
-        Set<UUID> requestedCourseIds = sanitizeAndValidateCourseIds(request.getCourseIds());
-        List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
+        if (isTeacherAuthenticated()) {
+            assertTeacherCanManageCourses(validateCoursesExist(existingCourseIds, authorizationHeader));
+        }
+        boolean courseIdsProvided = request.getCourseIds() != null && !request.getCourseIds().isEmpty();
+        if (!courseIdsProvided && request.getStatus() == null) {
+            throw new IllegalArgumentException("Course IDs or enrollment status is required");
+        }
+        Set<UUID> requestedCourseIds = courseIdsProvided
+                ? sanitizeAndValidateCourseIds(request.getCourseIds())
+                : existingCourseIds;
+        List<CourseLookupResponse> courses = courseIdsProvided
+                ? validateCoursesExist(requestedCourseIds, authorizationHeader)
+                : List.of();
+        assertTeacherCanManageCourses(courses);
         Set<UUID> newlyAddedCourseIds = requestedCourseIds.stream()
                 .filter(courseId -> !existingCourseIds.contains(courseId))
                 .collect(Collectors.toSet());
@@ -105,14 +130,37 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 newlyAddedCourseIds,
                 authorizationHeader
         );
-
         existingEnrollment.setCourseIds(requestedCourseIds);
+        if (request.getStatus() != null) {
+            existingEnrollment.setStatus(request.getStatus());
+        }
         Entrollment savedEnrollment = entrollmentRepository.save(existingEnrollment);
         syncStudentToCommunicationGroups(savedEnrollment.getStudentId(), newlyAddedCourseIds, authorizationHeader, true);
 
         return ApiResponse.<EntrollmentResponse>builder()
                 .message("Enrollment updated successfully")
                 .data(toResponse(savedEnrollment))
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<Void> deleteEntrollment(UUID enrollmentId, String authorizationHeader) {
+        Entrollment existingEnrollment = entrollmentRepository.findByIdAndIsActiveTrue(enrollmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment", "id", enrollmentId));
+
+        if (isTeacherAuthenticated()) {
+            assertTeacherCanManageCourses(
+                    validateCoursesExist(existingEnrollment.getCourseIds(), authorizationHeader));
+        }
+
+        existingEnrollment.setActive(false);
+        entrollmentRepository.save(existingEnrollment);
+
+        return ApiResponse.<Void>builder()
+                .message("Enrollment deleted successfully")
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
@@ -138,12 +186,37 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     }
 
     @Override
-    public ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId) {
+    public ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId, String authorizationHeader) {
+        if (isTeacherAuthenticated()) {
+            assertTeacherCanManageCourses(List.of(lookupCourseById(courseId, authorizationHeader)));
+        }
         List<UUID> studentIds = entrollmentRepository.findActiveStudentIdsByCourseId(courseId);
 
         return ApiResponse.<List<UUID>>builder()
                 .message("Enrolled students fetched successfully")
                 .data(studentIds)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    public ApiResponse<List<EntrollmentResponse>> getActiveEntrollmentsByCourse(
+            UUID courseId,
+            String authorizationHeader
+    ) {
+        CourseLookupResponse course = lookupCourseById(courseId, authorizationHeader);
+        assertTeacherCanManageCourses(List.of(course));
+
+        List<EntrollmentResponse> enrollments = entrollmentRepository
+                .findAllByCourseIdAndIsActiveTrue(courseId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ApiResponse.<List<EntrollmentResponse>>builder()
+                .message("Course enrollments fetched successfully")
+                .data(enrollments)
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
@@ -212,6 +285,12 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
     private List<CourseLookupResponse> validateCoursesExist(Set<UUID> courseIds, String authorizationHeader) {
         try {
+            if (isTeacherAuthenticated()) {
+                return courseIds.stream()
+                        .map(courseId -> lookupCourseById(courseId, authorizationHeader))
+                        .toList();
+            }
+
             ApiResponse<List<CourseLookupResponse>> response = courseServiceClient.getCoursesByIds(
                     CourseBulkLookupRequest.builder().ids(courseIds).build(),
                     authorizationHeader
@@ -240,13 +319,35 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         }
     }
 
+    private boolean isTeacherAuthenticated() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> "ROLE_TEACHER".equals(authority) || "TEACHER".equals(authority));
+    }
+
+    private void assertTeacherCanManageCourses(List<CourseLookupResponse> courses) {
+        if (!isTeacherAuthenticated()) {
+            return;
+        }
+
+        UUID teacherId = currentUserService.getCurrentUserId();
+        boolean ownsAllCourses = courses.stream()
+                .allMatch(course -> teacherId.equals(course.getAssignedTeacherId()));
+        if (!ownsAllCourses) {
+            throw new AccessDeniedException("Teacher can only manage enrollments for assigned courses");
+        }
+    }
+
     private List<CourseLookupResponse> lookupCoursesForStudent(Set<UUID> courseIds, String authorizationHeader) {
         return courseIds.stream()
-                .map(courseId -> lookupCourseForStudent(courseId, authorizationHeader))
+                .map(courseId -> lookupCourseById(courseId, authorizationHeader))
                 .toList();
     }
 
-    private CourseLookupResponse lookupCourseForStudent(UUID courseId, String authorizationHeader) {
+    private CourseLookupResponse lookupCourseById(UUID courseId, String authorizationHeader) {
         try {
             ApiResponse<CourseLookupResponse> response = courseServiceClient.lookupCourseById(courseId, authorizationHeader);
             CourseLookupResponse course = response != null ? response.getData() : null;
@@ -274,8 +375,8 @@ public class EntrollmentServiceImpl implements EntrollmentService {
     }
 
     private boolean isPaidCourse(CourseLookupResponse course) {
-        BigDecimal fee = course.getCourseFeeMonthly();
-        return fee != null && fee.compareTo(BigDecimal.ZERO) > 0;
+        BigDecimal monthlyFee = course.getGradeMonthlyFee();
+        return monthlyFee != null && monthlyFee.compareTo(BigDecimal.ZERO) > 0;
     }
 
     private void validateSuccessfulPayment(UUID studentId, UUID courseId, String authorizationHeader) {
@@ -288,7 +389,9 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                     || !studentId.equals(verification.getStudentId())
                     || !courseId.equals(verification.getCourseId())
                     || !verification.isSuccessfulPaymentExists()) {
-                throw new PaymentRequiredException("Successful payment is required before enrolling in paid course " + courseId);
+                throw new PaymentRequiredException(
+                        "Successful payment is required before enrolling in paid course " + courseId
+                );
             }
         } catch (FeignException.Forbidden ex) {
             throw new AccessDeniedException("Payment verification is not allowed", ex);
@@ -319,12 +422,14 @@ public class EntrollmentServiceImpl implements EntrollmentService {
             UUID studentId,
             Set<UUID> courseIds,
             String authorizationHeader,
-            boolean strictCommunicationSync
+            boolean strictCommunicationSync,
+            EnrollmentStatus status
     ) {
         Entrollment entrollment = Entrollment.builder()
                 .studentId(studentId)
                 .courseIds(courseIds)
                 .enrolledOn(LocalDate.now())
+                .status(status)
                 .build();
 
         Entrollment savedEntrollment = entrollmentRepository.save(entrollment);
@@ -381,6 +486,7 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .lastModifiedBy(entrollment.getUpdatedBy())
                 .createdAt(entrollment.getCreatedAt())
                 .updatedAt(entrollment.getUpdatedAt())
+                .status(entrollment.getStatus() != null ? entrollment.getStatus() : EnrollmentStatus.APPROVED)
                 .build();
     }
 }

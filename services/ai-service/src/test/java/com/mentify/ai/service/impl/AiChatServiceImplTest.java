@@ -6,6 +6,7 @@ import com.mentify.ai.dto.internal.AiExecutionRequest;
 import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
+import com.mentify.ai.dto.tool.CalendarEventSummary;
 import com.mentify.ai.dto.tool.QuizPerformanceSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
@@ -23,6 +24,7 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
 import feign.Request;
@@ -81,6 +83,9 @@ class AiChatServiceImplTest {
     private UserRegistrationOverviewTool userRegistrationOverviewTool;
 
     @Mock
+    private UpcomingCalendarEventsTool upcomingCalendarEventsTool;
+
+    @Mock
     private AiConversationRepository conversationRepository;
 
     @Mock
@@ -98,6 +103,7 @@ class AiChatServiceImplTest {
         lenient().when(aiProvider.getProviderName()).thenReturn("OPENAI");
         lenient().when(todayQuizPerformanceTool.getName()).thenReturn(TodayQuizPerformanceTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
+        lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
 
         aiChatService = new AiChatServiceImpl(
                 properties,
@@ -108,6 +114,7 @@ class AiChatServiceImplTest {
                 auditService,
                 todayQuizPerformanceTool,
                 userRegistrationOverviewTool,
+                upcomingCalendarEventsTool,
                 new ObjectMapper().findAndRegisterModules(),
                 conversationRepository,
                 messageRepository
@@ -144,6 +151,109 @@ class AiChatServiceImplTest {
         ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
         verify(aiProvider).generate(executionCaptor.capture());
         assertThat(executionCaptor.getValue().getUserInput()).contains("getTodayQuizPerformance", "Java OOP Quiz");
+    }
+
+    @Test
+    void calendarQuestionUsesUpcomingEventsToolAndGroundedAiResponse() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(upcomingCalendarEventsTool.execute(AUTH_HEADER)).thenReturn(List.of(CalendarEventSummary.builder()
+                .title("Data Structures Lecture")
+                .eventType("CLASS")
+                .startDateTime(LocalDateTime.of(2026, 10, 18, 9, 0))
+                .endDateTime(LocalDateTime.of(2026, 10, 18, 10, 0))
+                .location("Room 204")
+                .status("SCHEDULED")
+                .build()));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Your next event is Data Structures Lecture tomorrow at 9:00 AM in Room 204.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What is coming up on my calendar?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("Data Structures Lecture");
+        assertThat(response.getToolsUsed()).containsExactly(UpcomingCalendarEventsTool.TOOL_NAME);
+        verify(upcomingCalendarEventsTool).execute(AUTH_HEADER);
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains(UpcomingCalendarEventsTool.TOOL_NAME, "Data Structures Lecture", "Room 204");
+    }
+
+    @Test
+    void noUpcomingCalendarEventsDoesNotCallAiProvider() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(upcomingCalendarEventsTool.execute(AUTH_HEADER)).thenReturn(List.of());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What is coming up on my calendar?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).isEqualTo("There are no upcoming events in the calendar data I can access.");
+        assertThat(response.getToolsUsed()).containsExactly(UpcomingCalendarEventsTool.TOOL_NAME);
+        verify(aiProvider, never()).generate(any(AiExecutionRequest.class));
+    }
+
+    @Test
+    void forbiddenCalendarToolResponseIsRejectedAsAccessDenied() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(upcomingCalendarEventsTool.execute(AUTH_HEADER)).thenThrow(forbiddenFeignException());
+
+        assertThatThrownBy(() -> aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("Show my calendar schedule.")
+                        .build(),
+                AUTH_HEADER
+        )).isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Not authorized to access calendar events");
+    }
+
+    @Test
+    void historicalCalendarQuestionDoesNotUseUpcomingEventsTool() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What happened on my calendar last week?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("don't currently have an authorized tool for that time period");
+        assertThat(response.getToolsUsed()).isEmpty();
+        verify(upcomingCalendarEventsTool, never()).execute(AUTH_HEADER);
+        verify(aiProvider, never()).generate(any(AiExecutionRequest.class));
     }
 
     @Test

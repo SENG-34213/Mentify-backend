@@ -12,6 +12,7 @@ import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.authentication.AuthenticationEventLogger;
@@ -64,6 +65,9 @@ public class AuthenticationService {
                 throw new AccountAccessDeniedException(ACCOUNT_LOCKED);
             }
             authenticationEventLogger.loginFailed("INVALID_CREDENTIALS", safeIdentifier(request), null);
+            throw exception;
+        } catch (FirstLoginRequiredException exception) {
+            authenticationEventLogger.loginFailed("FIRST_LOGIN_REQUIRED", safeIdentifier(request), null);
             throw exception;
         } catch (KeycloakAuthenticationException exception) {
             authenticationEventLogger.loginFailed("KEYCLOAK_UNAVAILABLE", safeIdentifier(request), null);

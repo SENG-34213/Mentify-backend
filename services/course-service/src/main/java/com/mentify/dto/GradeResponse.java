@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -17,6 +18,8 @@ public class GradeResponse {
     private UUID id;
     private String name;
     private String description;
+    private BigDecimal monthlyFee;
+    private String currencyCode;
     private boolean active;
     private UUID createdBy;
     private UUID lastModifiedBy;

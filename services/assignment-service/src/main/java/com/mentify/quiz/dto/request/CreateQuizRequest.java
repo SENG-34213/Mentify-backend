@@ -1,6 +1,7 @@
 package com.mentify.quiz.dto.request;
 
 import com.mentify.quiz.enums.QuizCreationMethod;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -49,4 +51,14 @@ public class CreateQuizRequest {
     private Boolean showResultImmediately;
 
     private QuizCreationMethod creationMethod;
+
+    /** Optional question set for atomic manual quiz creation. */
+    @Valid
+    @Size(max = 100, message = "A quiz cannot contain more than 100 questions")
+    @Builder.Default
+    private List<CreateQuestionRequest> questions = List.of();
+
+    /** Publish the quiz after all supplied questions are created. */
+    @Builder.Default
+    private Boolean publishImmediately = false;
 }

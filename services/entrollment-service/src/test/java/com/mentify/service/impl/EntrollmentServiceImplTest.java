@@ -424,10 +424,52 @@ class EntrollmentServiceImplTest {
         when(entrollmentRepository.findActiveStudentIdsByCourseId(courseId))
                 .thenReturn(List.of(firstStudentId, secondStudentId));
 
-        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId);
+        ApiResponse<List<UUID>> response = entrollmentService.getEnrolledStudentIdsByCourse(courseId, "Bearer token");
 
         assertEquals(HttpStatus.OK, response.getStatus());
         assertEquals(List.of(firstStudentId, secondStudentId), response.getData());
+    }
+
+    @Test
+    void getActiveEnrollmentsByCourseReturnsEnrollmentRecords() {
+        UUID courseId = UUID.randomUUID();
+        Entrollment enrollment = Entrollment.builder()
+                .studentId(UUID.randomUUID())
+                .courseIds(Set.of(courseId))
+                .build();
+
+        when(courseServiceClient.lookupCourseById(courseId, "Bearer token"))
+                .thenReturn(successCourseLookupResponse(courseId, "0"));
+        when(entrollmentRepository.findAllByCourseIdAndIsActiveTrue(courseId))
+                .thenReturn(List.of(enrollment));
+
+        ApiResponse<List<EntrollmentResponse>> response =
+                entrollmentService.getActiveEntrollmentsByCourse(courseId, "Bearer token");
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertEquals(1, response.getData().size());
+        assertEquals(Set.of(courseId), response.getData().get(0).getCourseIds());
+    }
+
+    @Test
+    void deleteEnrollmentSoftDeletesActiveRecord() {
+        UUID enrollmentId = UUID.randomUUID();
+        Entrollment enrollment = Entrollment.builder()
+                .studentId(UUID.randomUUID())
+                .courseIds(Set.of(UUID.randomUUID()))
+                .build();
+        enrollment.setId(enrollmentId);
+
+        when(entrollmentRepository.findByIdAndIsActiveTrue(enrollmentId))
+                .thenReturn(Optional.of(enrollment));
+        when(entrollmentRepository.save(any(Entrollment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiResponse<Void> response = entrollmentService.deleteEntrollment(enrollmentId, "Bearer token");
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(!enrollment.isActive());
+        verify(entrollmentRepository).save(enrollment);
     }
 
     @Test
@@ -459,12 +501,12 @@ class EntrollmentServiceImplTest {
         return successCourseLookupResponse(courseIds, null);
     }
 
-    private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds, String courseFeeMonthly) {
+    private ApiResponse<List<CourseLookupResponse>> successCourseLookupResponse(List<UUID> courseIds, String gradeMonthlyFee) {
         List<CourseLookupResponse> responses = courseIds.stream().map(id -> {
             CourseLookupResponse response = new CourseLookupResponse();
             response.setId(id);
-            if (courseFeeMonthly != null) {
-                response.setCourseFeeMonthly(new BigDecimal(courseFeeMonthly));
+            if (gradeMonthlyFee != null) {
+                response.setGradeMonthlyFee(new BigDecimal(gradeMonthlyFee));
             }
             return response;
         }).toList();
@@ -477,10 +519,10 @@ class EntrollmentServiceImplTest {
                 .build();
     }
 
-    private ApiResponse<CourseLookupResponse> successCourseLookupResponse(UUID courseId, String courseFeeMonthly) {
+    private ApiResponse<CourseLookupResponse> successCourseLookupResponse(UUID courseId, String gradeMonthlyFee) {
         CourseLookupResponse response = new CourseLookupResponse();
         response.setId(courseId);
-        response.setCourseFeeMonthly(new BigDecimal(courseFeeMonthly));
+        response.setGradeMonthlyFee(new BigDecimal(gradeMonthlyFee));
 
         return ApiResponse.<CourseLookupResponse>builder()
                 .statusCode(HttpStatus.OK.value())

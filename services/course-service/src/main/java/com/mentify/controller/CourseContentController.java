@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -39,7 +41,7 @@ public class CourseContentController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_MODULE_CREATED", title = "Course module created", message = "A course module was created successfully.")
+//    @NotifyOnSuccess(type = "COURSE_MODULE_CREATED", title = "Course module created", message = "A course module was created successfully.")
     public ResponseEntity<ApiResponse<ModuleResponse>> createModule(
             @PathVariable UUID courseId,
             @Valid @RequestBody ModuleCreateRequest request
@@ -88,7 +90,7 @@ public class CourseContentController {
 
     @PostMapping("/{moduleId}/lessons")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_LESSON_CREATED", title = "Lesson created", message = "A course lesson was created successfully.")
+//    @NotifyOnSuccess(type = "COURSE_LESSON_CREATED", title = "Lesson created", message = "A course lesson was created successfully.")
     public ResponseEntity<ApiResponse<LessonResponse>> createLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -144,7 +146,7 @@ public class CourseContentController {
 
     @PostMapping("/{moduleId}/learning-materials")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_MATERIAL_CREATED", title = "Course material added", message = "Learning material was added to the course successfully.")
+//    @NotifyOnSuccess(type = "COURSE_MATERIAL_CREATED", title = "Course material added", message = "Learning material was added to the course successfully.")
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> createLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
@@ -153,6 +155,39 @@ public class CourseContentController {
     ) {
         ApiResponse<LearningMaterialResponse> response =
             learningMaterialService.createLearningMaterial(courseId, moduleId, request, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping("/{moduleId}/learning-materials/upload")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<LearningMaterialResponse>> uploadLearningMaterial(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) UUID lessonId,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(
+                courseId, moduleId, lessonId, title, description, file, authorizationHeader
+        );
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping("/{moduleId}/lessons/{lessonId}/materials/upload")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<LearningMaterialResponse>> uploadLessonMaterial(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID lessonId,
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(
+                courseId, moduleId, lessonId, title, description, file, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -181,6 +216,19 @@ public class CourseContentController {
             learningMaterialService.getLearningMaterials(courseId, moduleId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
         }
+
+    @GetMapping("/{moduleId}/lessons/{lessonId}/materials")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<LearningMaterialResponse>>> getLessonMaterials(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID lessonId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<LearningMaterialResponse>> response =
+                learningMaterialService.getLessonLearningMaterials(courseId, moduleId, lessonId, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 
         @GetMapping("/{moduleId}/learning-materials/{materialId}")
         @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")

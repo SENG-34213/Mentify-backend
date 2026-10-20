@@ -30,13 +30,10 @@ class CourseRepositoryIntegrationTest {
                 .courseName("Physics")
                 .courseDescription("Advanced physics for grade 11")
                 .courseThumbnail("physics.png")
-                .courseFeeMonthly(new BigDecimal("1800.00"))
                 .subject("Physics")
                 .isOnline(true)
-                .discountOfferPercent(new BigDecimal("20.00"))
                 .isVisible(true)
                 .assignedTeacherId(teacherId)
-                .courseEnrollmentId(UUID.randomUUID())
                 .gradeId(gradeId)
                 .isPublished(false)
                 .status(CourseStatus.DRAFT)
@@ -53,7 +50,6 @@ class CourseRepositoryIntegrationTest {
         assertThat(foundCourse.getGradeId()).isEqualTo(gradeId);
         assertThat(foundCourse.getSubject()).isEqualTo("Physics");
         assertThat(foundCourse.isOnline()).isTrue();
-        assertThat(foundCourse.getDiscountOfferPercent()).isEqualByComparingTo("20.00");
         assertThat(foundCourse.isVisible()).isTrue();
         assertThat(foundCourse.getStatus()).isEqualTo(CourseStatus.DRAFT);
     }
@@ -66,7 +62,6 @@ class CourseRepositoryIntegrationTest {
                 .courseName("Physics")
                 .courseDescription("Physics course")
                 .courseThumbnail("physics.png")
-                .courseFeeMonthly(new BigDecimal("1800.00"))
                 .subject("Physics")
                 .assignedTeacherId(UUID.randomUUID())
                 .gradeId(gradeId)

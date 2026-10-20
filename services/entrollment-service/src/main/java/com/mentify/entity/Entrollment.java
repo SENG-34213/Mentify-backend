@@ -1,9 +1,12 @@
 package com.mentify.entity;
 
+import com.mentify.enums.EnrollmentStatus;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
@@ -39,5 +42,10 @@ public class Entrollment extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private LocalDate enrolledOn = LocalDate.now();
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private EnrollmentStatus status = EnrollmentStatus.APPROVED;
 }
 

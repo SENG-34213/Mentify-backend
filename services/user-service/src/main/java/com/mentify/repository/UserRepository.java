@@ -21,7 +21,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByKeycloakUserId(String keycloakUserId);
     boolean existsByKeycloakUserIdAndRole(String keycloakUserId, Role role);
     boolean existsByIdAndRole(UUID id, Role role);
+    List<User> findAllByKeycloakUserIdInAndRole(List<String> keycloakUserIds, Role role);
     List<User> findAllByRoleOrderByCreatedAtDesc(Role role);
+    List<User> findAllByIdInAndRole(List<UUID> ids, Role role);
     List<User> findTop5ByRoleOrderByCreatedAtDesc(Role role);
     long countByRole(Role role);
     long countByAccountStatus(AccountStatus accountStatus);

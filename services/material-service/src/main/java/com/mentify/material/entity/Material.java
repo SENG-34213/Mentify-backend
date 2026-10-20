@@ -4,6 +4,8 @@ import com.mentify.entity.BaseEntity;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
+import com.mentify.material.enums.MaterialResourceType;
+import com.mentify.material.enums.MaterialVisibility;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +13,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -40,7 +43,9 @@ import java.util.UUID;
                 @Index(name = "idx_materials_created_at", columnList = "created_at"),
                 @Index(name = "idx_materials_title", columnList = "title"),
                 @Index(name = "idx_materials_original_filename", columnList = "original_filename"),
-                @Index(name = "idx_materials_course_status_created", columnList = "course_id, status, created_at")
+                @Index(name = "idx_materials_course_status_created", columnList = "course_id, status, created_at"),
+                @Index(name = "idx_materials_resource", columnList = "resource_type, resource_id"),
+                @Index(name = "idx_materials_owner_visibility", columnList = "owner_id, visibility")
         }
 )
 @Getter
@@ -103,7 +108,44 @@ public class Material extends BaseEntity {
     @Column(name = "course_id", columnDefinition = "uuid")
     private UUID courseId;
 
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resource_type", nullable = false, length = 40)
+    @Builder.Default
+    private MaterialResourceType resourceType = MaterialResourceType.COURSE;
+
+    @Column(name = "resource_id", columnDefinition = "uuid")
+    private UUID resourceId;
+
+    @NotNull
+    @Column(name = "owner_id", nullable = false, columnDefinition = "uuid")
+    private UUID ownerId;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private MaterialVisibility visibility = MaterialVisibility.COURSE_MEMBERS;
+
     @Size(max = 128)
     @Column(length = 128)
     private String checksum;
+
+    @PrePersist
+    private void initializeResourceScope() {
+        if (ownerId == null) {
+            ownerId = uploadedBy;
+        }
+        if (resourceId == null) {
+            resourceId = courseId;
+        }
+        if (resourceType == null) {
+            resourceType = MaterialResourceType.COURSE;
+        }
+        if (visibility == null) {
+            visibility = purpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                    ? MaterialVisibility.OWNER_ONLY
+                    : MaterialVisibility.COURSE_MEMBERS;
+        }
+    }
 }

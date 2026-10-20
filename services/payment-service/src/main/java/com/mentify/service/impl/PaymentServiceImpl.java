@@ -321,7 +321,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course is not available for payment");
         }
 
-        if (course.getCourseFeeMonthly() == null || course.getCourseFeeMonthly().compareTo(BigDecimal.ZERO) <= 0) {
+        if (course.getGradeMonthlyFee() == null || course.getGradeMonthlyFee().compareTo(BigDecimal.ZERO) <= 0) {
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course does not require payment");
         }
     }
@@ -340,7 +340,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private BigDecimal resolvePaymentAmount(CourseLookupResponse course) {
         try {
-            return course.getCourseFeeMonthly().setScale(2);
+            return course.getGradeMonthlyFee().setScale(2);
         } catch (ArithmeticException ex) {
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course price cannot be converted to the configured payment currency");
         }

@@ -1,8 +1,11 @@
 package com.mentify.assignment.service.impl;
 
 import com.mentify.assignment.client.MaterialServiceClient;
+import com.mentify.assignment.client.MaterialInternalServiceClient;
 import com.mentify.assignment.client.dto.MaterialDownloadResponse;
 import com.mentify.assignment.client.dto.MaterialLookupResponse;
+import com.mentify.assignment.client.dto.MaterialUploadResponse;
+import com.mentify.assignment.client.dto.MaterialAssociationRequest;
 import com.mentify.assignment.dto.request.AttachSubmissionMaterialRequest;
 import com.mentify.assignment.dto.response.SubmissionFileDownloadResponse;
 import com.mentify.assignment.dto.response.SubmissionFileResponse;
@@ -19,10 +22,11 @@ import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.security.CurrentUserService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,14 +34,92 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class SubmissionFileServiceImpl implements SubmissionFileService {
 
     private final SubmissionRepository submissionRepository;
     private final SubmissionFileRepository fileRepository;
     private final FileStorageService fileStorageService;
     private final MaterialServiceClient materialServiceClient;
+    private final MaterialInternalServiceClient materialInternalServiceClient;
     private final CurrentUserService currentUserService;
+
+    public SubmissionFileServiceImpl(
+            SubmissionRepository submissionRepository,
+            SubmissionFileRepository fileRepository,
+            FileStorageService fileStorageService,
+            MaterialServiceClient materialServiceClient,
+            CurrentUserService currentUserService
+    ) {
+        this(submissionRepository, fileRepository, fileStorageService, materialServiceClient, null, currentUserService);
+    }
+
+    @Autowired
+    public SubmissionFileServiceImpl(
+            SubmissionRepository submissionRepository,
+            SubmissionFileRepository fileRepository,
+            FileStorageService fileStorageService,
+            MaterialServiceClient materialServiceClient,
+            MaterialInternalServiceClient materialInternalServiceClient,
+            CurrentUserService currentUserService
+    ) {
+        this.submissionRepository = submissionRepository;
+        this.fileRepository = fileRepository;
+        this.fileStorageService = fileStorageService;
+        this.materialServiceClient = materialServiceClient;
+        this.materialInternalServiceClient = materialInternalServiceClient;
+        this.currentUserService = currentUserService;
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<SubmissionFileResponse> uploadFile(
+            UUID submissionId,
+            MultipartFile file,
+            String authorizationHeader
+    ) {
+        Submission submission = getSubmissionOrThrow(submissionId);
+        assertStudentOwnsDraftSubmission(submission);
+        UUID studentId = currentUserService.getCurrentUserId();
+        UUID courseId = submission.getAssignment().getCourseId();
+
+        ApiResponse<MaterialUploadResponse> upload = materialServiceClient.upload(
+                file.getOriginalFilename() == null ? "Submission file" : file.getOriginalFilename(),
+                null,
+                "SUBMISSION_ATTACHMENT",
+                courseId,
+                file,
+                authorizationHeader
+        );
+        if (upload == null || upload.getData() == null || upload.getData().id() == null) {
+            throw new IllegalStateException("Material Service did not return an uploaded submission");
+        }
+        MaterialUploadResponse material = upload.getData();
+        try {
+            materialInternalServiceClient.associate(
+                    material.id(),
+                    new MaterialAssociationRequest(
+                            "SUBMISSION", submission.getId(), courseId, studentId, "OWNER_ONLY"
+                    ),
+                    authorizationHeader
+            );
+            SubmissionFile saved = fileRepository.save(SubmissionFile.builder()
+                    .submission(submission)
+                    .materialId(material.id())
+                    .storedFilename("material:" + material.id())
+                    .originalFilename(material.originalFilename())
+                    .contentType(material.contentType())
+                    .fileSize(material.fileSize() == null ? 0 : material.fileSize())
+                    .build());
+            return response(HttpStatus.CREATED, "Submission file uploaded successfully", mapToResponse(saved));
+        } catch (RuntimeException ex) {
+            try {
+                materialServiceClient.deleteMaterial(material.id(), authorizationHeader);
+            } catch (RuntimeException ignored) {
+                // Reconciliation can remove an unreferenced material later.
+            }
+            throw new IllegalStateException("Submission file association failed after upload", ex);
+        }
+    }
 
     @Override
     @Transactional
@@ -52,6 +134,7 @@ public class SubmissionFileServiceImpl implements SubmissionFileService {
         UUID currentStudentId = currentUserService.getCurrentUserId();
         MaterialLookupResponse material = loadMaterial(request.getMaterialId(), authorizationHeader);
         validateSubmissionMaterial(submission, material, currentStudentId);
+        associateMaterialReference(submission, material.id(), currentStudentId, authorizationHeader);
 
         SubmissionFile file = SubmissionFile.builder()
                 .submission(submission)
@@ -156,6 +239,20 @@ public class SubmissionFileServiceImpl implements SubmissionFileService {
         } catch (FeignException.Forbidden | FeignException.Unauthorized ex) {
             throw new AccessDeniedException("Material access denied", ex);
         }
+    }
+
+    private void associateMaterialReference(
+            Submission submission, UUID materialId, UUID ownerId, String authorizationHeader) {
+        if (materialInternalServiceClient == null) {
+            return;
+        }
+        materialInternalServiceClient.associate(
+                materialId,
+                new MaterialAssociationRequest(
+                        "SUBMISSION", submission.getId(), submission.getAssignment().getCourseId(), ownerId, "OWNER_ONLY"
+                ),
+                authorizationHeader
+        );
     }
 
     private void validateSubmissionMaterial(

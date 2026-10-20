@@ -22,7 +22,7 @@ import java.util.UUID;
 public class MaterialDocumentServiceImpl implements MaterialDocumentService {
 
     private static final Set<String> AVAILABLE_STATUSES = Set.of("UPLOADED", "AVAILABLE");
-    private static final Set<String> SUPPORTED_TYPES = Set.of("PDF", "DOCUMENT");
+    private static final Set<String> SUPPORTED_TYPES = Set.of("PDF", "DOCUMENT", "PRESENTATION");
 
     private final MaterialServiceClient materialServiceClient;
     private final MaterialDownloadClient materialDownloadClient;

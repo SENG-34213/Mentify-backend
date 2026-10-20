@@ -1,8 +1,10 @@
 package com.mentify.assignment.service.impl;
 
 import com.mentify.assignment.client.MaterialServiceClient;
+import com.mentify.assignment.client.MaterialInternalServiceClient;
 import com.mentify.assignment.client.dto.MaterialDownloadResponse;
 import com.mentify.assignment.client.dto.MaterialLookupResponse;
+import com.mentify.assignment.client.dto.MaterialUploadResponse;
 import com.mentify.assignment.dto.request.AttachSubmissionMaterialRequest;
 import com.mentify.assignment.dto.response.SubmissionFileDownloadResponse;
 import com.mentify.assignment.dto.response.SubmissionFileResponse;
@@ -24,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
@@ -56,6 +59,9 @@ class SubmissionFileServiceImplTest {
     private MaterialServiceClient materialServiceClient;
 
     @Mock
+    private MaterialInternalServiceClient materialInternalServiceClient;
+
+    @Mock
     private CurrentUserService currentUserService;
 
     private SubmissionFileServiceImpl submissionFileService;
@@ -67,8 +73,39 @@ class SubmissionFileServiceImplTest {
                 fileRepository,
                 fileStorageService,
                 materialServiceClient,
+                materialInternalServiceClient,
                 currentUserService
         );
+    }
+
+    @Test
+    void uploadFile_forOwnDraft_delegatesStorageAndPersistsPrivateReference() {
+        UUID courseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        Submission submission = submission(courseId, UUID.randomUUID(), studentId, SubmissionStatus.DRAFT);
+        MockMultipartFile file = new MockMultipartFile("file", "answer.pdf", "application/pdf", "pdf".getBytes());
+
+        when(submissionRepository.findByIdAndIsActiveTrue(submission.getId())).thenReturn(Optional.of(submission));
+        when(currentUserService.hasAnyRole("STUDENT")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(materialServiceClient.upload("answer.pdf", null, "SUBMISSION_ATTACHMENT", courseId, file, AUTH_HEADER))
+                .thenReturn(ApiResponse.success(HttpStatus.CREATED.value(), "uploaded", new MaterialUploadResponse(
+                        materialId, "answer.pdf", "answer.pdf", "application/pdf", 3L, "PDF",
+                        "SUBMISSION_ATTACHMENT", "AVAILABLE", studentId, courseId, "checksum", null, null)));
+        when(fileRepository.save(any(SubmissionFile.class))).thenAnswer(invocation -> {
+            SubmissionFile saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            return saved;
+        });
+
+        ApiResponse<SubmissionFileResponse> response = submissionFileService.uploadFile(
+                submission.getId(), file, AUTH_HEADER);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getData().getMaterialId()).isEqualTo(materialId);
+        verify(materialInternalServiceClient).associate(any(), any(), any());
+        verify(fileStorageService, never()).store(any());
     }
 
     @Test

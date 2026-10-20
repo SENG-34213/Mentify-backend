@@ -10,7 +10,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -29,10 +28,6 @@ public class CourseRequest {
 
     private String courseThumbnail;
 
-    @NotNull(message = "Monthly fee is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Monthly fee must be greater than zero")
-    private BigDecimal courseFeeMonthly;
-
     @NotNull(message = "Grade ID is required")
     private UUID gradeId;
 
@@ -45,13 +40,8 @@ public class CourseRequest {
 
     private Boolean isOnline;
 
-    @DecimalMin(value = "0.0", inclusive = true, message = "Discount offer percent must not be negative")
-    private BigDecimal discountOfferPercent;
-
     private Boolean isVisible;
 
     private Boolean isPublished;
-
-    private UUID courseEnrollmentId;
 
 }

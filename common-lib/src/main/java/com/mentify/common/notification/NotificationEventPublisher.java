@@ -3,11 +3,11 @@ package com.mentify.common.notification;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.KafkaException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -17,6 +17,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 @Slf4j
 @Component
@@ -26,16 +28,19 @@ public class NotificationEventPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final Executor notificationEventExecutor;
     private final String topic;
     private final String sourceService;
 
     public NotificationEventPublisher(
             KafkaTemplate<String, String> notificationKafkaTemplate,
+            @Qualifier("notificationEventExecutor") Executor notificationEventExecutor,
             ObjectMapper objectMapper,
             @Value("${mentify.notifications.kafka.topic:mentify.notification-events}") String topic,
             @Value("${spring.application.name:unknown-service}") String sourceService
     ) {
         this.kafkaTemplate = notificationKafkaTemplate;
+        this.notificationEventExecutor = notificationEventExecutor;
         this.objectMapper = objectMapper;
         this.topic = topic;
         this.sourceService = sourceService;
@@ -98,13 +103,22 @@ public class NotificationEventPublisher {
         }
 
         try {
+            notificationEventExecutor.execute(() -> send(event, payload));
+        } catch (RejectedExecutionException exception) {
+            log.error("Could not queue notification event {} because the publisher is saturated",
+                    event.eventId(), exception);
+        }
+    }
+
+    private void send(NotificationEvent event, String payload) {
+        try {
             kafkaTemplate.send(topic, event.recipientUserId(), payload)
                     .whenComplete((result, exception) -> {
                         if (exception != null) {
                             log.error("Could not publish notification event {} to Kafka", event.eventId(), exception);
                         }
                     });
-        } catch (KafkaException exception) {
+        } catch (RuntimeException exception) {
             log.error("Could not publish notification event {} to Kafka", event.eventId(), exception);
         }
     }

@@ -28,7 +28,9 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
+      # Flyway owns schema changes. Hibernate must validate the migrated schema
+      # instead of trying to add non-null columns to existing rows.
+      ddl-auto: validate
     show-sql: ${SHOW_SQL:false}
     properties:
       hibernate:
@@ -47,9 +49,10 @@ mentify:
 material:
   storage:
     s3:
-      bucket: ${MATERIAL_S3_BUCKET:}
-      region: ${AWS_REGION:${AWS_DEFAULT_REGION:us-east-1}}
+      bucket: ${MATERIAL_S3_BUCKET:mentify-materials-dev-unique123-193908537177-ap-south-1-an}
+      region: ${AWS_REGION:${AWS_DEFAULT_REGION:ap-south-1}}
       download-url-expiration: ${MATERIAL_DOWNLOAD_URL_EXPIRATION:PT5M}
+      profile: ${AWS_PROFILE:mentify-dev}
   validation:
     max-upload-size: ${MATERIAL_MAX_UPLOAD_SIZE:100MB}
     file-types:
@@ -65,18 +68,39 @@ material:
       - material-type: DOCUMENT
         extensions: [txt]
         content-types: [text/plain]
+      - material-type: TEXT
+        extensions: [md, markdown]
+        content-types: [text/markdown, text/plain]
+      - material-type: TEXT
+        extensions: [csv]
+        content-types: [text/csv, application/csv, text/plain]
+      - material-type: TEXT
+        extensions: [rtf]
+        content-types: [application/rtf, text/rtf]
+      - material-type: DOCUMENT
+        extensions: [odt]
+        content-types: [application/vnd.oasis.opendocument.text]
       - material-type: PRESENTATION
         extensions: [ppt]
         content-types: [application/vnd.ms-powerpoint]
       - material-type: PRESENTATION
         extensions: [pptx]
         content-types: [application/vnd.openxmlformats-officedocument.presentationml.presentation]
+      - material-type: PRESENTATION
+        extensions: [odp]
+        content-types: [application/vnd.oasis.opendocument.presentation]
       - material-type: SPREADSHEET
         extensions: [xls]
         content-types: [application/vnd.ms-excel]
       - material-type: SPREADSHEET
         extensions: [xlsx]
         content-types: [application/vnd.openxmlformats-officedocument.spreadsheetml.sheet]
+      - material-type: SPREADSHEET
+        extensions: [ods]
+        content-types: [application/vnd.oasis.opendocument.spreadsheet]
+      - material-type: SPREADSHEET
+        extensions: [csv]
+        content-types: [text/csv, application/csv, text/plain]
       - material-type: IMAGE
         extensions: [jpg, jpeg]
         content-types: [image/jpeg]
@@ -89,6 +113,9 @@ material:
       - material-type: IMAGE
         extensions: [webp]
         content-types: [image/webp]
+      - material-type: IMAGE
+        extensions: [svg]
+        content-types: [image/svg+xml, text/xml]
       - material-type: VIDEO
         extensions: [mp4]
         content-types: [video/mp4]
@@ -98,6 +125,9 @@ material:
       - material-type: VIDEO
         extensions: [webm]
         content-types: [video/webm]
+      - material-type: VIDEO
+        extensions: [avi]
+        content-types: [video/avi, video/x-msvideo]
       - material-type: AUDIO
         extensions: [mp3]
         content-types: [audio/mpeg]
@@ -110,6 +140,15 @@ material:
       - material-type: AUDIO
         extensions: [ogg]
         content-types: [audio/ogg]
+      - material-type: ARCHIVE
+        extensions: [zip]
+        content-types: [application/zip, application/x-zip-compressed]
+      - material-type: ARCHIVE
+        extensions: [7z]
+        content-types: [application/x-7z-compressed]
+      - material-type: ARCHIVE
+        extensions: [rar]
+        content-types: [application/vnd.rar, application/x-rar-compressed]
 
 eureka:
   instance:

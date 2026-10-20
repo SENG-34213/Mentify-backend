@@ -26,4 +26,5 @@ public class LessonSummaryResponse {
     private Long latencyMs;
     private String finishReason;
     private String providerRequestId;
+    private java.util.List<AiSourceReference> sources;
 }

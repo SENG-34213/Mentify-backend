@@ -25,6 +25,14 @@ Successful responses use the common `ApiResponse` shape:
 }
 ```
 
+Newly registered accounts receive an email from user-service with their registered email and
+generated initial password. Keycloak does not add `UPDATE_PASSWORD` or `VERIFY_EMAIL` actions to
+these accounts and stores the credential as non-temporary, so the existing password-grant login
+bridge can issue a normal session. Users can change the password later through the forgot-password
+flow. The login response contains the server-resolved `user.role` (`STUDENT`, `TEACHER`, `ADMIN`, or
+`SUPER_ADMIN`). The frontend uses that value for role-specific routing, while API authorization
+remains enforced by the existing JWT resource-server checks.
+
 ## Refresh Access Token
 
 `POST /api/v1/auth/refresh`

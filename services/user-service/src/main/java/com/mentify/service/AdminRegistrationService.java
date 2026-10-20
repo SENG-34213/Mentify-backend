@@ -7,7 +7,8 @@ import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.repository.UserRepository;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,8 @@ public class AdminRegistrationService {
     private final UserRepository userRepository;
     private final KeycloakUserService keycloakUserService;
     private final UserRegistrationFactory userRegistrationFactory;
-    private final PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private final RegistrationEmailDispatcher registrationEmailDispatcher;
+    private final TemporaryPasswordGenerator temporaryPasswordGenerator;
 
     @Transactional
     public UserRegistrationResponse registerAdmin(SuperAdminRegisterAdminRequest request) {
@@ -31,15 +33,19 @@ public class AdminRegistrationService {
         }
 
         String keycloakUserId = null;
+        String temporaryPassword = temporaryPasswordGenerator.generate();
 
         try {
             keycloakUserId = keycloakUserService.createUser(KeycloakUserProvisionRequest.from(request));
+            keycloakUserService.setInitialPassword(keycloakUserId, temporaryPassword);
 
             keycloakUserService.assignRealmRole(keycloakUserId, Role.ADMIN.name());
 
             User user = userRegistrationFactory.createAdmin(request, keycloakUserId);
+            user.setEmailVerified(true);
             User savedUser = userRepository.saveAndFlush(user);
-            passwordSetupEmailDispatcher.sendAfterCommit(keycloakUserId);
+            registrationEmailDispatcher.sendAfterCommit(
+                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {

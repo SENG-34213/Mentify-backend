@@ -3,15 +3,13 @@ package com.mentify.controller;
 import com.mentify.dto.CourseBulkLookupRequest;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.CourseService;
+import com.mentify.service.impl.TeacherCourseAccessGuard;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,20 +21,19 @@ import java.util.UUID;
 public class CourseController {
 
     private final CourseService courseService;
+    private final TeacherCourseAccessGuard teacherCourseAccessGuard;
+
     @GetMapping("/my-courses")
     @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<ApiResponse<List<CourseResponse>>> getMyCourses(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID teacherId = UUID.fromString(jwt.getSubject());
+    public ResponseEntity<ApiResponse<List<CourseResponse>>> getMyCourses() {
+        UUID teacherId = teacherCourseAccessGuard.getAuthenticatedTeacherId();
         ApiResponse<List<CourseResponse>> response = courseService.getCoursesForTeacher(teacherId);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_CREATED", title = "Course created", message = "Your course was created successfully.")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
             @Valid @RequestBody CourseRequest request,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -46,8 +43,7 @@ public class CourseController {
     }
 
     @PutMapping("/{courseId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "COURSE_UPDATED", title = "Course updated", message = "Your course was updated successfully.")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> updateCourse(
             @PathVariable UUID courseId,
             @Valid @RequestBody CourseRequest request,
@@ -58,7 +54,7 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(@PathVariable UUID courseId) {
         ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
         return new ResponseEntity<>(response, response.getStatus());

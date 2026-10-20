@@ -27,6 +27,18 @@ public class LearningMaterial extends BaseEntity {
     @Column(length = 500)
     private String fileUrl;
 
+    @Column(name = "original_filename", length = 255)
+    private String originalFilename;
+
+    @Column(name = "content_type", length = 255)
+    private String contentType;
+
+    @Column(name = "file_size")
+    private Long fileSize;
+
+    @Column(length = 30)
+    private String status;
+
     @Column(name = "material_id", columnDefinition = "uuid")
     private UUID materialId;
 

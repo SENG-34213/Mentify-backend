@@ -4,14 +4,16 @@ import com.mentify.dto.ErrorResponse;
 import com.mentify.exception.AccountAccessDeniedException;
 import com.mentify.exception.AuthenticationFailedException;
 import com.mentify.exception.DuplicateResourceException;
-import com.mentify.exception.InvalidRoleException;
+import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
+import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.exception.KeycloakRoleAssignmentException;
 import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.exception.ResourceNotFoundException;
+import com.mentify.service.registration.RegistrationEmailDeliveryException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -73,6 +75,17 @@ public class UserServiceExceptionHandler {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid email or password", request);
     }
 
+    @ExceptionHandler(FirstLoginRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleFirstLoginRequired(
+            FirstLoginRequiredException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.PRECONDITION_REQUIRED,
+                "Complete the password and email setup from your Mentify invitation email before signing in. "
+                        + "If the link has expired, ask an administrator to resend your invitation.",
+                request);
+    }
+
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
             InvalidRefreshTokenException exception,
@@ -119,6 +132,15 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.BAD_GATEWAY, "Authentication email service is unavailable", request);
+    }
+
+    @ExceptionHandler(RegistrationEmailDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handleRegistrationEmailDelivery(
+            RegistrationEmailDeliveryException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "Account was created, but the credentials email could not be delivered. An administrator can reissue credentials.", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

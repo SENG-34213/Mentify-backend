@@ -5,6 +5,8 @@ import com.mentify.material.client.EnrollmentServiceClient;
 import com.mentify.material.client.dto.CourseLookupResponse;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialPurpose;
+import com.mentify.material.enums.MaterialResourceType;
+import com.mentify.material.enums.MaterialVisibility;
 import com.mentify.material.exception.MaterialValidationException;
 import com.mentify.payload.response.ApiResponse;
 import feign.FeignException;
@@ -39,7 +41,8 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
             return course.id();
         }
         if (user.isStudent()
-                && purpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                && (purpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                || purpose == MaterialPurpose.COMMUNICATION_ATTACHMENT)
                 && isStudentEnrolled(user.userId(), course.id(), authorizationHeader)) {
             return course.id();
         }
@@ -66,6 +69,47 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
             return;
         }
         throw new AccessDeniedException("User is not authorized to manage this material");
+    }
+
+    @Override
+    public void assertCanAssociate(
+            Material material,
+            MaterialResourceType resourceType,
+            UUID resourceId,
+            UUID courseId,
+            UUID ownerId,
+            MaterialVisibility visibility,
+            String authorizationHeader
+    ) {
+        if (resourceType == null || resourceId == null || ownerId == null || visibility == null) {
+            throw new MaterialValidationException("Resource type, resource id, owner and visibility are required");
+        }
+        if (material.getCourseId() != null && courseId != null && !material.getCourseId().equals(courseId)) {
+            throw new AccessDeniedException("Material cannot be associated with a different course");
+        }
+
+        AuthenticatedMaterialUser user = currentUserService.getCurrentUser();
+        if (user.isAdmin()) {
+            return;
+        }
+        if (user.isStudent()) {
+            if (resourceType != MaterialResourceType.SUBMISSION
+                    || visibility != MaterialVisibility.OWNER_ONLY
+                    || !user.userId().equals(ownerId)
+                    || courseId == null
+                    || !isStudentEnrolled(user.userId(), courseId, authorizationHeader)) {
+                throw new AccessDeniedException("Students can only associate their own private submissions");
+            }
+            return;
+        }
+        if (user.isTeacher() && courseId != null) {
+            assertCanManage(material, authorizationHeader);
+            CourseLookupResponse course = loadCourse(courseId, authorizationHeader);
+            if (user.userId().equals(course.assignedTeacherId())) {
+                return;
+            }
+        }
+        throw new AccessDeniedException("User is not authorized to associate this material");
     }
 
     @Override
@@ -132,11 +176,24 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
         if (material.getCourseId() == null) {
             return false;
         }
-        return callDownstream(() -> enrollmentServiceClient.isStudentEnrolledInCourse(
+        boolean enrolled = callDownstream(() -> enrollmentServiceClient.isStudentEnrolledInCourse(
                 user.userId(),
                 material.getCourseId(),
                 authorizationHeader
         ));
+        if (!enrolled) {
+            return false;
+        }
+        if (material.getVisibility() == MaterialVisibility.OWNER_ONLY
+                || material.getPurpose() == MaterialPurpose.SUBMISSION_ATTACHMENT) {
+            return user.userId().equals(material.getOwnerId());
+        }
+        if (material.getVisibility() == MaterialVisibility.TEACHER_ONLY
+                || material.getVisibility() == MaterialVisibility.ADMIN_ONLY
+                || material.getVisibility() == MaterialVisibility.INTERNAL) {
+            return false;
+        }
+        return true;
     }
 
     private boolean isStudentEnrolled(UUID studentId, UUID courseId, String authorizationHeader) {

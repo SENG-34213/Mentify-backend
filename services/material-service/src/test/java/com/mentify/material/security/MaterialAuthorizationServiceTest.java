@@ -5,6 +5,7 @@ import com.mentify.material.client.EnrollmentServiceClient;
 import com.mentify.material.client.dto.CourseLookupResponse;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialPurpose;
+import com.mentify.material.enums.MaterialVisibility;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
 import com.mentify.material.exception.MaterialValidationException;
@@ -157,6 +158,20 @@ class MaterialAuthorizationServiceTest {
     }
 
     @Test
+    void localUserIdClaimMatchesCourseServiceIdentityResolution() {
+        UUID keycloakSubject = UUID.randomUUID();
+        UUID localUserId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        authenticate(keycloakSubject, localUserId, "TEACHER");
+        when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
+                .thenReturn(courseResponse(courseId, localUserId));
+
+        assertThat(authorizationService.requireUploadCourseAccess(
+                courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER
+        )).isEqualTo(courseId);
+    }
+
+    @Test
     void enrolledStudentCanUploadSubmissionAttachmentOnly() {
         UUID studentId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
@@ -169,6 +184,24 @@ class MaterialAuthorizationServiceTest {
                 .isEqualTo(courseId);
         assertThatThrownBy(() -> authorizationService.requireUploadCourseAccess(courseId, MaterialPurpose.LEARNING_MATERIAL, AUTH_HEADER))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void studentCannotDownloadAnotherStudentsPrivateSubmission() {
+        UUID studentId = UUID.randomUUID();
+        UUID otherStudentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        authenticate(studentId, "STUDENT");
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, AUTH_HEADER)).thenReturn(true);
+
+        Material submission = material(courseId, otherStudentId);
+        submission.setPurpose(MaterialPurpose.SUBMISSION_ATTACHMENT);
+        submission.setOwnerId(otherStudentId);
+        submission.setVisibility(MaterialVisibility.OWNER_ONLY);
+
+        assertThatThrownBy(() -> authorizationService.assertCanDownload(submission, AUTH_HEADER))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("User is not authorized to download this material");
     }
 
     private ApiResponse<CourseLookupResponse> courseResponse(UUID courseId, UUID assignedTeacherId) {
@@ -199,9 +232,14 @@ class MaterialAuthorizationServiceTest {
     }
 
     private void authenticate(UUID userId, String role) {
+        authenticate(userId, userId, role);
+    }
+
+    private void authenticate(UUID subject, UUID localUserId, String role) {
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .subject(userId.toString())
+                .subject(subject.toString())
+                .claim("local_user_id", localUserId.toString())
                 .build();
         SecurityContextHolder.getContext().setAuthentication(
                 new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("ROLE_" + role)))

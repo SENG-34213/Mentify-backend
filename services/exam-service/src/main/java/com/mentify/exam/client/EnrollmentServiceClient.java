@@ -17,6 +17,11 @@ import java.util.UUID;
 )
 public interface EnrollmentServiceClient {
 
+    @GetMapping("/students/{studentId}/courses/{courseId}/exists")
+    Boolean isStudentEnrolledInCourse(
+            @PathVariable("studentId") UUID studentId,
+            @PathVariable("courseId") UUID courseId);
+
     @GetMapping("/courses/{courseId}/students")
     ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(
             @PathVariable("courseId") UUID courseId,

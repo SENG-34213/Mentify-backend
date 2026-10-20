@@ -1,6 +1,11 @@
 server:
   port: ${ENTROLLMENT_SERVICE_PORT:8083}
 
+mentify:
+  notifications:
+    kafka:
+      enabled: false
+
 spring:
   security:
     oauth2:

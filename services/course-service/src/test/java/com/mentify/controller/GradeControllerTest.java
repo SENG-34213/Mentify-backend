@@ -16,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -75,6 +76,19 @@ class GradeControllerTest {
         mockMvc.perform(post("/api/v1/course/grades")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(" "))))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(gradeService);
+    }
+
+    @Test
+    void createGrade_whenMonthlyFeeIsMissing_returnsBadRequest() throws Exception {
+        GradeRequest request = validRequest("Grade 3");
+        request.setMonthlyFee(null);
+
+        mockMvc.perform(post("/api/v1/course/grades")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(gradeService);
@@ -168,6 +182,7 @@ class GradeControllerTest {
         return GradeRequest.builder()
                 .name(name)
                 .description("Primary grade")
+                .monthlyFee(new BigDecimal("100.00"))
                 .build();
     }
 

@@ -60,6 +60,8 @@ public class GradeServiceImpl implements GradeService {
 
         grade.setName(gradeName);
         grade.setDescription(GradeMapper.trimToNull(request.getDescription()));
+        grade.setMonthlyFee(request.getMonthlyFee());
+        grade.setCurrencyCode(request.getCurrencyCode() == null ? "LKR" : request.getCurrencyCode().toUpperCase());
 
         Grade savedGrade = gradeRepository.save(grade);
 

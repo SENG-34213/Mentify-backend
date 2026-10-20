@@ -4,6 +4,8 @@ import com.mentify.communication.dto.request.SendMessageRequest;
 import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
+import com.mentify.communication.dto.response.CommunicationAttachmentResponse;
+import com.mentify.communication.dto.response.AttachmentDownloadResponse;
 import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.service.MessageService;
 import com.mentify.payload.response.ApiResponse;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import java.util.UUID;
 
@@ -29,6 +33,16 @@ import java.util.UUID;
 public class MessageController {
 
     private final MessageService messageService;
+
+    @PostMapping(value = "/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<CommunicationAttachmentResponse>> uploadAttachment(
+            @PathVariable UUID groupId,
+            @RequestParam("file") MultipartFile file
+    ) {
+        CommunicationAttachmentResponse response = messageService.uploadAttachment(groupId, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED.value(), "Attachment uploaded successfully", response));
+    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<MessageResponse>> sendMessage(
@@ -76,5 +90,15 @@ public class MessageController {
                 : "Message deleted for you successfully";
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), message, null));
+    }
+
+    @GetMapping("/{messageId}/attachments/{attachmentId}/download")
+    public ResponseEntity<ApiResponse<AttachmentDownloadResponse>> downloadAttachment(
+            @PathVariable UUID groupId,
+            @PathVariable UUID messageId,
+            @PathVariable UUID attachmentId
+    ) {
+        AttachmentDownloadResponse response = messageService.downloadAttachment(groupId, messageId, attachmentId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Attachment download URL generated", response));
     }
 }

@@ -12,8 +12,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 
 import java.time.Instant;
+import java.util.Properties;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +44,9 @@ class NotificationEmailDeliveryServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(mailSender.createMimeMessage())
+                .thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+
         notification = new Notification();
         notification.setId(UUID.randomUUID());
         notification.setRecipientEmail("student@example.com");
@@ -60,7 +66,7 @@ class NotificationEmailDeliveryServiceTest {
 
         service.deliver(notification.getId());
 
-        verify(mailSender).send(any(org.springframework.mail.SimpleMailMessage.class));
+        verify(mailSender).send(any(MimeMessage.class));
         assertEquals(EmailDeliveryStatus.SENT, notification.getEmailStatus());
         assertEquals(1, notification.getEmailAttempts());
         assertNull(notification.getRecipientEmail());
@@ -71,7 +77,7 @@ class NotificationEmailDeliveryServiceTest {
     void deliverSchedulesRetryAfterTransientSmtpFailure() {
         when(notificationRepository.findByIdForEmailDelivery(notification.getId())).thenReturn(Optional.of(notification));
         doThrow(new MailSendException("SMTP unavailable"))
-                .when(mailSender).send(any(org.springframework.mail.SimpleMailMessage.class));
+                .when(mailSender).send(any(MimeMessage.class));
 
         service.deliver(notification.getId());
 
@@ -86,7 +92,7 @@ class NotificationEmailDeliveryServiceTest {
         notification.setEmailAttempts(1);
         when(notificationRepository.findByIdForEmailDelivery(notification.getId())).thenReturn(Optional.of(notification));
         doThrow(new MailSendException("SMTP unavailable"))
-                .when(mailSender).send(any(org.springframework.mail.SimpleMailMessage.class));
+                .when(mailSender).send(any(MimeMessage.class));
 
         service.deliver(notification.getId());
 

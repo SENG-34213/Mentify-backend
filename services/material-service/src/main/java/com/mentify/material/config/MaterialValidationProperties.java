@@ -42,14 +42,20 @@ public class MaterialValidationProperties {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )),
                 new FileTypeRule(MaterialType.DOCUMENT, List.of("txt"), List.of("text/plain")),
+                new FileTypeRule(MaterialType.TEXT, List.of("md", "markdown"), List.of("text/markdown", "text/plain")),
+                new FileTypeRule(MaterialType.TEXT, List.of("csv"), List.of("text/csv", "application/csv", "text/plain")),
+                new FileTypeRule(MaterialType.TEXT, List.of("rtf"), List.of("application/rtf", "text/rtf")),
+                new FileTypeRule(MaterialType.DOCUMENT, List.of("odt"), List.of("application/vnd.oasis.opendocument.text")),
                 new FileTypeRule(MaterialType.PRESENTATION, List.of("ppt"), List.of("application/vnd.ms-powerpoint")),
                 new FileTypeRule(MaterialType.PRESENTATION, List.of("pptx"), List.of(
                         "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 )),
+                new FileTypeRule(MaterialType.PRESENTATION, List.of("odp"), List.of("application/vnd.oasis.opendocument.presentation")),
                 new FileTypeRule(MaterialType.SPREADSHEET, List.of("xls"), List.of("application/vnd.ms-excel")),
                 new FileTypeRule(MaterialType.SPREADSHEET, List.of("xlsx"), List.of(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )),
+                new FileTypeRule(MaterialType.SPREADSHEET, List.of("ods"), List.of("application/vnd.oasis.opendocument.spreadsheet")),
                 new FileTypeRule(MaterialType.IMAGE, List.of("jpg", "jpeg"), List.of("image/jpeg")),
                 new FileTypeRule(MaterialType.IMAGE, List.of("png"), List.of("image/png")),
                 new FileTypeRule(MaterialType.IMAGE, List.of("gif"), List.of("image/gif")),

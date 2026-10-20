@@ -36,6 +36,15 @@ public class StudentProfile extends BaseEntity {
     @Column(nullable = false, length = 50)
     private String lastName;
 
+    @Column(name = "school_name", length = 150)
+    private String schoolName;
+
+    @Column(length = 1000)
+    private String biography;
+
+    @Column(length = 500)
+    private String avatarUrl;
+
     @Past
     private LocalDate dateOfBirth;
 

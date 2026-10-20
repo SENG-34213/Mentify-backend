@@ -2,6 +2,7 @@ package com.mentify.service.impl;
 
 import com.mentify.dto.LessonCreateRequest;
 import com.mentify.dto.LessonResponse;
+import com.mentify.dto.LearningMaterialResponse;
 import com.mentify.entity.Lesson;
 import com.mentify.entity.Module;
 import com.mentify.exception.ResourceNotFoundException;
@@ -38,6 +39,8 @@ public class LessonServiceImpl implements LessonService {
         Lesson lesson = Lesson.builder()
                 .title(request.getTitle().trim())
                 .description(request.getDescription() != null ? request.getDescription().trim() : null)
+                .durationMinutes(request.getDurationMinutes())
+                .contentMarkdown(normalizeContent(request.getContentMarkdown()))
                 .isVisible(request.getIsVisible() != null ? request.getIsVisible() : true)
                 .releaseDate(request.getReleaseDate())
                 .module(module)
@@ -71,6 +74,8 @@ public class LessonServiceImpl implements LessonService {
 
         lesson.setTitle(request.getTitle().trim());
         lesson.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+        lesson.setDurationMinutes(request.getDurationMinutes());
+        lesson.setContentMarkdown(normalizeContent(request.getContentMarkdown()));
         lesson.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
         lesson.setReleaseDate(request.getReleaseDate());
 
@@ -153,6 +158,27 @@ public class LessonServiceImpl implements LessonService {
                 .id(lesson.getId())
                 .title(lesson.getTitle())
                 .description(lesson.getDescription())
+                .durationMinutes(lesson.getDurationMinutes())
+                .contentMarkdown(lesson.getContentMarkdown())
+                .materials(learningMaterialRepository.findAllByLesson_Id(lesson.getId()).stream()
+                        .map(material -> LearningMaterialResponse.builder()
+                                .id(material.getId())
+                                .title(material.getTitle())
+                                .type(material.getType())
+                                .fileUrl(material.getFileUrl())
+                                .originalFilename(material.getOriginalFilename())
+                                .contentType(material.getContentType())
+                                .fileSize(material.getFileSize())
+                                .status(material.getStatus())
+                                .materialId(material.getMaterialId())
+                                .moduleId(material.getModule().getId())
+                                .lessonId(material.getLesson() != null ? material.getLesson().getId() : null)
+                                .createdBy(material.getCreatedBy())
+                                .updatedBy(material.getUpdatedBy())
+                                .createdAt(material.getCreatedAt())
+                                .updatedAt(material.getUpdatedAt())
+                                .build())
+                        .toList())
                 .isVisible(lesson.isVisible())
                 .releaseDate(lesson.getReleaseDate())
                 .moduleId(lesson.getModule().getId())
@@ -161,5 +187,9 @@ public class LessonServiceImpl implements LessonService {
                 .createdAt(lesson.getCreatedAt())
                 .updatedAt(lesson.getUpdatedAt())
                 .build();
+    }
+
+    private String normalizeContent(String content) {
+        return content == null || content.isBlank() ? null : content.trim();
     }
 }

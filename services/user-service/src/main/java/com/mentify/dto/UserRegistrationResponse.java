@@ -31,10 +31,25 @@ public class UserRegistrationResponse {
     private String phoneNumber;
     private Role role;
     private AccountStatus accountStatus;
+    private boolean emailNotifications;
+    private boolean pushNotifications;
+    private boolean dailyDigestEnabled;
+    private java.time.LocalTime dailyDigestTime;
     private StudentProfileResponse studentProfile;
     private TeacherProfileResponse teacherProfile;
     private AdminProfileResponse adminProfile;
     private AddressResponse address;
+
+    public UserRegistrationResponse(UUID id, String keycloakUserId, String email,
+                                    String firstName, String lastName, String phoneNumber,
+                                    Role role, AccountStatus accountStatus,
+                                    StudentProfileResponse studentProfile,
+                                    TeacherProfileResponse teacherProfile,
+                                    AdminProfileResponse adminProfile,
+                                    AddressResponse address) {
+        this(id, keycloakUserId, email, firstName, lastName, phoneNumber, role, accountStatus,
+                true, true, false, null, studentProfile, teacherProfile, adminProfile, address);
+    }
 
     public static UserRegistrationResponse from(User user) {
         return UserRegistrationResponse.builder()
@@ -46,6 +61,10 @@ public class UserRegistrationResponse {
                 .phoneNumber(user.getPhoneNumber())
                 .role(user.getRole())
                 .accountStatus(user.getAccountStatus())
+                .emailNotifications(user.isEmailNotifications())
+                .pushNotifications(user.isPushNotifications())
+                .dailyDigestEnabled(user.isDailyDigestEnabled())
+                .dailyDigestTime(user.getDailyDigestTime())
                 .studentProfile(StudentProfileResponse.from(user.getStudentProfile()))
                 .teacherProfile(TeacherProfileResponse.from(user.getTeacherProfile()))
                 .adminProfile(AdminProfileResponse.from(user.getAdminProfile()))
@@ -61,6 +80,9 @@ public class UserRegistrationResponse {
         private UUID id;
         private String studentId;
         private String grade;
+        private String schoolName;
+        private String bio;
+        private String avatarUrl;
         private LocalDate dateOfBirth;
         private String guardianName;
         private String guardianPhone;
@@ -75,6 +97,9 @@ public class UserRegistrationResponse {
                     .id(profile.getId())
                     .studentId(profile.getStudentId())
                     .grade(profile.getGrade())
+                    .schoolName(profile.getSchoolName())
+                    .bio(profile.getBiography())
+                    .avatarUrl(profile.getAvatarUrl())
                     .dateOfBirth(profile.getDateOfBirth())
                     .guardianName(profile.getGuardianName())
                     .guardianPhone(profile.getGuardianPhone())
@@ -93,6 +118,12 @@ public class UserRegistrationResponse {
         private LocalDate dateOfBirth;
         private String nic;
         private List<String> specializations;
+        private String title;
+        private String department;
+        private String officeLocation;
+        private String officeHours;
+        private String bio;
+        private String avatarUrl;
         private LocalDate hireDate;
 
         public static TeacherProfileResponse from(TeacherProfile profile) {
@@ -106,6 +137,12 @@ public class UserRegistrationResponse {
                     .dateOfBirth(profile.getDateOfBirth())
                     .nic(profile.getNic())
                     .specializations(profile.getSpecializations())
+                    .title(profile.getAcademicTitle())
+                    .department(profile.getDepartment())
+                    .officeLocation(profile.getOfficeLocation())
+                    .officeHours(profile.getOfficeHours())
+                    .bio(profile.getBiography())
+                    .avatarUrl(profile.getAvatarUrl())
                     .hireDate(profile.getHireDate())
                     .build();
         }

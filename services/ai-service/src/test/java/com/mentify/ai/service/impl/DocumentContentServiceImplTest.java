@@ -3,6 +3,7 @@ package com.mentify.ai.service.impl;
 import com.mentify.ai.config.QuizGenerationProperties;
 import com.mentify.ai.document.DocxTextExtractor;
 import com.mentify.ai.document.PdfTextExtractor;
+import com.mentify.ai.document.PptxTextExtractor;
 import com.mentify.ai.document.TxtTextExtractor;
 import com.mentify.ai.exception.AiInvalidDocumentException;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -31,7 +32,7 @@ class DocumentContentServiceImplTest {
         properties = new QuizGenerationProperties();
         properties.setMinDocumentCharactersPerQuestion(10);
         documentContentService = new DocumentContentServiceImpl(
-                List.of(new PdfTextExtractor(), new DocxTextExtractor(), new TxtTextExtractor()),
+                List.of(new PdfTextExtractor(), new DocxTextExtractor(), new TxtTextExtractor(), new PptxTextExtractor()),
                 properties
         );
     }
@@ -62,6 +63,13 @@ class DocumentContentServiceImplTest {
         assertThatThrownBy(() -> documentContentService.extractReadableText(file, 1))
                 .isInstanceOf(AiInvalidDocumentException.class)
                 .hasMessageContaining("Unsupported document type");
+    }
+
+    @Test
+    void recognizesPowerPointDocuments() {
+        assertThat(new PptxTextExtractor().supports(
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "lesson.pptx")).isTrue();
     }
 
     @Test

@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(
         name = "grades",
@@ -27,4 +29,11 @@ public class Grade extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "monthly_fee", nullable = false, precision = 12, scale = 2)
+    private BigDecimal monthlyFee;
+
+    @Column(name = "currency_code", nullable = false, length = 3)
+    @Builder.Default
+    private String currencyCode = "LKR";
 }

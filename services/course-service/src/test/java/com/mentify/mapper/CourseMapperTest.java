@@ -22,7 +22,6 @@ class CourseMapperTest {
                 .courseName("  Science  ")
                 .courseDescription("  Grade 9 science  ")
                 .courseThumbnail("science.png")
-                .courseFeeMonthly(new BigDecimal("3000.00"))
                 .gradeId(gradeId)
                 .assignedTeacherId(teacherId)
                 .build();
@@ -32,7 +31,6 @@ class CourseMapperTest {
         assertThat(course.getCourseName()).isEqualTo("Science");
         assertThat(course.getCourseDescription()).isEqualTo("Grade 9 science");
         assertThat(course.getCourseThumbnail()).isEqualTo("science.png");
-        assertThat(course.getCourseFeeMonthly()).isEqualByComparingTo("3000.00");
         assertThat(course.getGradeId()).isEqualTo(gradeId);
         assertThat(course.getAssignedTeacherId()).isEqualTo(teacherId);
         assertThat(course.getStatus()).isEqualTo(CourseStatus.DRAFT);
@@ -50,7 +48,6 @@ class CourseMapperTest {
                 .courseName("English")
                 .courseDescription("Spoken English")
                 .courseThumbnail("english.png")
-                .courseFeeMonthly(new BigDecimal("1500.00"))
                 .gradeId(gradeId)
                 .assignedTeacherId(teacherId)
                 .status(CourseStatus.PUBLISHED)
@@ -66,7 +63,6 @@ class CourseMapperTest {
         assertThat(response.getCourseName()).isEqualTo("English");
         assertThat(response.getCourseDescription()).isEqualTo("Spoken English");
         assertThat(response.getCourseThumbnail()).isEqualTo("english.png");
-        assertThat(response.getCourseFeeMonthly()).isEqualByComparingTo("1500.00");
         assertThat(response.getGradeId()).isEqualTo(gradeId);
         assertThat(response.getAssignedTeacherId()).isEqualTo(teacherId);
         assertThat(response.getCourseStatus()).isEqualTo(CourseStatus.PUBLISHED);

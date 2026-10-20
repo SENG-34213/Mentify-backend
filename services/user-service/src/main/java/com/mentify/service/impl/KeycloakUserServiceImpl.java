@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class KeycloakUserServiceImpl implements KeycloakUserService {
 
-    private static final List<String> PASSWORD_SETUP_ACTIONS = List.of("UPDATE_PASSWORD", "VERIFY_EMAIL");
     private static final List<String> PASSWORD_RESET_ACTIONS = List.of("UPDATE_PASSWORD");
 
     private final Keycloak keycloak;
@@ -33,15 +33,45 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
 
     @Override
     public String createUser(KeycloakUserProvisionRequest request) {
+        return createUserInternal(request);
+    }
+
+    @Override
+    public void setInitialPassword(String keycloakUserId, String initialPassword) {
+        if (initialPassword == null || initialPassword.isBlank()) {
+            throw new IllegalArgumentException("Initial password is required");
+        }
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(initialPassword);
+        credential.setTemporary(false);
+        try {
+            var userResource = realmUsers().get(keycloakUserId);
+            UserRepresentation user = userResource.toRepresentation();
+            user.setEmailVerified(true);
+            user.setRequiredActions(List.of());
+            userResource.update(user);
+            userResource.resetPassword(credential);
+        } catch (WebApplicationException exception) {
+            if (exception.getResponse() != null && exception.getResponse().getStatus() == 400) {
+                throw new KeycloakUserCreationException(
+                        "Generated temporary password violates the configured Keycloak password policy");
+            }
+            throw new KeycloakUserCreationException("Failed to assign initial Keycloak password");
+        } catch (ProcessingException exception) {
+            throw new KeycloakUserCreationException("Failed to assign initial Keycloak password");
+        }
+    }
+
+    private String createUserInternal(KeycloakUserProvisionRequest request) {
         UserRepresentation userRepresentation = new UserRepresentation();
         userRepresentation.setUsername(request.getEmail());
         userRepresentation.setEmail(request.getEmail());
         userRepresentation.setFirstName(request.getFirstName());
         userRepresentation.setLastName(request.getLastName());
         userRepresentation.setEnabled(true);
-        userRepresentation.setEmailVerified(false);
-        userRepresentation.setRequiredActions(PASSWORD_SETUP_ACTIONS);
-
+        userRepresentation.setEmailVerified(true);
+        userRepresentation.setRequiredActions(List.of());
         try (Response response = realmUsers().create(userRepresentation)) {
             if (response.getStatus() != Response.Status.CREATED.getStatusCode()) {
                 throw new KeycloakUserCreationException(buildCreateUserFailureMessage(response));
@@ -49,7 +79,7 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
 
             return extractCreatedUserId(response.getLocation());
         } catch (KeycloakUserCreationException exception) {
-            log.error("Keycloak user creation failed: {}", exception.getMessage(), exception);
+            log.error("Keycloak user creation failed");
 
             throw exception;
         } catch (ProcessingException | WebApplicationException exception) {
@@ -74,17 +104,6 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
             throw new KeycloakRoleAssignmentException("Keycloak realm role does not exist: " + roleName, exception);
         } catch (ProcessingException | WebApplicationException exception) {
             throw new KeycloakRoleAssignmentException("Failed to assign Keycloak realm role: " + roleName, exception);
-        }
-    }
-
-    @Override
-    public void sendPasswordSetupEmail(String keycloakUserId) {
-        try {
-            realmUsers()
-                    .get(keycloakUserId)
-                    .executeActionsEmail(PASSWORD_SETUP_ACTIONS);
-        } catch (ProcessingException | WebApplicationException exception) {
-            throw new KeycloakEmailActionException("Failed to send password setup email through Keycloak", exception);
         }
     }
 

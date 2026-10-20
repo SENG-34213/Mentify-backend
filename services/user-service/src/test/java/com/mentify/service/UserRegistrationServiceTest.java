@@ -2,6 +2,8 @@ package com.mentify.service;
 
 import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
+import com.mentify.dto.StudentLookupRequest;
+import com.mentify.dto.StudentLookupResponse;
 import com.mentify.dto.AddressDto;
 import com.mentify.entity.User;
 import com.mentify.enums.AccountStatus;
@@ -17,13 +19,15 @@ import com.mentify.repository.AdminProfileRepository;
 import com.mentify.repository.StudentProfileRepository;
 import com.mentify.repository.TeacherProfileRepository;
 import com.mentify.repository.UserRepository;
-import com.mentify.service.registration.PasswordSetupEmailDispatcher;
+import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.AdminCodeGenerator;
 import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
+import com.mentify.service.registration.TemporaryPasswordGenerator;
+import com.mentify.service.authentication.KeycloakAuthenticationClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +44,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +69,10 @@ class UserRegistrationServiceTest {
     private KeycloakUserService keycloakUserService;
 
     @Mock
-    private PasswordSetupEmailDispatcher passwordSetupEmailDispatcher;
+    private KeycloakAuthenticationClient keycloakAuthenticationClient;
+
+    @Mock
+    private RegistrationEmailDispatcher registrationEmailDispatcher;
 
     private UserRegistrationService userRegistrationService;
 
@@ -79,8 +88,33 @@ class UserRegistrationServiceTest {
                 keycloakUserService,
                 validator,
                 factory,
-                passwordSetupEmailDispatcher
+                registrationEmailDispatcher,
+                new TemporaryPasswordGenerator(),
+                keycloakAuthenticationClient
         );
+    }
+
+    @Test
+    void lookupStudents_returnsOnlyStudentNamesForRequestedKeycloakIds() {
+        UUID studentId = UUID.randomUUID();
+        User student = User.builder()
+                .keycloakUserId(studentId.toString())
+                .firstName("Jane")
+                .lastName("Doe")
+                .role(Role.STUDENT)
+                .build();
+        when(userRepository.findAllByKeycloakUserIdInAndRole(List.of(studentId.toString()), Role.STUDENT))
+                .thenReturn(List.of(student));
+
+        List<StudentLookupResponse> result = userRegistrationService.lookupStudents(
+                StudentLookupRequest.builder().studentIds(List.of(studentId)).build()
+        );
+
+        assertThat(result).containsExactly(StudentLookupResponse.builder()
+                .studentId(studentId)
+                .firstName("Jane")
+                .lastName("Doe")
+                .build());
     }
 
     @Test
@@ -107,18 +141,29 @@ class UserRegistrationServiceTest {
         assertThat(response.getAccountStatus()).isEqualTo(AccountStatus.INVITED);
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "STUDENT");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
+        ArgumentCaptor<String> temporaryPasswordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
+        String temporaryPassword = temporaryPasswordCaptor.getValue();
+        assertThat(temporaryPassword).hasSize(32)
+                .matches(".*[A-Z].*")
+                .matches(".*[a-z].*")
+                .matches(".*[0-9].*")
+                .matches(".*[^A-Za-z0-9].*");
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getPassword()).isNull();
+        assertThat(savedUser.isEmailVerified()).isTrue();
         assertThat(savedUser.getFirstName()).isEqualTo(request.getFirstName());
         assertThat(savedUser.getLastName()).isEqualTo(request.getLastName());
         assertThat(savedUser.getPhoneNumber()).isEqualTo(request.getPhoneNumber());
         assertThat(savedUser.getStudentProfile()).isNotNull();
         assertThat(savedUser.getStudentProfile().getStudentId()).isEqualTo("TIT-07-24");
         assertThat(savedUser.getStudentProfile().getGrade()).isEqualTo("07");
+        assertThat(savedUser.getStudentProfile().getSchoolName()).isEqualTo("Mentify Academy");
         assertThat(savedUser.getStudentProfile().getGuardianName()).isEqualTo(request.getStudentProfile().getGuardianName());
         assertThat(savedUser.getStudentProfile().getGuardianPhone()).isEqualTo(request.getStudentProfile().getGuardianPhone());
         assertThat(savedUser.getStudentProfile().getAttendanceMode()).isEqualTo(request.getStudentProfile().getAttendanceMode());
@@ -153,7 +198,7 @@ class UserRegistrationServiceTest {
         assertThat(savedUser.getAddress().getCity()).isEqualTo(request.getAddress().getCity());
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "TEACHER");
-        verify(passwordSetupEmailDispatcher).sendAfterCommit(keycloakUserId);
+        verify(registrationEmailDispatcher).sendAfterCommit(eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
     }
 
     @Test
@@ -278,6 +323,25 @@ class UserRegistrationServiceTest {
     }
 
     @Test
+    void registerUser_whenTemporaryPasswordIsRejected_deletesCreatedKeycloakUser() {
+        AdminRegisterUserRequest request = validRequest(Role.STUDENT);
+        String keycloakUserId = "keycloak-user-id";
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(keycloakUserService.createUser(any(KeycloakUserProvisionRequest.class))).thenReturn(keycloakUserId);
+        org.mockito.Mockito.doThrow(new KeycloakUserCreationException(
+                        "Generated temporary password violates the configured Keycloak password policy"))
+                .when(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
+
+        assertThatThrownBy(() -> userRegistrationService.registerUser(request))
+                .isInstanceOf(KeycloakUserCreationException.class);
+
+        verify(keycloakUserService).deleteUser(keycloakUserId);
+        verify(userRepository, never()).saveAndFlush(any());
+        verify(registrationEmailDispatcher, never()).sendAfterCommit(any(), any(), any(), any());
+    }
+
+    @Test
     void registerUser_whenDatabaseSaveFails_deletesCreatedKeycloakUser() {
         AdminRegisterUserRequest request = validRequest(Role.STUDENT);
         String keycloakUserId = "keycloak-user-id";
@@ -294,7 +358,7 @@ class UserRegistrationServiceTest {
     }
 
     @Test
-    void resendInvitation_whenUserIsInvited_sendsPasswordSetupEmail() {
+    void resendInvitation_whenUserIsInvited_rotatesPasswordAndSendsFreshSetupEmails() {
         UUID userId = UUID.randomUUID();
         User user = invitedUser(userId, "keycloak-user-id");
 
@@ -302,7 +366,11 @@ class UserRegistrationServiceTest {
 
         userRegistrationService.resendInvitation(userId);
 
-        verify(keycloakUserService).sendPasswordSetupEmail("keycloak-user-id");
+        ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(keycloakUserService).setInitialPassword(eq("keycloak-user-id"), passwordCaptor.capture());
+        assertThat(passwordCaptor.getValue()).hasSize(32);
+        verify(registrationEmailDispatcher).sendAfterCommit(
+                eq("keycloak-user-id"), eq(user.getEmail()), eq(user.getFirstName()), eq(passwordCaptor.getValue()));
     }
 
     @Test
@@ -315,7 +383,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("User not found");
 
-        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+        verify(keycloakUserService, never()).setInitialPassword(any(), any());
     }
 
     @Test
@@ -330,7 +398,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(InvalidUserStateException.class)
                 .hasMessage("Invitation can only be resent for invited users");
 
-        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+        verify(keycloakUserService, never()).setInitialPassword(any(), any());
     }
 
     @Test
@@ -344,7 +412,7 @@ class UserRegistrationServiceTest {
                 .isInstanceOf(InvalidUserStateException.class)
                 .hasMessage("User is not linked to Keycloak");
 
-        verify(keycloakUserService, never()).sendPasswordSetupEmail(any());
+        verify(keycloakUserService, never()).setInitialPassword(any(), any());
     }
 
     @Test
@@ -412,7 +480,8 @@ class UserRegistrationServiceTest {
                 "Sunil Perera",
                 "0771112222",
                 AttendanceMode.PHYSICAL,
-                "7"
+                "7",
+                "Mentify Academy"
         );
     }
 

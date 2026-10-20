@@ -3,6 +3,32 @@ spring:
     name: entrollment-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  datasource:
+    url: jdbc:postgresql://${ENTROLLMENT_DB_HOST:localhost}:${ENTROLLMENT_DB_PORT:5434}/${ENTROLLMENT_DB_NAME:entrollment_db}
+    username: ${ENTROLLMENT_DB_USERNAME:postgres}
+    password: ${ENTROLLMENT_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:10000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: ${ENTROLLMENT_SERVICE_PORT:8083}
+
+mentify:
+  notifications:
+    kafka:
+      enabled: false
 
 eureka:
   instance:

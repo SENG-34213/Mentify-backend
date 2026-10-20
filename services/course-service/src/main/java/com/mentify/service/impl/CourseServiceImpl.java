@@ -1,9 +1,20 @@
 package com.mentify.service.impl;
 
 import com.mentify.client.UserServiceClient;
+import com.mentify.client.AssignmentDashboardClient;
+import com.mentify.client.CalendarDashboardClient;
+import com.mentify.client.ExamDashboardClient;
+import com.mentify.client.EntrollmentServiceClient;
+import com.mentify.client.dto.AssignmentDashboardResponse;
+import com.mentify.client.dto.CalendarDashboardResponse;
+import com.mentify.client.dto.ExamDashboardResponse;
+import com.mentify.client.dto.SubmissionDashboardResponse;
+import com.mentify.client.dashboard.DashboardDtos;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
+import com.mentify.dto.TeacherDashboardResponse;
 import com.mentify.entity.Course;
+import com.mentify.entity.Grade;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.mapper.CourseMapper;
@@ -12,26 +23,179 @@ import com.mentify.repository.CourseRepository;
 import com.mentify.repository.GradeRepository;
 import com.mentify.service.CourseService;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
     private final GradeRepository gradeRepository;
     private final UserServiceClient userServiceClient;
+    private final TeacherCourseAccessGuard teacherCourseAccessGuard;
+    private final EntrollmentServiceClient entrollmentServiceClient;
+    private final AssignmentDashboardClient assignmentDashboardClient;
+    private final ExamDashboardClient examDashboardClient;
+    private final CalendarDashboardClient calendarDashboardClient;
+
+    public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
+                             UserServiceClient userServiceClient,
+                             TeacherCourseAccessGuard teacherCourseAccessGuard) {
+        this(courseRepository, gradeRepository, userServiceClient, teacherCourseAccessGuard,
+                null, null, null, null);
+    }
+
+    @Autowired
+    public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
+                             UserServiceClient userServiceClient,
+                             TeacherCourseAccessGuard teacherCourseAccessGuard,
+                             EntrollmentServiceClient entrollmentServiceClient,
+                             AssignmentDashboardClient assignmentDashboardClient,
+                             ExamDashboardClient examDashboardClient,
+                             CalendarDashboardClient calendarDashboardClient) {
+        this.courseRepository = courseRepository;
+        this.gradeRepository = gradeRepository;
+        this.userServiceClient = userServiceClient;
+        this.teacherCourseAccessGuard = teacherCourseAccessGuard;
+        this.entrollmentServiceClient = entrollmentServiceClient;
+        this.assignmentDashboardClient = assignmentDashboardClient;
+        this.examDashboardClient = examDashboardClient;
+        this.calendarDashboardClient = calendarDashboardClient;
+    }
+
+    @Override
+    public ApiResponse<TeacherDashboardResponse> getTeacherDashboard(String authorizationHeader) {
+        UUID teacherId = teacherCourseAccessGuard.isTeacherAuthenticated()
+                ? teacherCourseAccessGuard.getAuthenticatedTeacherId() : null;
+        List<Course> courses = teacherId == null
+                ? courseRepository.findAll()
+                : courseRepository.findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId);
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+        List<DashboardDtos.PendingGrading> pendingGrading = new ArrayList<>();
+        Set<UUID> studentIds = new HashSet<>();
+        long activeAssignments = 0;
+        long pendingReviews = 0;
+        List<DashboardDtos.CoursePerformance> performance = new ArrayList<>();
+
+        for (Course course : courses) {
+            List<UUID> enrolledStudents = enrolledStudents(course.getId(), authorizationHeader);
+            studentIds.addAll(enrolledStudents);
+            List<AssignmentDashboardResponse> assignments = assignments(course.getId(), authorizationHeader);
+            long activeForCourse = assignments.stream()
+                    .filter(a -> "PUBLISHED".equals(a.getStatus()))
+                    .filter(a -> a.getDueDate() == null || !a.getDueDate().isBefore(now))
+                    .count();
+            activeAssignments += activeForCourse;
+            long submissionCount = 0;
+            long gradedCount = 0;
+            for (AssignmentDashboardResponse assignment : assignments) {
+                List<SubmissionDashboardResponse> submissions = submissions(assignment.getId(), authorizationHeader);
+                submissionCount += submissions.size();
+                gradedCount += submissions.stream().filter(s -> s.getStatus() != null
+                        && Set.of("GRADED", "RETURNED").contains(s.getStatus())).count();
+                for (SubmissionDashboardResponse submission : submissions) {
+                    if (submission.getStatus() != null
+                            && Set.of("SUBMITTED", "UNDER_REVIEW").contains(submission.getStatus())) {
+                        pendingReviews++;
+                        pendingGrading.add(new DashboardDtos.PendingGrading(
+                                submission.getId(), assignment.getId(), course.getId(), assignment.getTitle(),
+                                submission.getStudentId(), submission.getStudentName(), submission.getSubmittedAt()));
+                    }
+                }
+            }
+            double gradingRate = submissionCount == 0 ? 0.0 : (gradedCount * 100.0) / submissionCount;
+            performance.add(new DashboardDtos.CoursePerformance(course.getId(), course.getCourseName(),
+                    enrolledStudents.size(), activeForCourse, submissionCount, gradedCount, gradingRate));
+        }
+
+        List<DashboardDtos.Exam> upcomingExams = new ArrayList<>();
+        for (Course course : courses) {
+            for (ExamDashboardResponse exam : exams(course.getId(), authorizationHeader)) {
+                if (exam.getExamDate() != null && !exam.getExamDate().isBefore(today)
+                        && Set.of("SCHEDULED", "MARKING").contains(exam.getStatus())) {
+                    upcomingExams.add(new DashboardDtos.Exam(exam.getId(), exam.getCourseId(), exam.getTitle(),
+                            exam.getExamDate(), exam.getStartTime(), exam.getEndTime(), exam.getStatus()));
+                }
+            }
+        }
+
+        List<DashboardDtos.CalendarEvent> todaySchedule = calendarEvents(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay(), authorizationHeader).stream()
+                .map(this::toCalendarEvent)
+                .toList();
+        long todayClassCount = todaySchedule.stream()
+                .filter(event -> "CLASS".equals(event.eventType()))
+                .count();
+
+        TeacherDashboardResponse data = TeacherDashboardResponse.builder()
+                .courseCount(courses.size())
+                .studentCount(studentIds.size())
+                .activeAssignmentCount(activeAssignments)
+                .pendingReviewCount(pendingReviews)
+                .upcomingExamCount(upcomingExams.size())
+                .todayClassCount(todayClassCount)
+                .todaySchedule(todaySchedule)
+                .pendingGrading(pendingGrading)
+                .coursePerformance(performance)
+                .build();
+        return ApiResponse.<TeacherDashboardResponse>builder()
+                .message("Teacher dashboard fetched successfully")
+                .data(data)
+                .statusCode(200)
+                .status(org.springframework.http.HttpStatus.OK)
+                .build();
+    }
+
+    private List<UUID> enrolledStudents(UUID courseId, String authorizationHeader) {
+        ApiResponse<List<UUID>> response = entrollmentServiceClient
+                .getEnrolledStudentIdsByCourse(courseId, authorizationHeader);
+        return response == null || response.getData() == null ? List.of() : response.getData();
+    }
+
+    private List<AssignmentDashboardResponse> assignments(UUID courseId, String authorizationHeader) {
+        ApiResponse<List<AssignmentDashboardResponse>> response = assignmentDashboardClient
+                .getAssignments(courseId, authorizationHeader);
+        return response == null || response.getData() == null ? List.of() : response.getData();
+    }
+
+    private List<SubmissionDashboardResponse> submissions(UUID assignmentId, String authorizationHeader) {
+        ApiResponse<List<SubmissionDashboardResponse>> response = assignmentDashboardClient
+                .getSubmissions(assignmentId, authorizationHeader);
+        return response == null || response.getData() == null ? List.of() : response.getData();
+    }
+
+    private List<ExamDashboardResponse> exams(UUID courseId, String authorizationHeader) {
+        ApiResponse<List<ExamDashboardResponse>> response = examDashboardClient
+                .getExams(courseId, authorizationHeader);
+        return response == null || response.getData() == null ? List.of() : response.getData();
+    }
+
+    private List<CalendarDashboardResponse> calendarEvents(LocalDateTime start, LocalDateTime end,
+                                                            String authorizationHeader) {
+        ApiResponse<List<CalendarDashboardResponse>> response = calendarDashboardClient
+                .getEvents(start, end, authorizationHeader);
+        return response == null || response.getData() == null ? List.of() : response.getData();
+    }
+
+    private DashboardDtos.CalendarEvent toCalendarEvent(CalendarDashboardResponse event) {
+        return new DashboardDtos.CalendarEvent(event.getId(), event.getTitle(), event.getEventType(),
+                event.getStartDateTime(), event.getEndDateTime(), event.getCourseId(), event.getLocation());
+    }
 
     @Override
     @Transactional
@@ -45,6 +209,7 @@ public class CourseServiceImpl implements CourseService {
         }
 
         validateGradeExists(request.getGradeId());
+        teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
         validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
@@ -56,7 +221,7 @@ public class CourseServiceImpl implements CourseService {
 
         Course savedCourse = courseRepository.save(course);
 
-        CourseResponse courseResponse = CourseMapper.toCourseResponse(savedCourse);
+        CourseResponse courseResponse = toCourseResponse(savedCourse);
         log.info("Course created successfully with ID [{}]", savedCourse.getId());
 
         return ApiResponse.<CourseResponse>builder()
@@ -75,6 +240,11 @@ public class CourseServiceImpl implements CourseService {
         Course existingCourse = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
 
+        if (teacherCourseAccessGuard.isTeacherAuthenticated()) {
+            teacherCourseAccessGuard.assertTeacherOwnsCourse(existingCourse);
+            teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
+        }
+
         if (courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId)) {
             log.warn("Duplicate course title attempted on update: '{}'", request.getCourseName());
             throw new ResourceAlreadyExistsException("Course", "courseName", request.getCourseName());
@@ -86,17 +256,11 @@ public class CourseServiceImpl implements CourseService {
         existingCourse.setCourseName(request.getCourseName().trim());
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
         existingCourse.setCourseThumbnail(request.getCourseThumbnail());
-        existingCourse.setCourseFeeMonthly(request.getCourseFeeMonthly());
         existingCourse.setGradeId(request.getGradeId());
         existingCourse.setAssignedTeacherId(request.getAssignedTeacherId());
-        existingCourse.setCourseEnrollmentId(request.getCourseEnrollmentId());
         existingCourse.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
-        BigDecimal discountOfferPercent = request.getDiscountOfferPercent() != null
-                ? request.getDiscountOfferPercent()
-                : new BigDecimal("20.00");
-        existingCourse.setDiscountOfferPercent(discountOfferPercent);
         existingCourse.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
 
         boolean isPublished = request.getIsPublished() != null ? request.getIsPublished() : false;
@@ -113,7 +277,7 @@ public class CourseServiceImpl implements CourseService {
 
         Course savedCourse = courseRepository.save(existingCourse);
 
-        CourseResponse courseResponse = CourseMapper.toCourseResponse(savedCourse);
+        CourseResponse courseResponse = toCourseResponse(savedCourse);
         log.info("Course updated successfully with ID [{}]", savedCourse.getId());
 
         return ApiResponse.<CourseResponse>builder()
@@ -144,7 +308,11 @@ public class CourseServiceImpl implements CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
 
-        CourseResponse courseResponse = CourseMapper.toCourseResponse(course);
+        if (teacherCourseAccessGuard.isTeacherAuthenticated()) {
+            teacherCourseAccessGuard.assertTeacherOwnsCourse(course);
+        }
+
+        CourseResponse courseResponse = toCourseResponse(course);
 
         return ApiResponse.<CourseResponse>builder()
                 .message("Course fetched successfully")
@@ -158,7 +326,7 @@ public class CourseServiceImpl implements CourseService {
     @Transactional
     public ApiResponse<List<CourseResponse>> getAllCourses() {
         List<CourseResponse> courses = courseRepository.findAll().stream()
-                .map(CourseMapper::toCourseResponse)
+                .map(this::toCourseResponse)
                 .collect(Collectors.toList());
 
         return ApiResponse.<List<CourseResponse>>builder()
@@ -175,7 +343,7 @@ public class CourseServiceImpl implements CourseService {
         List<CourseResponse> courses = courseRepository
                 .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId)
                 .stream()
-                .map(CourseMapper::toCourseResponse)
+                .map(this::toCourseResponse)
                 .collect(Collectors.toList());
 
         return ApiResponse.<List<CourseResponse>>builder()
@@ -192,7 +360,7 @@ public class CourseServiceImpl implements CourseService {
         log.info("Fetching {} courses in bulk", ids.size());
 
         List<CourseResponse> courses = courseRepository.findAllById(ids).stream()
-                .map(CourseMapper::toCourseResponse)
+                .map(this::toCourseResponse)
                 .collect(Collectors.toList());
 
         return ApiResponse.<List<CourseResponse>>builder()
@@ -220,5 +388,10 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    private CourseResponse toCourseResponse(Course course) {
+        Grade grade = gradeRepository.findById(course.getGradeId()).orElse(null);
+        return CourseMapper.toCourseResponse(course, grade);
     }
 }

@@ -1,5 +1,6 @@
 package com.mentify.dto;
 
+import com.mentify.enums.EnrollmentStatus;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -21,5 +22,7 @@ public class EntrollmentCreateRequest {
 
     @NotEmpty(message = "At least one course ID is required")
     private List<UUID> courseIds;
+
+    private EnrollmentStatus status;
 }
 

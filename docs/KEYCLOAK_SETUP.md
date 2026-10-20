@@ -41,6 +41,27 @@ mentify
 
 Application users, clients, and roles must be created inside the `mentify` realm.
 
+The realm uses the bundled `mentify` email theme for password-reset messages. It has explicit HTML
+templates plus matching plain-text content. The Docker Compose service mounts `keycloak/themes`
+into Keycloak. Registration does not send a Keycloak setup/action email.
+
+User-service sends the registration welcome email with the generated initial password as an HTML
+and plain-text multipart message. Configure user-service SMTP with `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_AUTH`, `SMTP_STARTTLS_ENABLE`, and `SMTP_FROM`. SMTP saved
+inside Keycloak is not automatically shared with Spring. The temporary password is not included in
+the registration API response or stored by Mentify; Keycloak stores the credential without marking
+it temporary so the user can sign in immediately. Users can request a password change later through
+the forgot-password flow. SMTP delivery is retried a bounded number of times in the user-service process;
+no credential email is put into a persistent queue. If delivery still fails, registration returns
+an email-delivery error even though the account is committed. An administrator can use the
+resend-invitation endpoint to rotate the initial password and send a replacement welcome email; the
+old password is never resent.
+
+For an existing local Keycloak database, realm import does not overwrite an already-created
+realm. Select **Realm settings → Themes → Email theme → mentify** in the Keycloak Admin
+Console and save. Restart Keycloak after changing mounted theme files to refresh its theme cache.
+For a fresh local setup, the realm import selects this theme automatically.
+
 ## 3. Realm Roles
 
 The `mentify` realm contains these realm roles:

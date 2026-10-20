@@ -111,10 +111,11 @@ class AdminUserControllerTest {
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.statusCode").value(201))
-                .andExpect(jsonPath("$.message").value("User registered successfully. Password setup email will be sent."))
+                .andExpect(jsonPath("$.message").value("User registered successfully. Sign-in credentials will be sent by email."))
                 .andExpect(jsonPath("$.data.email").value("student@gmail.com"))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"))
-                .andExpect(jsonPath("$.data.accountStatus").value("INVITED"));
+                .andExpect(jsonPath("$.data.accountStatus").value("INVITED"))
+                .andExpect(jsonPath("$.data.temporaryPassword").doesNotExist());
 
         verify(userRegistrationService).registerUser(any(AdminRegisterUserRequest.class));
     }
@@ -144,7 +145,7 @@ class AdminUserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest(Role.STUDENT))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.message").value("User registered successfully. Password setup email will be sent."))
+                .andExpect(jsonPath("$.message").value("User registered successfully. Sign-in credentials will be sent by email."))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"));
 
         verify(userRegistrationService).registerUser(any(AdminRegisterUserRequest.class));
@@ -179,7 +180,7 @@ class AdminUserControllerTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statusCode").value(200))
-                .andExpect(jsonPath("$.message").value("Invitation email sent successfully."))
+                .andExpect(jsonPath("$.message").value("Invitation email with refreshed temporary credentials sent successfully."))
                 .andExpect(jsonPath("$.data").doesNotExist());
 
         verify(userRegistrationService).resendInvitation(userId);
@@ -192,7 +193,7 @@ class AdminUserControllerTest {
         mockMvc.perform(post("/api/v1/users/{userId}/resend-invitation", userId)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Invitation email sent successfully."));
+                .andExpect(jsonPath("$.message").value("Invitation email with refreshed temporary credentials sent successfully."));
 
         verify(userRegistrationService).resendInvitation(userId);
     }
@@ -290,7 +291,7 @@ class AdminUserControllerTest {
                         .content(objectMapper.writeValueAsString(validAdminRequest())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.statusCode").value(201))
-                .andExpect(jsonPath("$.message").value("Admin registered successfully. Password setup email will be sent."))
+                .andExpect(jsonPath("$.message").value("Admin registered successfully. Sign-in credentials will be sent by email."))
                 .andExpect(jsonPath("$.data.role").value("ADMIN"));
 
         verify(adminRegistrationService).registerAdmin(any(SuperAdminRegisterAdminRequest.class));
@@ -306,7 +307,7 @@ class AdminUserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validAdminRequest())))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.message").value("Admin registered successfully. Password setup email will be sent."))
+                .andExpect(jsonPath("$.message").value("Admin registered successfully. Sign-in credentials will be sent by email."))
                 .andExpect(jsonPath("$.data.role").value("ADMIN"));
 
         verify(adminRegistrationService).registerAdmin(any(SuperAdminRegisterAdminRequest.class));
@@ -331,7 +332,8 @@ class AdminUserControllerTest {
                 "Sunil Perera",
                 "0771112222",
                 AttendanceMode.PHYSICAL,
-                "7"
+                "7",
+                "Mentify Academy"
         );
     }
 

@@ -2,7 +2,6 @@ package com.mentify.controller;
 
 import com.mentify.dto.GradeRequest;
 import com.mentify.dto.GradeResponse;
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.GradeService;
 import jakarta.validation.Valid;
@@ -30,7 +29,6 @@ public class GradeController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "GRADE_SCALE_CREATED", title = "Grade scale created", message = "A grade scale was created successfully.")
     public ResponseEntity<ApiResponse<GradeResponse>> createGrade(@Valid @RequestBody GradeRequest request) {
         ApiResponse<GradeResponse> response = gradeService.createGrade(request);
         return new ResponseEntity<>(response, response.getStatus());
@@ -38,7 +36,6 @@ public class GradeController {
 
     @PutMapping("/{gradeId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "GRADE_SCALE_UPDATED", title = "Grade scale updated", message = "A grade scale was updated successfully.")
     public ResponseEntity<ApiResponse<GradeResponse>> updateGrade(
             @PathVariable UUID gradeId,
             @Valid @RequestBody GradeRequest request
