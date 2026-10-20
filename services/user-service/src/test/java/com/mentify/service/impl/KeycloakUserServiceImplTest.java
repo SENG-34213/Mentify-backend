@@ -57,7 +57,7 @@ class KeycloakUserServiceImplTest {
         verify(usersResource).create(userCaptor.capture());
         UserRepresentation createdUser = userCaptor.getValue();
         assertThat(createdUser.getRequiredActions()).isNull();
-        assertThat(createdUser.getCredentials()).isNull();
+        assertThat(createdUser.getCredentials()).isEmpty();
     }
 
     @Test
