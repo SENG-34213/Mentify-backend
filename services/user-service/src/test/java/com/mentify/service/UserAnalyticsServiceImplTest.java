@@ -91,7 +91,7 @@ class UserAnalyticsServiceImplTest {
 
     private User baseUser(String email, Role role) {
         User user = User.builder()
-                .keycloakUserId(UUID.randomUUID().toString())
+                .authUserId(UUID.randomUUID().toString())
                 .email(email)
                 .firstName("Test")
                 .lastName("User")

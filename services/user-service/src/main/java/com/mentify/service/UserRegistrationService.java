@@ -18,11 +18,10 @@ import com.mentify.exception.DuplicateResourceException;
 import com.mentify.exception.InvalidUserStateException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.UserRepository;
-import com.mentify.service.registration.KeycloakUserProvisionRequest;
+import com.mentify.service.registration.AuthUserProvisionRequest;
 import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
-import com.mentify.service.authentication.KeycloakAuthenticationClient;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,12 +38,11 @@ import java.util.stream.Collectors;
 public class UserRegistrationService {
 
     private final UserRepository userRepository;
-    private final KeycloakUserService keycloakUserService;
+    private final AuthCredentialService authCredentialService;
     private final RegistrationRequestValidator registrationRequestValidator;
     private final UserRegistrationFactory userRegistrationFactory;
     private final RegistrationEmailDispatcher registrationEmailDispatcher;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
-    private final KeycloakAuthenticationClient keycloakAuthenticationClient;
 
     @Transactional
     public UserRegistrationResponse registerUser(AdminRegisterUserRequest request) {
@@ -54,24 +52,23 @@ public class UserRegistrationService {
             throw new DuplicateResourceException("Email already exists");
         }
 
-        String keycloakUserId = null;
+        String authUserId = null;
         String temporaryPassword = temporaryPasswordGenerator.generate();
 
         try {
-            keycloakUserId = keycloakUserService.createUser(KeycloakUserProvisionRequest.from(request));
-            keycloakUserService.setInitialPassword(keycloakUserId, temporaryPassword);
+            authUserId = authCredentialService.createUser(new AuthUserProvisionRequest(request.getEmail(), request.getFirstName(), request.getLastName()));
+            authCredentialService.setInitialPassword(authUserId, temporaryPassword);
 
-            keycloakUserService.assignRealmRole(keycloakUserId, request.getRole().name());
-
-            User user = userRegistrationFactory.create(request, keycloakUserId);
+            User user = userRegistrationFactory.create(request, authUserId);
             user.setEmailVerified(true);
             User savedUser = userRepository.saveAndFlush(user);
+            authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {
-            compensateKeycloakUserCreation(keycloakUserId, exception);
+            compensateAuthUserCreation(authUserId, exception);
             throw exception;
         }
     }
@@ -101,15 +98,15 @@ public class UserRegistrationService {
     }
 
     @Transactional(readOnly = true)
-    public UserRegistrationResponse getCurrentUser(String keycloakUserId) {
-        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+    public UserRegistrationResponse getCurrentUser(String identityId) {
+        User user = findByIdentity(identityId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return UserRegistrationResponse.from(user);
     }
 
     @Transactional
-    public UserRegistrationResponse updateCurrentUser(String keycloakUserId, UpdateCurrentUserRequest request) {
-        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+    public UserRegistrationResponse updateCurrentUser(String identityId, UpdateCurrentUserRequest request) {
+        User user = findByIdentity(identityId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         applyNameUpdate(user, request);
         if (request.getPhoneNumber() != null) {
@@ -161,29 +158,16 @@ public class UserRegistrationService {
     }
 
     @Transactional
-    public void changePassword(String keycloakUserId, ChangePasswordRequest request) {
-        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+    public void changePassword(String identityId, ChangePasswordRequest request) {
+        User user = findByIdentity(identityId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        var session = keycloakAuthenticationClient.authenticate(LoginRequest.builder()
-                .identifier(user.getEmail()).password(request.getCurrentPassword()).build());
-        try {
-            keycloakUserService.setInitialPassword(user.getKeycloakUserId(), request.getNewPassword());
-        } finally {
-            if (session.getRefreshToken() != null && !session.getRefreshToken().isBlank()) {
-                try {
-                    keycloakAuthenticationClient.logout(session.getRefreshToken());
-                } catch (RuntimeException logoutException) {
-                    log.debug("Could not close temporary password-verification session for user {}",
-                            user.getKeycloakUserId());
-                }
-            }
-        }
+        authCredentialService.setInitialPassword(user.getAuthUserId(), request.getNewPassword());
     }
 
     @Transactional
     public UserRegistrationResponse updateTeacherProfile(
-            String keycloakUserId, UpdateTeacherProfileRequest request) {
-        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+            String identityId, UpdateTeacherProfileRequest request) {
+        User user = findByIdentity(identityId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (user.getRole() != Role.TEACHER || user.getTeacherProfile() == null) {
             throw new InvalidUserStateException("Current user does not have a teacher profile");
@@ -233,15 +217,29 @@ public class UserRegistrationService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    private java.util.Optional<User> findByIdentity(String identityId) {
+        try {
+            return userRepository.findById(UUID.fromString(identityId))
+                .or(() -> userRepository.findByAuthUserId(identityId));
+        } catch (IllegalArgumentException exception) {
+            return userRepository.findByAuthUserId(identityId);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<StudentLookupResponse> lookupStudents(StudentLookupRequest request) {
-        List<String> keycloakUserIds = request.getStudentIds().stream()
-                .map(UUID::toString)
-                .distinct()
-                .toList();
-        return userRepository.findAllByKeycloakUserIdInAndRole(keycloakUserIds, Role.STUDENT).stream()
+        List<UUID> requestedIds = request.getStudentIds().stream().distinct().toList();
+        List<String> legacyIds = requestedIds.stream().map(UUID::toString).toList();
+        List<User> users = new java.util.ArrayList<>(userRepository.findAllByIdInAndRole(requestedIds, Role.STUDENT));
+        userRepository.findAllByAuthUserIdInAndRole(legacyIds, Role.STUDENT).stream()
+                .filter(candidate -> users.stream().noneMatch(user -> user.getId().equals(candidate.getId())))
+                .forEach(users::add);
+
+        return users.stream()
                 .map(user -> StudentLookupResponse.builder()
-                        .studentId(UUID.fromString(user.getKeycloakUserId()))
+                        .studentId(user.getId() != null
+                                ? user.getId()
+                                : UUID.fromString(user.getAuthUserId()))
                         .firstName(user.getFirstName())
                         .lastName(user.getLastName())
                         .build())
@@ -257,14 +255,14 @@ public class UserRegistrationService {
             throw new InvalidUserStateException("Invitation can only be resent for invited users");
         }
 
-        if (user.getKeycloakUserId() == null || user.getKeycloakUserId().isBlank()) {
-            throw new InvalidUserStateException("User is not linked to Keycloak");
+        if (user.getAuthUserId() == null || user.getAuthUserId().isBlank()) {
+            throw new InvalidUserStateException("User is not linked to the authentication service");
         }
 
         String temporaryPassword = temporaryPasswordGenerator.generate();
-        keycloakUserService.setInitialPassword(user.getKeycloakUserId(), temporaryPassword);
+            authCredentialService.setInitialPassword(user.getAuthUserId(), temporaryPassword);
         registrationEmailDispatcher.sendAfterCommit(
-                user.getKeycloakUserId(), user.getEmail(), user.getFirstName(), temporaryPassword);
+                    user.getAuthUserId(), user.getEmail(), user.getFirstName(), temporaryPassword);
     }
 
     @Transactional
@@ -276,16 +274,28 @@ public class UserRegistrationService {
         userRepository.save(user);
     }
 
-    private void compensateKeycloakUserCreation(String keycloakUserId, Exception originalException) {
-        if (keycloakUserId == null) {
+    @Transactional
+    public void deleteUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        userRepository.delete(user);
+        userRepository.flush();
+        // auth-service credentials are provisioned with the user-service UUID.
+        // authUserId is the legacy/link identifier and is not the auth record key.
+        authCredentialService.deleteUser(user.getId().toString());
+    }
+
+    private void compensateAuthUserCreation(String authUserId, Exception originalException) {
+        if (authUserId == null) {
             return;
         }
 
         try {
-            keycloakUserService.deleteUser(keycloakUserId);
+            authCredentialService.deleteUser(authUserId);
         } catch (Exception deleteException) {
             originalException.addSuppressed(deleteException);
-            log.warn("Failed to delete Keycloak user {} during registration compensation", keycloakUserId, deleteException);
+            log.warn("Failed to delete auth user {} during registration compensation", authUserId, deleteException);
         }
     }
 }

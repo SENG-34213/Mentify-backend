@@ -14,9 +14,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
   datasource:
-    url: jdbc:postgresql://${MATERIAL_DB_HOST:localhost}:${MATERIAL_DB_PORT:5434}/${MATERIAL_DB_NAME:material_db}
+    url: jdbc:postgresql://${MATERIAL_DB_HOST:localhost}:${MATERIAL_DB_PORT:5432}/${MATERIAL_DB_NAME:material_db}
     username: ${MATERIAL_DB_USERNAME:postgres}
     password: ${MATERIAL_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver

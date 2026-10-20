@@ -32,7 +32,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
   cloud:
     gateway:
       discovery:
@@ -40,10 +41,14 @@ spring:
           enabled: true
           lower-case-service-id: true
       routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/users/**,/api/students/**,/api/teachers/**,/api/internal/users/analytics/**
+            - Path=/api/v1/users/**,/api/v1/admin/users/**,/api/students/**,/api/teachers/**,/api/internal/users/analytics/**,/api/v1/internal/users/**
           filters:
             - StripPrefix=0
 

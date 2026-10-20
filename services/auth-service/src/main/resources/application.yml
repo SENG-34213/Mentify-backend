@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: auth-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  datasource:
+    url: jdbc:postgresql://${AUTH_DB_HOST:localhost}:${AUTH_DB_PORT:5432}/${AUTH_DB_NAME:auth_db}
+    username: ${AUTH_DB_USERNAME:postgres}
+    password: ${AUTH_DB_PASSWORD:change-me}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${AUTH_HIBERNATE_DDL_AUTO:validate}
+  flyway:
+    enabled: true
+server:
+  port: ${AUTH_SERVICE_PORT:8085}
+mentify:
+  auth:
+    issuer: ${AUTH_ISSUER_URI:http://localhost:8085}
+    audience: ${AUTH_AUDIENCE:mentify-api}
+    access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}
+    refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:2592000}
+    key-id: ${AUTH_JWT_KEY_ID:mentify-auth-rsa}
+    private-key-base64: ${AUTH_JWT_PRIVATE_KEY_BASE64:}
+    public-key-base64: ${AUTH_JWT_PUBLIC_KEY_BASE64:}
+    allow-ephemeral-keys: ${AUTH_JWT_ALLOW_EPHEMERAL_KEYS:false}
+    user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
+    internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

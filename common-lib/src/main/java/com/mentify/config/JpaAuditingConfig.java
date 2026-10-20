@@ -19,7 +19,7 @@ public class JpaAuditingConfig {
 
 
     /**
-     * Provides the currently authenticated user's UUID (from Keycloak JWT sub claim)
+     * Provides the currently authenticated user's UUID from the JWT subject claim.
      * to JPA auditing for @CreatedBy and @LastModifiedBy.
      *
      * @ConditionalOnMissingBean allows any service to override this bean

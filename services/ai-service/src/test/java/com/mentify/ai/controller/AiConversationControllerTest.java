@@ -9,7 +9,7 @@ import com.mentify.ai.dto.response.AiConversationResponse;
 import com.mentify.ai.dto.response.AiMessageResponse;
 import com.mentify.ai.enums.AiMessageRole;
 import com.mentify.ai.service.AiConversationService;
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -50,7 +50,7 @@ class AiConversationControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter;
+    private JwtAuthenticationConverter jwtAuthenticationConverter;
 
     @MockBean
     private AiConversationService conversationService;

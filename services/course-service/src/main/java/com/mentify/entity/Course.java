@@ -46,7 +46,7 @@ public class Course extends BaseEntity {
 
     /**
         * Reference to the teacher who owns this course.
-        * Stores the Keycloak user UUID (token sub) as a plain UUID value.
+        * Stores the auth user UUID (token sub) as a plain UUID value.
      */
     @Column(nullable = false, length = 36)
     private UUID assignedTeacherId;

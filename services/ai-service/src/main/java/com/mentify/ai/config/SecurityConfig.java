@@ -9,14 +9,14 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 @EnableWebSecurity
 @EnableMethodSecurity
 @Import({
-        com.mentify.common.security.KeycloakJwtAuthenticationConverter.class,
-        com.mentify.common.security.KeycloakRoleConverter.class
+        com.mentify.common.security.JwtAuthenticationConverter.class,
+        com.mentify.common.security.JwtRoleConverter.class
 })
 public class SecurityConfig {
 
     @org.springframework.context.annotation.Bean
     public org.springframework.security.web.SecurityFilterChain aiSecurityFilterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http,
-                                                                                      org.springframework.core.convert.converter.Converter<org.springframework.security.oauth2.jwt.Jwt, org.springframework.security.authentication.AbstractAuthenticationToken> keycloakJwtAuthenticationConverter) throws Exception {
+                                                                                      org.springframework.core.convert.converter.Converter<org.springframework.security.oauth2.jwt.Jwt, org.springframework.security.authentication.AbstractAuthenticationToken> jwtAuthenticationConverter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
@@ -34,7 +34,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter))
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
                 )
                 .build();
     }

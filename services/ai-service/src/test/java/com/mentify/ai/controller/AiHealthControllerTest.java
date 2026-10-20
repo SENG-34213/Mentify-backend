@@ -2,7 +2,7 @@ package com.mentify.ai.controller;
 
 import com.mentify.ai.config.SecurityConfig;
 import com.mentify.ai.security.AuthenticatedUserService;
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -28,7 +28,7 @@ class AiHealthControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter;
+    private JwtAuthenticationConverter jwtAuthenticationConverter;
 
     @MockBean
     private AuthenticatedUserService authenticatedUserService;
