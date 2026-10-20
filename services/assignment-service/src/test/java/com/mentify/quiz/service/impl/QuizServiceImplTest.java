@@ -4,6 +4,8 @@ import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.client.dto.CourseLookupResponse;
 import com.mentify.quiz.dto.request.CreateQuizRequest;
+import com.mentify.quiz.dto.request.CreateQuestionRequest;
+import com.mentify.quiz.dto.request.QuestionOptionRequest;
 import com.mentify.quiz.dto.response.QuizResponse;
 import com.mentify.quiz.dto.response.StudentQuestionResponse;
 import com.mentify.quiz.dto.response.StudentQuizResponse;
@@ -18,6 +20,7 @@ import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
+import com.mentify.quiz.service.QuizQuestionService;
 import com.mentify.assignment.service.CalendarProjectionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +63,9 @@ class QuizServiceImplTest {
     @Mock
     private CalendarProjectionService calendarProjectionService;
 
+    @Mock
+    private QuizQuestionService quizQuestionService;
+
     private QuizServiceImpl quizService;
 
     @BeforeEach
@@ -70,7 +76,8 @@ class QuizServiceImplTest {
                 enrollmentServiceClient,
                 currentUserService,
                 courseQuizAuthorizationService,
-                calendarProjectionService
+                calendarProjectionService,
+                quizQuestionService
         );
     }
 
@@ -142,6 +149,57 @@ class QuizServiceImplTest {
         ArgumentCaptor<Quiz> quizCaptor = ArgumentCaptor.forClass(Quiz.class);
         verify(quizRepository).save(quizCaptor.capture());
         assertThat(quizCaptor.getValue().getCreationMethod()).isEqualTo(QuizCreationMethod.AI_GENERATED);
+    }
+
+    @Test
+    void atomicManualCreateStoresQuestionsInTheReturnedDraft() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        CreateQuestionRequest question = CreateQuestionRequest.builder()
+                .questionText("What is two plus two?")
+                .questionType(QuestionType.MULTIPLE_CHOICE_SINGLE_ANSWER)
+                .marks(new BigDecimal("5.00"))
+                .questionOrder(1)
+                .options(List.of(
+                        QuestionOptionRequest.builder().optionText("3").correct(false).optionOrder(1).build(),
+                        QuestionOptionRequest.builder().optionText("4").correct(true).optionOrder(2).build(),
+                        QuestionOptionRequest.builder().optionText("5").correct(false).optionOrder(3).build(),
+                        QuestionOptionRequest.builder().optionText("6").correct(false).optionOrder(4).build()
+                ))
+                .build();
+        CreateQuizRequest request = CreateQuizRequest.builder()
+                .courseId(courseId)
+                .title("Math Quiz")
+                .durationMinutes(15)
+                .passMark(new BigDecimal("5.00"))
+                .maxAttempts(1)
+                .questions(List.of(question))
+                .build();
+
+        CourseLookupResponse course = course(courseId, teacherId);
+        when(courseQuizAuthorizationService.assertCanCreateQuizForCourse(courseId, AUTH_HEADER)).thenReturn(course);
+        when(courseQuizAuthorizationService.resolveTeacherId(course)).thenReturn(teacherId);
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> {
+            Quiz quiz = invocation.getArgument(0);
+            if (quiz.getId() == null) quiz.setId(UUID.randomUUID());
+            return quiz;
+        });
+        QuizQuestion savedQuestion = QuizQuestion.builder()
+                .questionText(question.getQuestionText())
+                .questionType(question.getQuestionType())
+                .marks(question.getMarks())
+                .questionOrder(1)
+                .build();
+        savedQuestion.setId(UUID.randomUUID());
+        when(quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(any(UUID.class)))
+                .thenReturn(List.of(savedQuestion));
+
+        ApiResponse<QuizResponse> response = quizService.createQuiz(request, AUTH_HEADER);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getData().getQuestions()).hasSize(1);
+        verify(quizQuestionService).createQuestion(any(UUID.class), any(CreateQuestionRequest.class),
+                org.mockito.ArgumentMatchers.eq(AUTH_HEADER));
     }
 
     @Test

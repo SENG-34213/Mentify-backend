@@ -22,6 +22,7 @@ import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
+import com.mentify.quiz.service.QuizQuestionService;
 import com.mentify.assignment.service.CalendarProjectionService;
 import com.mentify.quiz.service.QuizService;
 import feign.FeignException;
@@ -47,6 +48,7 @@ public class QuizServiceImpl implements QuizService {
     private final CurrentUserService currentUserService;
     private final CourseQuizAuthorizationService courseQuizAuthorizationService;
     private final CalendarProjectionService calendarProjectionService;
+    private final QuizQuestionService quizQuestionService;
 
     @Override
     @Transactional
@@ -76,6 +78,26 @@ public class QuizServiceImpl implements QuizService {
                 .build();
 
         Quiz savedQuiz = quizRepository.save(quiz);
+
+        if (request.getQuestions() != null && !request.getQuestions().isEmpty()) {
+            request.getQuestions().forEach(questionRequest ->
+                    quizQuestionService.createQuestion(savedQuiz.getId(), questionRequest, authorizationHeader)
+            );
+
+            if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+                return publishQuiz(savedQuiz.getId(), authorizationHeader);
+            }
+
+            List<QuizQuestion> questions = quizQuestionRepository
+                    .findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(savedQuiz.getId());
+            return response(HttpStatus.CREATED, "Quiz created successfully",
+                    QuizMapper.toTeacherQuizResponse(savedQuiz, questions));
+        }
+
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            return publishQuiz(savedQuiz.getId(), authorizationHeader);
+        }
+
         return response(HttpStatus.CREATED, "Quiz created successfully",
                 QuizMapper.toTeacherQuizResponse(savedQuiz, List.of()));
     }
