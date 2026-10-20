@@ -20,7 +20,7 @@ while (( attempt <= max_attempts )); do
 
   retryable_resolution_failure=false
   if grep -Eiq \
-    'HTTP Status: 5[0-9]{2}|status code: 5[0-9]{2}|Could not find artifact .* in central|Could not transfer artifact .* from/to central|was not found in .* during a previous attempt' \
+    'HTTP Status: 5[0-9]{2}|status code: 5[0-9]{2}|Could not find artifact .* in central|Could not transfer artifact .* from/to central|Failed to read artifact descriptor|Plugin .* could not be resolved|Could not collect dependencies for plugin|was not found in .* during a previous attempt' \
     "$log_file"; then
     retryable_resolution_failure=true
   fi
