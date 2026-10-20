@@ -19,6 +19,7 @@ import com.mentify.exception.KeycloakAuthenticationException;
 import com.mentify.exception.KeycloakEmailActionException;
 import com.mentify.service.AuthenticationService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -31,6 +32,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.hasKey;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,6 +84,25 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.data.clientSecret").doesNotExist());
 
         verify(authenticationService).login(any(LoginRequest.class));
+    }
+
+    @Test
+    void login_whenRememberMeIsOmitted_defaultsToFalse() throws Exception {
+        when(authenticationService.login(any(LoginRequest.class))).thenReturn(loginResponse());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "identifier": "student@gmail.com",
+                                  "password": "Password@123"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<LoginRequest> request = ArgumentCaptor.forClass(LoginRequest.class);
+        verify(authenticationService).login(request.capture());
+        assertThat(request.getValue().isRememberMe()).isFalse();
     }
 
     @Test

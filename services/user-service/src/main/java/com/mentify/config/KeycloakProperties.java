@@ -30,6 +30,9 @@ public class KeycloakProperties {
 
     private boolean includeRefreshTokenInLoginResponse = true;
 
+    @NotBlank
+    private String rememberMeScope = "offline_access";
+
     private BootstrapSuperAdmin bootstrapSuperAdmin = new BootstrapSuperAdmin();
 
     @Data

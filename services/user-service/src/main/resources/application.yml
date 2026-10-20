@@ -38,6 +38,7 @@ keycloak:
   auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
   auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
   include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
+  remember-me-scope: ${KEYCLOAK_REMEMBER_ME_SCOPE:offline_access}
   bootstrap-super-admin:
     enabled: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_ENABLED:true}
     email: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_EMAIL:superadmin@gmail.com}

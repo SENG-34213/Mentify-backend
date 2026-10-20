@@ -1,6 +1,9 @@
 {
   "realm": "mentify",
   "enabled": true,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 5184000,
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "roles": {
@@ -83,7 +86,10 @@
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true
+      "directAccessGrantsEnabled": true,
+      "optionalClientScopes": [
+        "offline_access"
+      ]
     }
   ]
 }

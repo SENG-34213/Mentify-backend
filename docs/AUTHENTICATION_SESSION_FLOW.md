@@ -6,6 +6,16 @@
 
 The backend authenticates the submitted email and password through Keycloak's token endpoint using the password grant. Mentify does not generate access tokens or refresh tokens.
 
+Request:
+
+```json
+{
+  "identifier": "student@mentify.com",
+  "password": "<password>",
+  "rememberMe": false
+}
+```
+
 Successful responses use the common `ApiResponse` shape:
 
 ```json
@@ -24,6 +34,14 @@ Successful responses use the common `ApiResponse` shape:
   }
 }
 ```
+
+`rememberMe` is optional and defaults to `false`. When set to `true`, Mentify requests Keycloak's configured persistent-session scope (default `offline_access`) through the same Direct Access Grant. Keycloak remains the authority for the access token and persistent refresh token; Mentify does not issue or store authentication tokens.
+
+The persistent refresh token is returned through the existing `refreshToken` field and works with the existing refresh endpoint. Logout submits it to Keycloak to invalidate the session. Expired or revoked tokens return a controlled `401 Unauthorized`.
+
+Remembered logins always include the Keycloak refresh token required to continue and end the persistent session, even when `KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE=false` suppresses refresh-token metadata for ordinary logins.
+
+Keycloak's offline-session idle and maximum lifetimes are realm settings, not Mentify-managed values. The bundled realm import sets a 30-day idle timeout and 60-day maximum lifetime. Administrators can change these values in the Keycloak Admin Console under **Realm settings → Sessions**. The optional scope name is configurable with `KEYCLOAK_REMEMBER_ME_SCOPE`; it must be allowed for the auth client.
 
 ## Refresh Access Token
 

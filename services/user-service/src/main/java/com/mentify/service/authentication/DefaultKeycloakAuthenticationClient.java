@@ -130,6 +130,9 @@ public class DefaultKeycloakAuthenticationClient implements KeycloakAuthenticati
         addClientCredentials(form);
         form.add("username", request.getIdentifier().trim());
         form.add("password", request.getPassword());
+        if (request.isRememberMe()) {
+            form.add("scope", keycloakProperties.getRememberMeScope().trim());
+        }
         return form;
     }
 

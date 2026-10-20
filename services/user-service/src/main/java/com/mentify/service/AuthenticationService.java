@@ -56,7 +56,7 @@ public class AuthenticationService {
             user.resetLoginAttempts();
             user.setLastLogin(LocalDateTime.now());
 
-            LoginResponse response = buildLoginResponse(keycloakSession, user);
+            LoginResponse response = buildLoginResponse(keycloakSession, user, request.isRememberMe());
             authenticationEventLogger.loginSucceeded(user.getId(), user.getKeycloakUserId(), user.getRole());
             return response;
         } catch (AuthenticationFailedException exception) {
@@ -254,15 +254,18 @@ public class AuthenticationService {
         return role == Role.ADMIN || role == Role.SUPER_ADMIN;
     }
 
-    private LoginResponse buildLoginResponse(KeycloakAuthenticationResult keycloakSession, User user) {
+    private LoginResponse buildLoginResponse(
+            KeycloakAuthenticationResult keycloakSession,
+            User user,
+            boolean rememberMe
+    ) {
+        boolean includeRefreshToken = keycloakProperties.isIncludeRefreshTokenInLoginResponse() || rememberMe;
         return LoginResponse.builder()
                 .accessToken(keycloakSession.getAccessToken())
-                .refreshToken(keycloakProperties.isIncludeRefreshTokenInLoginResponse() ? keycloakSession.getRefreshToken() : null)
+                .refreshToken(includeRefreshToken ? keycloakSession.getRefreshToken() : null)
                 .tokenType(keycloakSession.getTokenType())
                 .expiresIn(keycloakSession.getExpiresIn())
-                .refreshExpiresIn(keycloakProperties.isIncludeRefreshTokenInLoginResponse()
-                        ? keycloakSession.getRefreshExpiresIn()
-                        : null)
+                .refreshExpiresIn(includeRefreshToken ? keycloakSession.getRefreshExpiresIn() : null)
                 .scope(keycloakSession.getScope())
                 .issuedAt(Instant.now())
                 .user(LoginResponse.UserSummary.builder()
