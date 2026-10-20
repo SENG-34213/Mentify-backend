@@ -10,7 +10,10 @@ public enum MaterialType {
     AUDIO,
     PDF,
     PPT,
-    DOC;
+    DOC,
+    TEXT,
+    SPREADSHEET,
+    ARCHIVE;
 
     @JsonCreator
     public static MaterialType from(String value) {

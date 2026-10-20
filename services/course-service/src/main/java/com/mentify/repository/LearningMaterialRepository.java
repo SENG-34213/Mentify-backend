@@ -17,6 +17,8 @@ public interface LearningMaterialRepository extends JpaRepository<LearningMateri
 
 	List<LearningMaterial> findAllByModule_Id(UUID moduleId);
 
+	List<LearningMaterial> findAllByLesson_Id(UUID lessonId);
+
 	@Query("""
 			select lm.materialId
 			from LearningMaterial lm

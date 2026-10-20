@@ -19,6 +19,8 @@ public class LessonResponse {
     private String title;
     private boolean isVisible;
     private String description;
+    private String contentMarkdown;
+    private java.util.List<LearningMaterialResponse> materials;
     private LocalDate releaseDate;
     private UUID moduleId;
     private UUID createdBy;

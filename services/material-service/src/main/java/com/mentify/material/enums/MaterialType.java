@@ -9,5 +9,6 @@ public enum MaterialType {
     VIDEO,
     AUDIO,
     ARCHIVE,
+    TEXT,
     OTHER
 }

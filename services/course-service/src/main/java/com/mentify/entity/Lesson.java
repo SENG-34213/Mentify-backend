@@ -24,6 +24,10 @@ public class Lesson extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    /** Markdown/plain-text lesson body authored by the teacher. */
+    @Column(name = "content_markdown", columnDefinition = "TEXT")
+    private String contentMarkdown;
+
     @Column(nullable = false)
     private boolean isVisible = true;
 

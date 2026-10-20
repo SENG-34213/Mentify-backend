@@ -146,19 +146,23 @@ public class MaterialFileValidationServiceImpl implements MaterialFileValidation
         return switch (extension) {
             case "pdf" -> startsWith(header, "%PDF".getBytes());
             case "doc", "ppt", "xls" -> startsWith(header, bytes(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1));
-            case "docx", "pptx", "xlsx" -> startsWith(header, bytes(0x50, 0x4B, 0x03, 0x04))
+            case "docx", "pptx", "xlsx", "odt", "odp", "ods", "zip" -> startsWith(header, bytes(0x50, 0x4B, 0x03, 0x04))
                     || startsWith(header, bytes(0x50, 0x4B, 0x05, 0x06))
                     || startsWith(header, bytes(0x50, 0x4B, 0x07, 0x08));
-            case "txt" -> isPlainText(header);
+            case "txt", "md", "markdown", "csv", "rtf" -> isPlainText(header);
             case "jpg", "jpeg" -> startsWith(header, bytes(0xFF, 0xD8, 0xFF));
             case "png" -> startsWith(header, bytes(0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A));
             case "gif" -> startsWith(header, "GIF87a".getBytes()) || startsWith(header, "GIF89a".getBytes());
             case "webp" -> startsWith(header, "RIFF".getBytes()) && containsAt(header, "WEBP".getBytes(), 8);
             case "mp4", "mov", "m4a" -> containsAt(header, "ftyp".getBytes(), 4);
             case "webm" -> startsWith(header, bytes(0x1A, 0x45, 0xDF, 0xA3));
+            case "avi" -> startsWith(header, "RIFF".getBytes()) && containsAt(header, "AVI ".getBytes(), 8);
             case "mp3" -> startsWith(header, "ID3".getBytes()) || hasMp3FrameSync(header);
             case "wav" -> startsWith(header, "RIFF".getBytes()) && containsAt(header, "WAVE".getBytes(), 8);
             case "ogg" -> startsWith(header, "OggS".getBytes());
+            case "7z" -> startsWith(header, bytes(0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C));
+            case "rar" -> startsWith(header, "Rar!".getBytes());
+            case "svg" -> contentType.equals("image/svg+xml") && isPlainText(header);
             default -> contentType.startsWith("text/") && isPlainText(header);
         };
     }

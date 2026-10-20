@@ -175,6 +175,22 @@ public class CourseContentController {
         return new ResponseEntity<>(response, response.getStatus());
     }
 
+    @PostMapping("/{moduleId}/lessons/{lessonId}/materials/upload")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<LearningMaterialResponse>> uploadLessonMaterial(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID lessonId,
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(
+                courseId, moduleId, lessonId, title, description, file, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @PutMapping("/{moduleId}/learning-materials/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> updateLearningMaterial(
@@ -200,6 +216,19 @@ public class CourseContentController {
             learningMaterialService.getLearningMaterials(courseId, moduleId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
         }
+
+    @GetMapping("/{moduleId}/lessons/{lessonId}/materials")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<LearningMaterialResponse>>> getLessonMaterials(
+            @PathVariable UUID courseId,
+            @PathVariable UUID moduleId,
+            @PathVariable UUID lessonId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<LearningMaterialResponse>> response =
+                learningMaterialService.getLessonLearningMaterials(courseId, moduleId, lessonId, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 
         @GetMapping("/{moduleId}/learning-materials/{materialId}")
         @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")

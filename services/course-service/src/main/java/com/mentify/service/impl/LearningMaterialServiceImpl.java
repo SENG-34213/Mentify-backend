@@ -111,6 +111,10 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                     LearningMaterial.builder()
                             .title(title.trim())
                             .type(mapMaterialType(material.type()))
+                            .originalFilename(material.originalFilename())
+                            .contentType(material.contentType())
+                            .fileSize(material.fileSize())
+                            .status(material.status())
                             .materialId(material.id())
                             .module(module)
                             .lesson(lesson)
@@ -155,6 +159,10 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .title(request.getTitle().trim())
                 .type(resolveType(request, materialReference))
                 .fileUrl(resolveFileUrl(request, materialReference))
+                .originalFilename(materialReference == null ? null : materialReference.originalFilename())
+                .contentType(materialReference == null ? null : materialReference.contentType())
+                .fileSize(materialReference == null ? null : materialReference.fileSize())
+                .status(materialReference == null ? null : materialReference.status())
                 .materialId(request.getMaterialId())
                 .module(module)
                 .lesson(lesson)
@@ -201,6 +209,10 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
         material.setTitle(request.getTitle().trim());
         material.setType(resolveType(request, materialReference));
         material.setFileUrl(resolveFileUrl(request, materialReference));
+        material.setOriginalFilename(materialReference == null ? null : materialReference.originalFilename());
+        material.setContentType(materialReference == null ? null : materialReference.contentType());
+        material.setFileSize(materialReference == null ? null : materialReference.fileSize());
+        material.setStatus(materialReference == null ? null : materialReference.status());
         material.setMaterialId(request.getMaterialId());
         material.setLesson(lesson);
 
@@ -265,6 +277,26 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
 
     @Override
     @Transactional
+    public ApiResponse<List<LearningMaterialResponse>> getLessonLearningMaterials(
+            UUID courseId, UUID moduleId, UUID lessonId, String authorizationHeader) {
+        Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
+        lessonRepository.findByIdAndModule_Id(lessonId, moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", lessonId));
+        courseContentAccessGuard.assertCanReadCourseContent(module.getCourse(), authorizationHeader);
+
+        List<LearningMaterialResponse> materials = learningMaterialRepository.findAllByLesson_Id(lessonId)
+                .stream().map(this::toResponse).toList();
+        return ApiResponse.<List<LearningMaterialResponse>>builder()
+                .message("Lesson learning materials fetched successfully")
+                .data(materials)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<Object> deleteLearningMaterial(UUID courseId, UUID moduleId, UUID materialId) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
@@ -289,6 +321,10 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .title(material.getTitle())
                 .type(material.getType())
                 .fileUrl(material.getFileUrl())
+                .originalFilename(material.getOriginalFilename())
+                .contentType(material.getContentType())
+                .fileSize(material.getFileSize())
+                .status(material.getStatus())
                 .materialId(material.getMaterialId())
                 .moduleId(material.getModule().getId())
                 .lessonId(material.getLesson() != null ? material.getLesson().getId() : null)
@@ -403,6 +439,9 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
             case "AUDIO" -> MaterialType.AUDIO;
             case "DOCUMENT" -> MaterialType.DOC;
             case "PRESENTATION" -> MaterialType.PPT;
+            case "TEXT" -> MaterialType.TEXT;
+            case "SPREADSHEET" -> MaterialType.SPREADSHEET;
+            case "ARCHIVE" -> MaterialType.ARCHIVE;
             default -> throw new IllegalArgumentException("Unsupported material type: " + materialServiceType);
         };
     }

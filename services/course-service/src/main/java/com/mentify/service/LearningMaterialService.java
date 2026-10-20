@@ -48,5 +48,12 @@ public interface LearningMaterialService {
             String authorizationHeader
     );
 
+    ApiResponse<List<LearningMaterialResponse>> getLessonLearningMaterials(
+            UUID courseId,
+            UUID moduleId,
+            UUID lessonId,
+            String authorizationHeader
+    );
+
     ApiResponse<Object> deleteLearningMaterial(UUID courseId, UUID moduleId, UUID materialId);
 }
