@@ -42,7 +42,7 @@ class KeycloakUserServiceImplTest {
     }
 
     @Test
-    void createUser_setsGeneratedPasswordAsKeycloakCredential() {
+    void createUser_doesNotSetPasswordCredential() {
         Response response = mock(Response.class);
         when(response.getStatus()).thenReturn(Response.Status.CREATED.getStatusCode());
         when(response.getLocation()).thenReturn(URI.create("/admin/realms/mentify/users/user-id"));
@@ -71,18 +71,6 @@ class KeycloakUserServiceImplTest {
         var credentialCaptor = forClass(CredentialRepresentation.class);
         verify(userResource).resetPassword(credentialCaptor.capture());
         assertPassword(List.of(credentialCaptor.getValue()), "A7!bcD2x");
-    }
-
-    @Test
-    void resetPassword_setsNewKeycloakCredential() {
-        UserResource userResource = mock(UserResource.class);
-        when(usersResource.get("user-id")).thenReturn(userResource);
-
-        userService.resetPassword("user-id", "B4@deF6g");
-
-        var credentialCaptor = forClass(CredentialRepresentation.class);
-        verify(userResource).resetPassword(credentialCaptor.capture());
-        assertPassword(List.of(credentialCaptor.getValue()), "B4@deF6g");
     }
 
     private void assertPassword(List<CredentialRepresentation> credentials, String expectedPassword) {
