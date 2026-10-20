@@ -107,6 +107,7 @@ class CourseContentControllerTest {
         LessonResponse lessonResponse = LessonResponse.builder()
                 .id(UUID.randomUUID())
                 .title("Linear Equations")
+                .durationMinutes(45)
                 .moduleId(moduleId)
                 .isVisible(true)
                 .build();
@@ -121,6 +122,7 @@ class CourseContentControllerTest {
 
         LessonCreateRequest request = LessonCreateRequest.builder()
                 .title("Linear Equations")
+                .durationMinutes(45)
                 .build();
 
         mockMvc.perform(post("/api/v1/course/{courseId}/modules/{moduleId}/lessons", courseId, moduleId)
@@ -128,7 +130,8 @@ class CourseContentControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message").value("Lesson created successfully"))
-                .andExpect(jsonPath("$.data.title").value("Linear Equations"));
+                .andExpect(jsonPath("$.data.title").value("Linear Equations"))
+                .andExpect(jsonPath("$.data.durationMinutes").value(45));
 
         verify(lessonService).createLesson(eq(courseId), eq(moduleId), any(LessonCreateRequest.class));
     }
@@ -212,6 +215,7 @@ class CourseContentControllerTest {
         LessonResponse lessonResponse = LessonResponse.builder()
                 .id(lessonId)
                 .title("Updated Linear Equations")
+                .durationMinutes(60)
                 .moduleId(moduleId)
                 .isVisible(true)
                 .build();
@@ -225,6 +229,7 @@ class CourseContentControllerTest {
 
         LessonCreateRequest request = LessonCreateRequest.builder()
                 .title("Updated Linear Equations")
+                .durationMinutes(60)
                 .build();
 
         mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId)
@@ -232,7 +237,8 @@ class CourseContentControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lesson updated successfully"))
-                .andExpect(jsonPath("$.data.title").value("Updated Linear Equations"));
+                .andExpect(jsonPath("$.data.title").value("Updated Linear Equations"))
+                .andExpect(jsonPath("$.data.durationMinutes").value(60));
 
         verify(lessonService).updateLesson(eq(courseId), eq(moduleId), eq(lessonId), any(LessonCreateRequest.class));
     }
@@ -244,6 +250,7 @@ class CourseContentControllerTest {
         UUID lessonId = UUID.randomUUID();
         LessonCreateRequest request = LessonCreateRequest.builder()
                 .title(" ")
+                .durationMinutes(45)
                 .build();
 
         mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId)
@@ -256,11 +263,48 @@ class CourseContentControllerTest {
     }
 
     @Test
+    void createLesson_whenDurationIsMissing_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        LessonCreateRequest request = LessonCreateRequest.builder()
+                .title("Lesson")
+                .build();
+
+        mockMvc.perform(post("/api/v1/course/{courseId}/modules/{moduleId}/lessons", courseId, moduleId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Lesson duration is required"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+    }
+
+    @Test
+    void updateLesson_whenDurationIsZero_returnsBadRequest() throws Exception {
+        UUID courseId = UUID.randomUUID();
+        UUID moduleId = UUID.randomUUID();
+        UUID lessonId = UUID.randomUUID();
+        LessonCreateRequest request = LessonCreateRequest.builder()
+                .title("Lesson")
+                .durationMinutes(0)
+                .build();
+
+        mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Lesson duration must be at least 1 minute"));
+
+        verifyNoInteractions(moduleService, lessonService, learningMaterialService);
+    }
+
+    @Test
     void updateLesson_whenLessonIdIsInvalidUuid_returnsBadRequest() throws Exception {
         UUID courseId = UUID.randomUUID();
         UUID moduleId = UUID.randomUUID();
         LessonCreateRequest request = LessonCreateRequest.builder()
                 .title("Updated Linear Equations")
+                .durationMinutes(45)
                 .build();
 
         mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, "not-a-uuid")

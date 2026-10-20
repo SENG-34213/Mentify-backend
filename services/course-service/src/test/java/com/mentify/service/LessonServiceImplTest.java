@@ -75,11 +75,13 @@ class LessonServiceImplTest {
         ApiResponse<LessonResponse> response = lessonService.createLesson(courseId, moduleId, LessonCreateRequest.builder()
                 .title("  Linear Equations  ")
                 .description("  Solve equations  ")
+                .durationMinutes(45)
                 .build());
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getData()).isNotNull();
         assertThat(response.getData().getTitle()).isEqualTo("Linear Equations");
+        assertThat(response.getData().getDurationMinutes()).isEqualTo(45);
 
         verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());
     }
@@ -121,6 +123,7 @@ class LessonServiceImplTest {
                 LessonCreateRequest.builder()
                     .title("  Updated Lesson  ")
                     .description("  Updated Description  ")
+                    .durationMinutes(60)
                     .isVisible(false)
                     .build()
             );
@@ -129,6 +132,7 @@ class LessonServiceImplTest {
             assertThat(response.getMessage()).isEqualTo("Lesson updated successfully");
             assertThat(response.getData()).isNotNull();
             assertThat(response.getData().getTitle()).isEqualTo("Updated Lesson");
+            assertThat(response.getData().getDurationMinutes()).isEqualTo(60);
             assertThat(response.getData().isVisible()).isFalse();
 
             verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(module.getCourse());

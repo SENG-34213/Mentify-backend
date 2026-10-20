@@ -39,6 +39,7 @@ public class LessonServiceImpl implements LessonService {
         Lesson lesson = Lesson.builder()
                 .title(request.getTitle().trim())
                 .description(request.getDescription() != null ? request.getDescription().trim() : null)
+                .durationMinutes(request.getDurationMinutes())
                 .contentMarkdown(normalizeContent(request.getContentMarkdown()))
                 .isVisible(request.getIsVisible() != null ? request.getIsVisible() : true)
                 .releaseDate(request.getReleaseDate())
@@ -73,6 +74,7 @@ public class LessonServiceImpl implements LessonService {
 
         lesson.setTitle(request.getTitle().trim());
         lesson.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+        lesson.setDurationMinutes(request.getDurationMinutes());
         lesson.setContentMarkdown(normalizeContent(request.getContentMarkdown()));
         lesson.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
         lesson.setReleaseDate(request.getReleaseDate());
@@ -156,6 +158,7 @@ public class LessonServiceImpl implements LessonService {
                 .id(lesson.getId())
                 .title(lesson.getTitle())
                 .description(lesson.getDescription())
+                .durationMinutes(lesson.getDurationMinutes())
                 .contentMarkdown(lesson.getContentMarkdown())
                 .materials(learningMaterialRepository.findAllByLesson_Id(lesson.getId()).stream()
                         .map(material -> LearningMaterialResponse.builder()

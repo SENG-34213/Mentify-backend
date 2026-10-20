@@ -24,6 +24,11 @@ public class Lesson extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    /** Estimated lesson length in whole minutes. */
+    @Column(name = "duration_minutes", nullable = false, columnDefinition = "integer default 1")
+    @Builder.Default
+    private Integer durationMinutes = 1;
+
     /** Markdown/plain-text lesson body authored by the teacher. */
     @Column(name = "content_markdown", columnDefinition = "TEXT")
     private String contentMarkdown;
