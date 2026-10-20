@@ -139,11 +139,8 @@ class UserRegistrationServiceTest {
         ArgumentCaptor<String> temporaryPasswordCaptor = ArgumentCaptor.forClass(String.class);
         verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
         String temporaryPassword = temporaryPasswordCaptor.getValue();
-        assertThat(temporaryPassword).hasSize(32)
-                .matches(".*[A-Z].*")
-                .matches(".*[a-z].*")
-                .matches(".*[0-9].*")
-                .matches(".*[^A-Za-z0-9].*");
+        assertThat(temporaryPassword)
+                .matches("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8}");
         verify(registrationEmailDispatcher).sendAfterCommit(
                 eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
 
@@ -363,7 +360,8 @@ class UserRegistrationServiceTest {
 
         ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
         verify(keycloakUserService).setInitialPassword(eq("keycloak-user-id"), passwordCaptor.capture());
-        assertThat(passwordCaptor.getValue()).hasSize(32);
+        assertThat(passwordCaptor.getValue())
+                .matches("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8}");
         verify(registrationEmailDispatcher).sendAfterCommit(
                 eq("keycloak-user-id"), eq(user.getEmail()), eq(user.getFirstName()), eq(passwordCaptor.getValue()));
     }

@@ -20,6 +20,7 @@ import com.mentify.service.registration.TemporaryPasswordGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -34,7 +35,6 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -108,9 +108,13 @@ class StudentServiceImplTest {
         assertThat(user.getPassword()).isNull();
         assertThat(user.isEmailVerified()).isTrue();
         verify(keycloakUserService).assignRealmRole(keycloakUserId, Role.STUDENT.name());
-        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
+        ArgumentCaptor<String> temporaryPasswordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
+        String temporaryPassword = temporaryPasswordCaptor.getValue();
+        assertThat(temporaryPassword)
+                .matches("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8}");
         verify(registrationEmailDispatcher).sendAfterCommit(
-                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
     }
 
     @Test

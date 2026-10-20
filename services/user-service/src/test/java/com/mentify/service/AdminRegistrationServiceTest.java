@@ -32,7 +32,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -104,9 +103,14 @@ class AdminRegistrationServiceTest {
         assertThat(response.getAdminProfile().getAdminCode()).isEqualTo("TIT-ADM-005");
 
         verify(keycloakUserService).assignRealmRole(keycloakUserId, "ADMIN");
-        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), anyString());
+        org.mockito.ArgumentCaptor<String> temporaryPasswordCaptor =
+                org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(keycloakUserService).setInitialPassword(eq(keycloakUserId), temporaryPasswordCaptor.capture());
+        String temporaryPassword = temporaryPasswordCaptor.getValue();
+        assertThat(temporaryPassword)
+                .matches("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8}");
         verify(registrationEmailDispatcher).sendAfterCommit(
-                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), anyString());
+                eq(keycloakUserId), eq(request.getEmail()), eq(request.getFirstName()), eq(temporaryPassword));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(userCaptor.capture());
