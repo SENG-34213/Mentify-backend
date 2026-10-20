@@ -8,13 +8,10 @@ import com.mentify.exception.FirstLoginRequiredException;
 import com.mentify.exception.InvalidRefreshTokenException;
 import com.mentify.exception.InvalidRoleException;
 import com.mentify.exception.InvalidUserStateException;
-import com.mentify.exception.KeycloakAuthenticationException;
-import com.mentify.exception.KeycloakEmailActionException;
-import com.mentify.exception.KeycloakRoleAssignmentException;
-import com.mentify.exception.KeycloakUserCreationException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.service.registration.RegistrationEmailDeliveryException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
@@ -33,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
+@Slf4j
 public class UserServiceExceptionHandler {
 
     @ExceptionHandler(DuplicateResourceException.class)
@@ -102,38 +100,6 @@ public class UserServiceExceptionHandler {
         return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
     }
 
-    @ExceptionHandler(KeycloakAuthenticationException.class)
-    public ResponseEntity<ErrorResponse> handleKeycloakAuthentication(
-            KeycloakAuthenticationException exception,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Authentication service is unavailable", request);
-    }
-
-    @ExceptionHandler(KeycloakUserCreationException.class)
-    public ResponseEntity<ErrorResponse> handleKeycloakUserCreation(
-            KeycloakUserCreationException exception,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
-    }
-
-    @ExceptionHandler(KeycloakRoleAssignmentException.class)
-    public ResponseEntity<ErrorResponse> handleKeycloakRoleAssignment(
-            KeycloakRoleAssignmentException exception,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
-    }
-
-    @ExceptionHandler(KeycloakEmailActionException.class)
-    public ResponseEntity<ErrorResponse> handleKeycloakEmailAction(
-            KeycloakEmailActionException exception,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(HttpStatus.BAD_GATEWAY, "Authentication email service is unavailable", request);
-    }
-
     @ExceptionHandler(RegistrationEmailDeliveryException.class)
     public ResponseEntity<ErrorResponse> handleRegistrationEmailDelivery(
             RegistrationEmailDeliveryException exception,
@@ -183,6 +149,7 @@ public class UserServiceExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
+        log.error("Unhandled user-service error for {} {}", request.getMethod(), request.getRequestURI(), exception);
         return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error", request);
     }
 

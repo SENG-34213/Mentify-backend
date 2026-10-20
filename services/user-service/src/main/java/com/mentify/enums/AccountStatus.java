@@ -6,7 +6,7 @@ package com.mentify.enums;
  */
 public enum AccountStatus {
     /**
-     * The account has been invited through Keycloak and is waiting for setup.
+     * The account has been invited and is waiting for setup.
      */
     INVITED,
 

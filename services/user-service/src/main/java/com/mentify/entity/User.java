@@ -1,6 +1,7 @@
 package com.mentify.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.mentify.entity.BaseEntity;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import jakarta.persistence.*;
@@ -19,14 +20,10 @@ import java.time.LocalTime;
 public class User extends BaseEntity {
 
     @Column(unique = true, length = 100)
-    private String keycloakUserId;
+    private String authUserId;
 
     @Column(unique = true, nullable = false, length = 150)
     private String email;
-
-    @JsonIgnore
-    @Column
-    private String password;
 
     @Column(nullable = false, length = 100)
     private String firstName;

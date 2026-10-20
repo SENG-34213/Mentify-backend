@@ -10,6 +10,7 @@ import com.mentify.dto.ChangePasswordRequest;
 import com.mentify.dto.UpdateTeacherProfileRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.StudentDirectoryProfileResponse;
+import com.mentify.entity.User;
 import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.UserRepository;
@@ -168,14 +169,40 @@ public class UserRegistration {
 
     @GetMapping("/teachers/{teacherId}/exists")
     public ResponseEntity<Boolean> teacherExists(@PathVariable String teacherId) {
-        boolean exists = userRepository.existsByKeycloakUserIdAndRole(teacherId, Role.TEACHER);
+        boolean exists = existsByIdentity(teacherId, Role.TEACHER);
         return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/teachers/{teacherId}/canonical-id")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<UUID> teacherCanonicalId(@PathVariable String teacherId) {
+        User user;
+        try {
+            user = userRepository.findById(UUID.fromString(teacherId))
+                    .orElseGet(() -> userRepository.findByAuthUserId(teacherId).orElse(null));
+        } catch (IllegalArgumentException exception) {
+            user = userRepository.findByAuthUserId(teacherId).orElse(null);
+        }
+
+        if (user == null || user.getRole() != Role.TEACHER) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(user.getId());
     }
 
     @GetMapping("/students/{studentId}/exists")
     public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
-        boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
+        boolean exists = existsByIdentity(studentId, Role.STUDENT);
         return ResponseEntity.ok(exists);
+    }
+
+    private boolean existsByIdentity(String identity, Role role) {
+        try {
+            return userRepository.existsByIdAndRole(java.util.UUID.fromString(identity), role)
+                    || userRepository.existsByAuthUserIdAndRole(identity, role);
+        } catch (IllegalArgumentException exception) {
+            return userRepository.existsByAuthUserIdAndRole(identity, role);
+        }
     }
 
     @GetMapping("/students/lookup")

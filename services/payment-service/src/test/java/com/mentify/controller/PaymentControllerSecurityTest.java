@@ -1,7 +1,7 @@
 package com.mentify.controller;
 
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
-import com.mentify.common.security.KeycloakRoleConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
+import com.mentify.common.security.JwtRoleConverter;
 import com.mentify.common.security.SecurityConfig;
 import com.mentify.dto.AdminPaymentDetailResponse;
 import com.mentify.dto.PaymentVerificationResponse;
@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 "mentify.security.enabled=true"
         }
 )
-@Import({SecurityConfig.class, KeycloakJwtAuthenticationConverter.class, KeycloakRoleConverter.class})
+@Import({SecurityConfig.class, JwtAuthenticationConverter.class, JwtRoleConverter.class})
 class PaymentControllerSecurityTest {
 
     @Autowired

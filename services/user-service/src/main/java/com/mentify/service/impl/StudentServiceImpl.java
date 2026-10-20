@@ -11,9 +11,9 @@ import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.mapper.StudentMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.UserRepository;
-import com.mentify.service.KeycloakUserService;
+import com.mentify.service.AuthCredentialService;
 import com.mentify.service.StudentService;
-import com.mentify.service.registration.KeycloakUserProvisionRequest;
+import com.mentify.service.registration.AuthUserProvisionRequest;
 import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ public class StudentServiceImpl implements StudentService {
 
     private final UserRepository userRepository;
     private final StudentMapper studentMapper;
-    private final KeycloakUserService keycloakUserService;
+    private final AuthCredentialService authCredentialService;
     private final RegistrationEmailDispatcher registrationEmailDispatcher;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
 
@@ -42,16 +42,15 @@ public class StudentServiceImpl implements StudentService {
             throw new ResourceAlreadyExistsException("User", "email", request.getEmail());
         }
 
-        String keycloakUserId = null;
+        String authUserId = null;
         String temporaryPassword = temporaryPasswordGenerator.generate();
         try {
-            keycloakUserId = keycloakUserService.createUser(new KeycloakUserProvisionRequest(
+            authUserId = authCredentialService.createUser(new AuthUserProvisionRequest(
                     request.getEmail(), request.getFirstName(), request.getLastName()));
-            keycloakUserService.setInitialPassword(keycloakUserId, temporaryPassword);
-            keycloakUserService.assignRealmRole(keycloakUserId, Role.STUDENT.name());
+            authCredentialService.setInitialPassword(authUserId, temporaryPassword);
 
             User user = studentMapper.toUserEntity(request);
-            user.setKeycloakUserId(keycloakUserId);
+            user.setAuthUserId(authUserId);
             user.setAccountStatus(AccountStatus.INVITED);
             user.setEmailVerified(true);
             StudentProfile profile = studentMapper.toStudentProfileEntity(request);
@@ -61,8 +60,9 @@ public class StudentServiceImpl implements StudentService {
             user.setAddress(address);
 
             User savedUser = userRepository.saveAndFlush(user);
+            authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
 
             UserResponse userResponse = studentMapper.toUserResponse(savedUser);
 
@@ -72,12 +72,12 @@ public class StudentServiceImpl implements StudentService {
                     .status(HttpStatus.CREATED)
                     .build();
         } catch (Exception exception) {
-            if (keycloakUserId != null) {
+            if (authUserId != null) {
                 try {
-                    keycloakUserService.deleteUser(keycloakUserId);
+                    authCredentialService.deleteUser(authUserId);
                 } catch (Exception cleanupException) {
                     exception.addSuppressed(cleanupException);
-                    log.warn("Failed to clean up Keycloak user {} after student registration failure", keycloakUserId);
+                    log.warn("Failed to clean up auth user {} after student registration failure", authUserId);
                 }
             }
             throw exception;

@@ -159,10 +159,10 @@ class MaterialAuthorizationServiceTest {
 
     @Test
     void localUserIdClaimMatchesCourseServiceIdentityResolution() {
-        UUID keycloakSubject = UUID.randomUUID();
+        UUID authSubject = UUID.randomUUID();
         UUID localUserId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
-        authenticate(keycloakSubject, localUserId, "TEACHER");
+        authenticate(authSubject, localUserId, "TEACHER");
         when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
                 .thenReturn(courseResponse(courseId, localUserId));
 

@@ -21,6 +21,7 @@ public class LessonResponse {
     private String description;
     private Integer durationMinutes;
     private String contentMarkdown;
+    private String contentType;
     private java.util.List<LearningMaterialResponse> materials;
     private LocalDate releaseDate;
     private UUID moduleId;

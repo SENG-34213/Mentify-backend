@@ -43,7 +43,7 @@ class TeacherCourseAccessGuardTest {
     }
 
     @Test
-    void assertTeacherOwnsCourse_prefersLocalUserIdClaimOverKeycloakSubject() {
+    void assertTeacherOwnsCourse_prefersLocalUserIdClaimOverJwtProviderSubject() {
         UUID teacherId = UUID.randomUUID();
         setJwtAuthentication(UUID.randomUUID().toString(), teacherId.toString());
 

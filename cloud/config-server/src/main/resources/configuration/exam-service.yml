@@ -10,10 +10,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
 
   datasource:
-    url: jdbc:postgresql://${EXAM_DB_HOST:localhost}:${EXAM_DB_PORT:5434}/${EXAM_DB_NAME:exam_db}
+    url: jdbc:postgresql://${EXAM_DB_HOST:localhost}:${EXAM_DB_PORT:5432}/${EXAM_DB_NAME:exam_db}
     username: ${EXAM_DB_USERNAME:postgres}
     password: ${EXAM_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver

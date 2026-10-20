@@ -62,19 +62,23 @@ public class CourseContentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<ModuleResponse>>> getModules(@PathVariable UUID courseId) {
-        ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId);
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<ModuleResponse>>> getModules(
+            @PathVariable UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
     @GetMapping("/{moduleId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ModuleResponse>> getModule(
             @PathVariable UUID courseId,
-            @PathVariable UUID moduleId
+            @PathVariable UUID moduleId,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
-        ApiResponse<ModuleResponse> response = moduleService.getModule(courseId, moduleId);
+        ApiResponse<ModuleResponse> response = moduleService.getModule(courseId, moduleId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -113,23 +117,25 @@ public class CourseContentController {
     }
 
     @GetMapping("/{moduleId}/lessons")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<LessonResponse>>> getLessons(
             @PathVariable UUID courseId,
-            @PathVariable UUID moduleId
+            @PathVariable UUID moduleId,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
-        ApiResponse<List<LessonResponse>> response = lessonService.getLessons(courseId, moduleId);
+        ApiResponse<List<LessonResponse>> response = lessonService.getLessons(courseId, moduleId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
     @GetMapping("/{moduleId}/lessons/{lessonId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LessonResponse>> getLesson(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
-            @PathVariable UUID lessonId
+            @PathVariable UUID lessonId,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
-        ApiResponse<LessonResponse> response = lessonService.getLesson(courseId, moduleId, lessonId);
+        ApiResponse<LessonResponse> response = lessonService.getLesson(courseId, moduleId, lessonId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -163,10 +169,10 @@ public class CourseContentController {
     public ResponseEntity<ApiResponse<LearningMaterialResponse>> uploadLearningMaterial(
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
-            @RequestParam String title,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) UUID lessonId,
-            @RequestParam MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "lessonId", required = false) UUID lessonId,
+            @RequestParam("file") MultipartFile file,
             @RequestHeader("Authorization") String authorizationHeader
     ) {
         ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(
@@ -181,9 +187,9 @@ public class CourseContentController {
             @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
             @PathVariable UUID lessonId,
-            @RequestParam String title,
-            @RequestParam(required = false) String description,
-            @RequestParam MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam("file") MultipartFile file,
             @RequestHeader("Authorization") String authorizationHeader
     ) {
         ApiResponse<LearningMaterialResponse> response = learningMaterialService.uploadLearningMaterial(

@@ -29,7 +29,7 @@ class DotenvEnvironmentPostProcessorTest {
                 # comment
                 MENTIFY_SAMPLE_USERS_ENABLED=true
                 MENTIFY_SAMPLE_USERS_PASSWORD="Sample@12345"
-                export KEYCLOAK_REALM=mentify
+                export AUTH_REALM=mentify
                 """);
         System.setProperty("user.dir", tempDir.toString());
 
@@ -39,7 +39,7 @@ class DotenvEnvironmentPostProcessorTest {
 
         assertThat(environment.getProperty("MENTIFY_SAMPLE_USERS_ENABLED")).isEqualTo("true");
         assertThat(environment.getProperty("MENTIFY_SAMPLE_USERS_PASSWORD")).isEqualTo("Sample@12345");
-        assertThat(environment.getProperty("KEYCLOAK_REALM")).isEqualTo("mentify");
+        assertThat(environment.getProperty("AUTH_REALM")).isEqualTo("mentify");
     }
 
     @Test

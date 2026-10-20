@@ -14,6 +14,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,13 +25,15 @@ import java.util.UUID;
 public class UserRegistrationResponse {
 
     private UUID id;
-    private String keycloakUserId;
+    private String authUserId;
     private String email;
     private String firstName;
     private String lastName;
     private String phoneNumber;
     private Role role;
     private AccountStatus accountStatus;
+    private LocalDateTime createdAt;
+    private LocalDateTime lastLogin;
     private boolean emailNotifications;
     private boolean pushNotifications;
     private boolean dailyDigestEnabled;
@@ -40,27 +43,30 @@ public class UserRegistrationResponse {
     private AdminProfileResponse adminProfile;
     private AddressResponse address;
 
-    public UserRegistrationResponse(UUID id, String keycloakUserId, String email,
+    public UserRegistrationResponse(UUID id, String authUserId, String email,
                                     String firstName, String lastName, String phoneNumber,
                                     Role role, AccountStatus accountStatus,
                                     StudentProfileResponse studentProfile,
                                     TeacherProfileResponse teacherProfile,
                                     AdminProfileResponse adminProfile,
                                     AddressResponse address) {
-        this(id, keycloakUserId, email, firstName, lastName, phoneNumber, role, accountStatus,
-                true, true, false, null, studentProfile, teacherProfile, adminProfile, address);
+        this(id, authUserId, email, firstName, lastName, phoneNumber, role, accountStatus,
+                null, null, true, true, false, null,
+                studentProfile, teacherProfile, adminProfile, address);
     }
 
     public static UserRegistrationResponse from(User user) {
         return UserRegistrationResponse.builder()
                 .id(user.getId())
-                .keycloakUserId(user.getKeycloakUserId())
+                .authUserId(user.getAuthUserId())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .phoneNumber(user.getPhoneNumber())
                 .role(user.getRole())
                 .accountStatus(user.getAccountStatus())
+                .createdAt(user.getCreatedAt())
+                .lastLogin(user.getLastLogin())
                 .emailNotifications(user.isEmailNotifications())
                 .pushNotifications(user.isPushNotifications())
                 .dailyDigestEnabled(user.isDailyDigestEnabled())

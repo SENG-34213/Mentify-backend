@@ -4,7 +4,7 @@ spring:
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   datasource:
-    url: jdbc:postgresql://${ENTROLLMENT_DB_HOST:localhost}:${ENTROLLMENT_DB_PORT:5434}/${ENTROLLMENT_DB_NAME:entrollment_db}
+    url: jdbc:postgresql://${ENTROLLMENT_DB_HOST:localhost}:${ENTROLLMENT_DB_PORT:5432}/${ENTROLLMENT_DB_NAME:entrollment_db}
     username: ${ENTROLLMENT_DB_USERNAME:postgres}
     password: ${ENTROLLMENT_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver

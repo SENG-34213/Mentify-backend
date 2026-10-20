@@ -30,7 +30,7 @@ public class CurrentMaterialUserService {
 
     private UUID resolveUserId(Jwt jwt) {
         // Course Service resolves the application user from local_user_id first.
-        // Keycloak's subject is a different identifier in the normal realm setup.
+        // JWT provider's subject is a different identifier in the normal realm setup.
         String subject = jwt.getClaimAsString("local_user_id");
         if (subject == null || subject.isBlank()) {
             subject = jwt.getSubject();

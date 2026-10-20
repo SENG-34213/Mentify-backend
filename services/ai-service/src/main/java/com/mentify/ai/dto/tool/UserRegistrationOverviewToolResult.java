@@ -28,7 +28,7 @@ public class UserRegistrationOverviewToolResult {
     @AllArgsConstructor
     public static class RegisteredUserSummary {
         private UUID id;
-        private String keycloakUserId;
+        private String authUserId;
         private String email;
         private String firstName;
         private String lastName;

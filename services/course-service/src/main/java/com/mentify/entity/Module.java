@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "modules")
@@ -30,10 +31,11 @@ public class Module extends BaseEntity {
     @Column(nullable = false)
     private boolean isVisible = true;
 
-    /**
-     * Duration window this module is available (in days).
-     */
-    private Integer dateDuration;
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
 
 
     @JsonIgnore

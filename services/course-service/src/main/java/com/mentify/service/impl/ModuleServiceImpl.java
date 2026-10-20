@@ -28,6 +28,7 @@ public class ModuleServiceImpl implements ModuleService {
     private final LessonRepository lessonRepository;
     private final LearningMaterialRepository learningMaterialRepository;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
+    private final CourseContentAccessGuard courseContentAccessGuard;
 
     @Override
     @Transactional
@@ -42,7 +43,8 @@ public class ModuleServiceImpl implements ModuleService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : null)
                 .moduleImage(request.getModuleImage())
                 .sequenceOrder(request.getSequenceOrder())
-                .dateDuration(request.getDateDuration())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
                 .isVisible(request.getIsVisible() != null ? request.getIsVisible() : true)
                 .course(course)
                 .build();
@@ -69,7 +71,8 @@ public class ModuleServiceImpl implements ModuleService {
         module.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
         module.setModuleImage(request.getModuleImage());
         module.setSequenceOrder(request.getSequenceOrder());
-        module.setDateDuration(request.getDateDuration());
+        module.setStartDate(request.getStartDate());
+        module.setEndDate(request.getEndDate());
         module.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
 
         Module savedModule = moduleRepository.save(module);
@@ -84,11 +87,11 @@ public class ModuleServiceImpl implements ModuleService {
 
     @Override
     @Transactional
-    public ApiResponse<ModuleResponse> getModule(UUID courseId, UUID moduleId) {
+    public ApiResponse<ModuleResponse> getModule(UUID courseId, UUID moduleId, String authorizationHeader) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
-        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        courseContentAccessGuard.assertCanReadCourseContent(module.getCourse(), authorizationHeader);
 
         return ApiResponse.<ModuleResponse>builder()
                 .message("Module fetched successfully")
@@ -100,11 +103,11 @@ public class ModuleServiceImpl implements ModuleService {
 
     @Override
     @Transactional
-    public ApiResponse<List<ModuleResponse>> getModules(UUID courseId) {
+    public ApiResponse<List<ModuleResponse>> getModules(UUID courseId, String authorizationHeader) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
 
-        teacherCourseAccessGuard.assertTeacherOwnsCourse(course);
+        courseContentAccessGuard.assertCanReadCourseContent(course, authorizationHeader);
 
         List<ModuleResponse> modules = moduleRepository.findAllByCourse_Id(courseId)
                 .stream()
@@ -147,7 +150,8 @@ public class ModuleServiceImpl implements ModuleService {
                 .sequenceOrder(module.getSequenceOrder())
                 .description(module.getDescription())
                 .courseId(module.getCourse().getId())
-                .dateDuration(module.getDateDuration())
+                .startDate(module.getStartDate())
+                .endDate(module.getEndDate())
                 .isVisible(module.isVisible())
                 .moduleImage(module.getModuleImage())
                 .createdBy(module.getCreatedBy())

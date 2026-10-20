@@ -209,10 +209,12 @@ public class CourseServiceImpl implements CourseService {
         }
 
         validateGradeExists(request.getGradeId());
-        teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
-        validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
+        UUID assignedTeacherId = resolveCanonicalTeacherId(request.getAssignedTeacherId(), authorizationHeader);
+        teacherCourseAccessGuard.assertTeacherCanAssign(assignedTeacherId);
+        validateTeacherExists(assignedTeacherId, authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
+        course.setAssignedTeacherId(assignedTeacherId);
         if (course.isPublished()) {
             course.setPublishedDate(LocalDate.now());
         } else {
@@ -240,9 +242,11 @@ public class CourseServiceImpl implements CourseService {
         Course existingCourse = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
 
+        UUID assignedTeacherId = resolveCanonicalTeacherId(request.getAssignedTeacherId(), authorizationHeader);
+
         if (teacherCourseAccessGuard.isTeacherAuthenticated()) {
             teacherCourseAccessGuard.assertTeacherOwnsCourse(existingCourse);
-            teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
+            teacherCourseAccessGuard.assertTeacherCanAssign(assignedTeacherId);
         }
 
         if (courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId)) {
@@ -251,13 +255,13 @@ public class CourseServiceImpl implements CourseService {
         }
 
         validateGradeExists(request.getGradeId());
-        validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
+        validateTeacherExists(assignedTeacherId, authorizationHeader);
 
         existingCourse.setCourseName(request.getCourseName().trim());
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
         existingCourse.setCourseThumbnail(request.getCourseThumbnail());
         existingCourse.setGradeId(request.getGradeId());
-        existingCourse.setAssignedTeacherId(request.getAssignedTeacherId());
+        existingCourse.setAssignedTeacherId(assignedTeacherId);
         existingCourse.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
@@ -292,6 +296,11 @@ public class CourseServiceImpl implements CourseService {
         if (teacherId == null || !userServiceClient.isTeacherExists(teacherId.toString(), authorizationHeader)) {
             throw new ResourceNotFoundException("Teacher", "id", teacherId);
         }
+    }
+
+    private UUID resolveCanonicalTeacherId(UUID teacherId, String authorizationHeader) {
+        UUID canonicalId = userServiceClient.getTeacherCanonicalId(teacherId.toString(), authorizationHeader);
+        return canonicalId == null ? teacherId : canonicalId;
     }
 
     private void validateGradeExists(UUID gradeId) {

@@ -24,7 +24,7 @@ class MaterialConfigurationTest {
                 "${MATERIAL_DB_NAME",
                 "${MATERIAL_DB_USERNAME",
                 "${MATERIAL_DB_PASSWORD",
-                "${KEYCLOAK_ISSUER_URI",
+                "${AUTH_ISSUER_URI",
                 "${MATERIAL_S3_BUCKET",
                 "${MATERIAL_DOWNLOAD_URL_EXPIRATION",
                 "${AWS_REGION",

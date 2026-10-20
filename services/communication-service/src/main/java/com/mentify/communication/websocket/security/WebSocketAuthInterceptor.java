@@ -1,6 +1,6 @@
 package com.mentify.communication.websocket.security;
 
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
 import com.mentify.communication.service.GroupMemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
@@ -29,7 +29,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     private static final String USER_ID_HEADER = "x-user-id";
 
     private final JwtDecoder jwtDecoder;
-    private final KeycloakJwtAuthenticationConverter jwtAuthenticationConverter;
+    private final JwtAuthenticationConverter jwtAuthenticationConverter;
     private final GroupMemberService groupMemberService;
     private final WebSocketDestinationParser destinationParser;
 

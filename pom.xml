@@ -132,7 +132,7 @@
                         </goals>
                     </execution>
                     <execution>
-                        <id>check-keycloak-auth-coverage</id>
+                        <id>check-auth-coverage</id>
                         <phase>verify</phase>
                         <configuration>
                             <includes>

@@ -64,12 +64,6 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         List<CourseLookupResponse> courses = validateCoursesExist(requestedCourseIds, authorizationHeader);
         assertTeacherCanManageCourses(courses);
         validateNoDuplicateEnrollment(request.getStudentId(), requestedCourseIds);
-        validateSuccessfulPaymentsForPaidCourses(
-                request.getStudentId(),
-                courses,
-                requestedCourseIds,
-                authorizationHeader
-        );
 
         EnrollmentStatus status = request.getStatus() != null
                 ? request.getStatus()
@@ -124,12 +118,6 @@ public class EntrollmentServiceImpl implements EntrollmentService {
         Set<UUID> newlyAddedCourseIds = requestedCourseIds.stream()
                 .filter(courseId -> !existingCourseIds.contains(courseId))
                 .collect(Collectors.toSet());
-        validateSuccessfulPaymentsForPaidCourses(
-                existingEnrollment.getStudentId(),
-                courses,
-                newlyAddedCourseIds,
-                authorizationHeader
-        );
         existingEnrollment.setCourseIds(requestedCourseIds);
         if (request.getStatus() != null) {
             existingEnrollment.setStatus(request.getStatus());

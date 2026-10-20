@@ -1,5 +1,6 @@
 package com.mentify.entity;
 
+import com.mentify.entity.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;

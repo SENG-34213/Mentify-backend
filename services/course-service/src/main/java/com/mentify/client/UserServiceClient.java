@@ -22,4 +22,7 @@ public interface UserServiceClient {
 
     @GetMapping("/teachers/{teacherId}/exists")
     boolean isTeacherExists(@PathVariable String teacherId, @RequestHeader("Authorization") String authorizationHeader);
+
+    @GetMapping("/teachers/{teacherId}/canonical-id")
+    UUID getTeacherCanonicalId(@PathVariable String teacherId, @RequestHeader("Authorization") String authorizationHeader);
 }

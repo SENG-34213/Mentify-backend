@@ -13,9 +13,9 @@ public interface LessonService {
 
     ApiResponse<LessonResponse> updateLesson(UUID courseId, UUID moduleId, UUID lessonId, LessonCreateRequest request);
 
-    ApiResponse<LessonResponse> getLesson(UUID courseId, UUID moduleId, UUID lessonId);
+    ApiResponse<LessonResponse> getLesson(UUID courseId, UUID moduleId, UUID lessonId, String authorizationHeader);
 
-    ApiResponse<List<LessonResponse>> getLessons(UUID courseId, UUID moduleId);
+    ApiResponse<List<LessonResponse>> getLessons(UUID courseId, UUID moduleId, String authorizationHeader);
 
     ApiResponse<Object> deleteLesson(UUID courseId, UUID moduleId, UUID lessonId);
 }
