@@ -33,6 +33,9 @@ public class Lesson extends BaseEntity {
     @Column(name = "content_markdown", columnDefinition = "TEXT")
     private String contentMarkdown;
 
+    @Column(name = "content_type", length = 30)
+    private String contentType;
+
     @Column(nullable = false)
     private boolean isVisible = true;
 

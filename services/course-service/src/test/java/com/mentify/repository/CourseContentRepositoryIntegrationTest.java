@@ -47,7 +47,8 @@ class CourseContentRepositoryIntegrationTest {
                 .title("Algebra")
                 .description("Algebra foundations")
                 .sequenceOrder(1)
-                .dateDuration(30)
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2026, 1, 30))
                 .isVisible(true)
                 .course(savedCourse)
                 .build();

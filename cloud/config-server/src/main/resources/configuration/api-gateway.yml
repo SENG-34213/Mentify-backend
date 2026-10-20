@@ -115,7 +115,7 @@ spring:
         - id: assignment-service
           uri: lb://assignment-service
           predicates:
-            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/submissions/**,/api/internal/quizzes/analytics/**
+            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/courses/*/assignments,/api/v1/submissions/**,/api/internal/quizzes/analytics/**
           filters:
             - StripPrefix=0
 

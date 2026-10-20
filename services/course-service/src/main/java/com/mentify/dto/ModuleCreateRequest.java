@@ -1,5 +1,6 @@
 package com.mentify.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -8,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -28,8 +31,16 @@ public class ModuleCreateRequest {
     @Min(value = 1, message = "Sequence order must be at least 1")
     private Integer sequenceOrder;
 
-    @Min(value = 1, message = "Date duration must be at least 1 day")
-    private Integer dateDuration;
+    @NotNull(message = "Module start date is required")
+    private LocalDate startDate;
+
+    @NotNull(message = "Module end date is required")
+    private LocalDate endDate;
 
     private Boolean isVisible;
+
+    @AssertTrue(message = "Module end date must be on or after the start date")
+    public boolean isDateRangeValid() {
+        return startDate == null || endDate == null || !endDate.isBefore(startDate);
+    }
 }
