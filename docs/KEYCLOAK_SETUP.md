@@ -115,6 +115,34 @@ Direct access grants: Off
 
 This client is used for backend-to-Keycloak communication, including user provisioning through the Admin API and the controlled login bridge token exchange. For local login testing, enable Direct Access Grants on the confidential backend client or configure a dedicated confidential login client through `KEYCLOAK_AUTH_CLIENT_ID` and `KEYCLOAK_AUTH_CLIENT_SECRET`.
 
+### Admin-created user credentials
+
+Admin-created students, teachers, and admins receive a randomly generated 8-character temporary password. `user-service` sets that password directly in Keycloak and emails the same value through its configured SMTP connection; the password is not written to Mentify's database or logs. Resending an invitation generates and sets a new password before sending the email, invalidating the old password.
+
+The imported realm uses this Keycloak password policy:
+
+```txt
+length(8) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1)
+```
+
+This matches the generated password's length and character classes. If the policy is changed in an environment, make sure it continues to accept an 8-character password with at least one uppercase, lowercase, numeric, and special character.
+
+Realm import does not automatically update an already-existing realm. Before deploying this flow to an existing Keycloak environment, set the password policy under **Realm settings → Authentication → Policies → Password policy** and verify it accepts the 8-character generated credentials.
+
+Registration email uses the user-service SMTP settings:
+
+```env
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_AUTH=false
+SMTP_STARTTLS_ENABLE=false
+SMTP_FROM=no-reply@mentify.local
+```
+
+Configure these values for the deployment's SMTP provider. The local defaults work with Mailpit when it is running and reachable at `localhost:1025`.
+
 ## 6. User Service Login Bridge
 
 Endpoint:

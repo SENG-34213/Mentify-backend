@@ -8,7 +8,7 @@ import java.security.SecureRandom;
 @Component
 public class TemporaryPasswordGenerator {
 
-    private static final int PASSWORD_LENGTH = 32;
+    private static final int PASSWORD_LENGTH = 8;
     private static final String UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
     private static final String LOWER = "abcdefghijkmnopqrstuvwxyz";
     private static final String DIGITS = "23456789";

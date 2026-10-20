@@ -6,9 +6,12 @@
 > **Current registration behavior:** The registration implementation has since been changed to match
 > the password-email flow: it sends one user-service welcome email with the initial password, does
 > not send a Keycloak setup/action email, marks the Keycloak email verified, and assigns the initial
-> password as non-temporary so direct login works. Users can request a password change later through
-> the forgot-password flow. The historical findings and recommendations below describe the earlier
-> mandatory first-login setup design and are retained as audit history.
+> password as non-temporary so direct login works. The password is exactly 8 characters and contains
+> uppercase, lowercase, numeric, and special characters; the same value is sent in the email, and it
+> is not stored in Mentify or written to logs. The imported realm policy matches these requirements.
+> Users can request a password change later through the forgot-password flow. The historical findings
+> and recommendations below describe the earlier mandatory first-login setup design and are retained
+> as audit history.
 
 ## Summary
 

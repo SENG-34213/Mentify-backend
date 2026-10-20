@@ -2,6 +2,7 @@
   "realm": "mentify",
   "enabled": true,
   "emailTheme": "mentify",
+  "passwordPolicy": "length(8) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1)",
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "roles": {
