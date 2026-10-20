@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 @Data
 @Builder
@@ -24,4 +25,5 @@ public class MessageResponse {
     private LocalDateTime editedAt;
     private boolean edited;
     private boolean deletedForEveryone;
+    private List<CommunicationAttachmentResponse> attachments;
 }

@@ -11,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +21,8 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -42,8 +45,13 @@ public class Message extends BaseEntity {
     @Column(name = "sender_id", nullable = false, columnDefinition = "uuid")
     private UUID senderId;
 
-    @Column(nullable = false, length = 5000)
+    @Column(length = 5000)
     private String content;
+
+    @OneToMany(mappedBy = "message", fetch = FetchType.LAZY, cascade = jakarta.persistence.CascadeType.ALL,
+            orphanRemoval = true)
+    @Builder.Default
+    private List<MessageAttachment> attachments = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

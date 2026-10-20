@@ -41,7 +41,8 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
             return course.id();
         }
         if (user.isStudent()
-                && purpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                && (purpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                || purpose == MaterialPurpose.COMMUNICATION_ATTACHMENT)
                 && isStudentEnrolled(user.userId(), course.id(), authorizationHeader)) {
             return course.id();
         }

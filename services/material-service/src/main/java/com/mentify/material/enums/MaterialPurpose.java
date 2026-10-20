@@ -7,5 +7,6 @@ public enum MaterialPurpose {
     EXAM_ATTACHMENT,
     AI_SOURCE,
     ANNOUNCEMENT_ATTACHMENT,
+    COMMUNICATION_ATTACHMENT,
     OTHER
 }

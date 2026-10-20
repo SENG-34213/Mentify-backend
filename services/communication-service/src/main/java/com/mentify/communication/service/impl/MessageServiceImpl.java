@@ -4,8 +4,15 @@ import com.mentify.communication.dto.request.SendMessageRequest;
 import com.mentify.communication.dto.request.UpdateMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
+import com.mentify.communication.dto.response.CommunicationAttachmentResponse;
+import com.mentify.communication.dto.response.AttachmentDownloadResponse;
+import com.mentify.communication.client.MaterialServiceClient;
+import com.mentify.communication.client.dto.MaterialDownloadResponse;
+import com.mentify.communication.client.dto.MaterialLookupResponse;
+import com.mentify.communication.client.dto.MaterialUploadResponse;
 import com.mentify.communication.entity.CommunicationGroup;
 import com.mentify.communication.entity.Message;
+import com.mentify.communication.entity.MessageAttachment;
 import com.mentify.communication.entity.MessageHiddenForUser;
 import com.mentify.communication.enums.GroupMemberRole;
 import com.mentify.communication.enums.GroupStatus;
@@ -21,6 +28,7 @@ import com.mentify.communication.mapper.MessageMapper;
 import com.mentify.communication.repository.CommunicationGroupRepository;
 import com.mentify.communication.repository.MessageHiddenForUserRepository;
 import com.mentify.communication.repository.MessageRepository;
+import com.mentify.communication.repository.MessageAttachmentRepository;
 import com.mentify.communication.security.AuthenticatedUserService;
 import com.mentify.communication.service.GroupMemberService;
 import com.mentify.communication.service.MessageService;
@@ -31,11 +39,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Locale;
+import org.springframework.security.access.AccessDeniedException;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +63,8 @@ public class MessageServiceImpl implements MessageService {
     private final CommunicationGroupRepository communicationGroupRepository;
     private final GroupMemberService groupMemberService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final MessageAttachmentRepository messageAttachmentRepository;
+    private final MaterialServiceClient materialServiceClient;
 
     @Override
     @Transactional
@@ -78,11 +93,67 @@ public class MessageServiceImpl implements MessageService {
                 .status(MessageStatus.ACTIVE)
                 .sentAt(LocalDateTime.now())
                 .build();
+        attachMaterials(message, group, request, senderId);
+        if (message.getAttachments().isEmpty() && (content == null || content.isBlank())) {
+            throw new InvalidMessageException("Message content or at least one attachment is required");
+        }
         message.setActive(true);
         message.setCreatedBy(senderId);
         message.setUpdatedBy(senderId);
 
         return MessageMapper.toResponse(messageRepository.save(message));
+    }
+
+    @Override
+    @Transactional
+    public CommunicationAttachmentResponse uploadAttachment(UUID groupId, MultipartFile file) {
+        UUID userId = authenticatedUserService.getCurrentUserId();
+        CommunicationGroup group = getGroup(groupId);
+        ensureActiveMember(group, userId);
+        if (file == null || file.isEmpty()) {
+            throw new InvalidMessageException("Attachment file is required");
+        }
+
+        String filename = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
+                ? "communication-attachment" : file.getOriginalFilename();
+        var upload = materialServiceClient.upload(
+                filename,
+                "Communication attachment",
+                "COMMUNICATION_ATTACHMENT",
+                group.getCourseId(),
+                file,
+                authenticatedUserService.getAuthorizationHeader()
+        );
+        if (upload == null || upload.getData() == null || upload.getData().id() == null) {
+            throw new IllegalStateException("Material Service did not return the uploaded attachment");
+        }
+        return toAttachmentResponse(upload.getData());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResponse downloadAttachment(UUID groupId, UUID messageId, UUID attachmentId) {
+        UUID userId = authenticatedUserService.getCurrentUserId();
+        CommunicationGroup group = getGroup(groupId);
+        ensureActiveMember(group, userId);
+        MessageAttachment attachment = messageAttachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new MessageNotFoundException(messageId));
+        if (!attachment.getMessage().getId().equals(messageId)
+                || !attachment.getMessage().getGroup().getId().equals(groupId)) {
+            throw new MessageNotFoundException(messageId);
+        }
+        if (MessageStatus.DELETED.equals(attachment.getMessage().getStatus())) {
+            throw new MessageNotFoundException(messageId);
+        }
+        MaterialDownloadResponse download = requireData(materialServiceClient.createDownload(
+                attachment.getMaterialId(), authenticatedUserService.getAuthorizationHeader()));
+        return new AttachmentDownloadResponse(
+                attachment.getOriginalFilename(),
+                attachment.getContentType(),
+                attachment.getFileSize(),
+                download.downloadUrl(),
+                download.expiresAt()
+        );
     }
 
     @Override
@@ -209,12 +280,12 @@ public class MessageServiceImpl implements MessageService {
 
     private String normalizeContent(SendMessageRequest request) {
         if (request == null || request.getContent() == null) {
-            throw new InvalidMessageException("Message content is required");
+            return null;
         }
 
         String content = request.getContent().trim();
         if (content.isBlank()) {
-            throw new InvalidMessageException("Message content is required");
+            return null;
         }
 
         if (content.length() > MAX_MESSAGE_LENGTH) {
@@ -222,6 +293,84 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return content;
+    }
+
+    private void attachMaterials(Message message, CommunicationGroup group, SendMessageRequest request, UUID senderId) {
+        if (request == null || request.getAttachmentIds() == null || request.getAttachmentIds().isEmpty()) {
+            return;
+        }
+        List<UUID> ids = request.getAttachmentIds();
+        if (ids.stream().anyMatch(id -> id == null) || ids.size() != new HashSet<>(ids).size()) {
+            throw new InvalidMessageException("Attachment ids must be unique and valid");
+        }
+        for (UUID materialId : ids) {
+            MaterialLookupResponse material = requireData(materialServiceClient.getMaterial(
+                    materialId, authenticatedUserService.getAuthorizationHeader()));
+            if (!senderId.equals(material.uploadedBy()) || !group.getCourseId().equals(material.courseId())) {
+                throw new AccessDeniedException("Attachment does not belong to the sender or group course");
+            }
+            MessageAttachment attachment = MessageAttachment.builder()
+                    .message(message)
+                    .materialId(material.id())
+                    .originalFilename(material.originalFilename())
+                    .contentType(material.contentType())
+                    .fileSize(material.fileSize() == null ? 0L : material.fileSize())
+                    .checksum(material.checksum())
+                    .attachmentType(resolveAttachmentType(material.contentType()))
+                    .build();
+            message.getAttachments().add(attachment);
+        }
+        message.setType(contentIsPresent(message.getContent())
+                ? MessageType.TEXT_WITH_ATTACHMENT
+                : resolveMessageType(message.getAttachments()));
+    }
+
+    private void ensureActiveMember(CommunicationGroup group, UUID userId) {
+        if (!GroupStatus.ACTIVE.equals(group.getStatus())) {
+            throw new GroupArchivedException(group.getId());
+        }
+        groupMemberService.validateActiveMembership(group.getId(), userId);
+    }
+
+    private MessageType resolveMessageType(List<MessageAttachment> attachments) {
+        if (attachments.isEmpty()) return MessageType.TEXT;
+        return attachments.size() == 1 && attachments.get(0).getAttachmentType() == com.mentify.communication.enums.AttachmentType.IMAGE
+                ? MessageType.IMAGE : MessageType.FILE;
+    }
+
+    private boolean contentIsPresent(String content) {
+        return content != null && !content.isBlank();
+    }
+
+    private com.mentify.communication.enums.AttachmentType resolveAttachmentType(String contentType) {
+        String type = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        if (type.startsWith("image/")) return com.mentify.communication.enums.AttachmentType.IMAGE;
+        if (type.startsWith("video/")) return com.mentify.communication.enums.AttachmentType.VIDEO;
+        if (type.startsWith("audio/")) return com.mentify.communication.enums.AttachmentType.AUDIO;
+        if (type.startsWith("text/") || type.contains("pdf") || type.contains("word") || type.contains("excel")
+                || type.contains("sheet") || type.contains("presentation") || type.contains("zip")) {
+            return com.mentify.communication.enums.AttachmentType.DOCUMENT;
+        }
+        return com.mentify.communication.enums.AttachmentType.OTHER;
+    }
+
+    private CommunicationAttachmentResponse toAttachmentResponse(MaterialUploadResponse material) {
+        return CommunicationAttachmentResponse.builder()
+                .id(material.id())
+                .materialId(material.id())
+                .originalFilename(material.originalFilename())
+                .contentType(material.contentType())
+                .fileSize(material.fileSize())
+                .checksum(material.checksum())
+                .attachmentType(resolveAttachmentType(material.contentType()))
+                .build();
+    }
+
+    private <T> T requireData(com.mentify.payload.response.ApiResponse<T> response) {
+        if (response == null || response.getData() == null) {
+            throw new IllegalStateException("Material Service returned no attachment data");
+        }
+        return response.getData();
     }
 
     private int normalizePage(int page) {

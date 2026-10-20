@@ -26,6 +26,10 @@ public class AuthenticatedUserService {
                 .collect(Collectors.toSet());
     }
 
+    public String getAuthorizationHeader() {
+        return "Bearer " + getCurrentJwt().getTokenValue();
+    }
+
     private Jwt getCurrentJwt() {
         Object principal = getAuthentication().getPrincipal();
 
