@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.mentify.exam.exception.ExamDomainException;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,9 +46,10 @@ class StudentExamServiceImplTest {
     @Test
     void returnsOnlyUpcomingExamsAssignedToTheAuthenticatedStudent() {
         Exam exam = Exam.builder().id(examId).courseId(UUID.randomUUID()).title("Midterm")
-                .examDate(LocalDate.now().plusDays(1)).status(ExamStatus.SCHEDULED).build();
+                .examDate(LocalDate.now().plusDays(1)).startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0)).status(ExamStatus.SCHEDULED).build();
         when(examResultRepository.findUpcomingResultsWithExamByStudentId(studentId, LocalDate.now()))
-                .thenReturn(List.of(new Object[]{new ExamResult(), exam}));
+                .thenReturn(List.<Object[]>of(new Object[]{new ExamResult(), exam}));
 
         var upcoming = service.getUpcomingExams();
 
