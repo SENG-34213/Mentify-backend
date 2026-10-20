@@ -81,6 +81,8 @@ public class UserRegistrationResponse {
         private String studentId;
         private String grade;
         private String schoolName;
+        private String bio;
+        private String avatarUrl;
         private LocalDate dateOfBirth;
         private String guardianName;
         private String guardianPhone;
@@ -96,6 +98,8 @@ public class UserRegistrationResponse {
                     .studentId(profile.getStudentId())
                     .grade(profile.getGrade())
                     .schoolName(profile.getSchoolName())
+                    .bio(profile.getBiography())
+                    .avatarUrl(profile.getAvatarUrl())
                     .dateOfBirth(profile.getDateOfBirth())
                     .guardianName(profile.getGuardianName())
                     .guardianPhone(profile.getGuardianPhone())

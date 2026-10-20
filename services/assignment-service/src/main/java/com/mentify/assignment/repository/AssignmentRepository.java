@@ -16,6 +16,8 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
 
     List<Assignment> findByCourseIdAndIsActiveTrueOrderByStartDateDesc(UUID courseId);
 
+    List<Assignment> findByCourseIdInAndIsActiveTrueOrderByDueDateAsc(List<UUID> courseIds);
+
     List<Assignment> findByCourseIdAndStatusAndIsActiveTrueOrderByDueDateAsc(UUID courseId, AssignmentStatus status);
 
     List<Assignment> findByModuleIdAndIsActiveTrueOrderByStartDateDesc(UUID moduleId);

@@ -25,4 +25,10 @@ public interface EntrollmentServiceClient {
             @PathVariable("courseId") UUID courseId,
             @RequestHeader("Authorization") String authorizationHeader
     );
+
+    @org.springframework.web.bind.annotation.GetMapping("/students/{studentId}/courses")
+    ApiResponse<List<UUID>> getStudentCourseIds(
+            @org.springframework.web.bind.annotation.PathVariable("studentId") UUID studentId,
+            @org.springframework.web.bind.annotation.RequestHeader("Authorization") String authorizationHeader
+    );
 }

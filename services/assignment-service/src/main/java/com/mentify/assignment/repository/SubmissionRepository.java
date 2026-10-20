@@ -40,6 +40,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
 
     List<Submission> findByStudentIdAndIsActiveTrueOrderBySubmittedAtDesc(UUID studentId);
 
+    List<Submission> findByAssignmentIdInAndStudentIdAndIsActiveTrueOrderByAttemptNumberDesc(
+            List<UUID> assignmentIds, UUID studentId);
+
     long countByAssignmentIdAndStudentIdAndIsActiveTrue(UUID assignmentId, UUID studentId);
 
     boolean existsByAssignmentIdAndStudentIdAndIsActiveTrue(UUID assignmentId, UUID studentId);

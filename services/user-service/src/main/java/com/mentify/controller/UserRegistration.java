@@ -6,6 +6,7 @@ import com.mentify.dto.StudentLookupRequest;
 import com.mentify.dto.StudentLookupResponse;
 import com.mentify.dto.UpdateUserStatusRequest;
 import com.mentify.dto.UpdateCurrentUserRequest;
+import com.mentify.dto.ChangePasswordRequest;
 import com.mentify.dto.UpdateTeacherProfileRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.StudentDirectoryProfileResponse;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import java.util.UUID;
 import java.util.List;
@@ -66,6 +68,15 @@ public class UserRegistration {
                 .updateCurrentUser(jwt.getSubject(), request);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK.value(), "Current user updated successfully", response));
+    }
+
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> changeCurrentUserPassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        userRegistrationService.changePassword(jwt.getSubject(), request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Password changed successfully", null));
     }
 
     @PatchMapping("/teachers/me")

@@ -1,0 +1,3 @@
+ALTER TABLE student_profiles
+    ADD COLUMN IF NOT EXISTS biography VARCHAR(1000),
+    ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500);
