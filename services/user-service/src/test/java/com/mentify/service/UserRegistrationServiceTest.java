@@ -27,6 +27,7 @@ import com.mentify.service.registration.StudentIdGenerator;
 import com.mentify.service.registration.TeacherCodeGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
+import com.mentify.service.authentication.KeycloakAuthenticationClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,6 +69,9 @@ class UserRegistrationServiceTest {
     private KeycloakUserService keycloakUserService;
 
     @Mock
+    private KeycloakAuthenticationClient keycloakAuthenticationClient;
+
+    @Mock
     private RegistrationEmailDispatcher registrationEmailDispatcher;
 
     private UserRegistrationService userRegistrationService;
@@ -85,7 +89,8 @@ class UserRegistrationServiceTest {
                 validator,
                 factory,
                 registrationEmailDispatcher,
-                new TemporaryPasswordGenerator()
+                new TemporaryPasswordGenerator(),
+                keycloakAuthenticationClient
         );
     }
 

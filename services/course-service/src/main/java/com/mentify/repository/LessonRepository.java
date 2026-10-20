@@ -15,5 +15,7 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
 
     List<Lesson> findAllByModule_Id(UUID moduleId);
 
+    List<Lesson> findAllByModule_Course_Id(UUID courseId);
+
     boolean existsByModule_Id(UUID moduleId);
 }

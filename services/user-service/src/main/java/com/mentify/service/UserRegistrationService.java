@@ -4,11 +4,14 @@ import com.mentify.dto.AdminRegisterUserRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.UpdateCurrentUserRequest;
 import com.mentify.dto.UpdateTeacherProfileRequest;
+import com.mentify.dto.ChangePasswordRequest;
+import com.mentify.dto.LoginRequest;
 import com.mentify.dto.StudentDirectoryProfileResponse;
 import com.mentify.dto.StudentLookupRequest;
 import com.mentify.dto.StudentLookupResponse;
 import com.mentify.entity.User;
 import com.mentify.entity.TeacherProfile;
+import com.mentify.entity.Address;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
@@ -19,6 +22,7 @@ import com.mentify.service.registration.KeycloakUserProvisionRequest;
 import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.RegistrationRequestValidator;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
+import com.mentify.service.authentication.KeycloakAuthenticationClient;
 import com.mentify.service.registration.UserRegistrationFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +44,7 @@ public class UserRegistrationService {
     private final UserRegistrationFactory userRegistrationFactory;
     private final RegistrationEmailDispatcher registrationEmailDispatcher;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
+    private final KeycloakAuthenticationClient keycloakAuthenticationClient;
 
     @Transactional
     public UserRegistrationResponse registerUser(AdminRegisterUserRequest request) {
@@ -110,6 +115,36 @@ public class UserRegistrationService {
         if (request.getPhoneNumber() != null) {
             user.setPhoneNumber(request.getPhoneNumber().trim());
         }
+        if (request.getBio() != null || request.getAvatarUrl() != null || request.getSchoolName() != null) {
+            if (user.getRole() != Role.STUDENT || user.getStudentProfile() == null) {
+                throw new InvalidUserStateException("Student profile fields can only be updated by students");
+            }
+            if (request.getBio() != null) {
+                user.getStudentProfile().setBiography(trimToNull(request.getBio()));
+            }
+            if (request.getAvatarUrl() != null) {
+                user.getStudentProfile().setAvatarUrl(trimToNull(request.getAvatarUrl()));
+            }
+            if (request.getSchoolName() != null) {
+                user.getStudentProfile().setSchoolName(trimToNull(request.getSchoolName()));
+            }
+        }
+        if (request.getAddress() != null) {
+            Address address = user.getAddress();
+            if (address == null) {
+                address = Address.builder()
+                        .addressLine1(request.getAddress().getAddressLine1().trim())
+                        .city(request.getAddress().getCity().trim())
+                        .district(request.getAddress().getDistrict().trim())
+                        .build();
+                user.setAddress(address);
+            }
+            address.setAddressLine1(request.getAddress().getAddressLine1().trim());
+            address.setAddressLine2(trimToNull(request.getAddress().getAddressLine2()));
+            address.setCity(request.getAddress().getCity().trim());
+            address.setDistrict(request.getAddress().getDistrict().trim());
+            address.setPostalCode(trimToNull(request.getAddress().getPostalCode()));
+        }
         if (request.getEmailNotifications() != null) {
             user.setEmailNotifications(request.getEmailNotifications());
         }
@@ -123,6 +158,26 @@ public class UserRegistrationService {
             user.setDailyDigestTime(request.getDailyDigestTime());
         }
         return UserRegistrationResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public void changePassword(String keycloakUserId, ChangePasswordRequest request) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        var session = keycloakAuthenticationClient.authenticate(LoginRequest.builder()
+                .identifier(user.getEmail()).password(request.getCurrentPassword()).build());
+        try {
+            keycloakUserService.setInitialPassword(user.getKeycloakUserId(), request.getNewPassword());
+        } finally {
+            if (session.getRefreshToken() != null && !session.getRefreshToken().isBlank()) {
+                try {
+                    keycloakAuthenticationClient.logout(session.getRefreshToken());
+                } catch (RuntimeException logoutException) {
+                    log.debug("Could not close temporary password-verification session for user {}",
+                            user.getKeycloakUserId());
+                }
+            }
+        }
     }
 
     @Transactional
@@ -172,6 +227,10 @@ public class UserRegistrationService {
             user.getTeacherProfile().setFirstName(user.getFirstName());
             user.getTeacherProfile().setLastName(user.getLastName());
         }
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     @Transactional(readOnly = true)
