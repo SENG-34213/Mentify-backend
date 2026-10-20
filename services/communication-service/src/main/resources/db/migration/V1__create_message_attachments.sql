@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS message_attachments (
     file_size BIGINT NOT NULL,
     checksum VARCHAR(128),
     attachment_type VARCHAR(20) NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     created_by UUID,
