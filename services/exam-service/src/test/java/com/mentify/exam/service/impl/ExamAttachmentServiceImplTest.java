@@ -87,6 +87,21 @@ class ExamAttachmentServiceImplTest {
     }
 
     @Test
+    void upload_rejectsNonPdfFilesBeforeCallingMaterialService() {
+        UUID examId = UUID.randomUUID();
+        Exam exam = exam(examId, UUID.randomUUID(), UUID.randomUUID(), ExamStatus.DRAFT);
+        MockMultipartFile file = new MockMultipartFile("file", "instructions.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "content".getBytes());
+
+        when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+        assertThatThrownBy(() -> service.upload(examId, file, true, AUTH))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Exam instructions must be a PDF file");
+        verify(materialServiceClient, never()).upload(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void list_forStudentHidesConfidentialAttachments() {
         UUID examId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();

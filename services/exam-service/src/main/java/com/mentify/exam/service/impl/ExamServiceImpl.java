@@ -16,12 +16,14 @@ import com.mentify.exam.repository.ExamRepository;
 import com.mentify.exam.security.CurrentUserService;
 import com.mentify.exam.service.CourseAccessService;
 import com.mentify.exam.service.ExamService;
+import com.mentify.exam.service.ExamAttachmentService;
 import com.mentify.exam.service.ExamCalendarProjectionService;
 import com.mentify.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -42,15 +44,27 @@ public class ExamServiceImpl implements ExamService {
     private final CurrentUserService currentUserService;
     private final ExamResultService examResultService;
     private final ExamCalendarProjectionService calendarProjectionService;
+    private final ExamAttachmentService examAttachmentService;
 
     @Override
     @Transactional
     public ExamResponse createExam(CreateExamRequest request, String authorizationHeader) {
+        return createExam(request, null, false, authorizationHeader);
+    }
+
+    @Override
+    @Transactional
+    public ExamResponse createExam(CreateExamRequest request, MultipartFile instructionFile,
+                                   boolean studentVisible, String authorizationHeader) {
         courseAccessService.assertCanManage(request.getCourseId(), authorizationHeader);
         validateMarksAndTimes(request.getTotalMarks(), request.getPassMarks(),
                 request.getStartTime(), request.getEndTime());
         Exam exam = examMapper.toEntity(request, currentUserService.getCurrentUserId());
-        return examMapper.toResponse(examRepository.save(exam));
+        Exam saved = examRepository.save(exam);
+        if (instructionFile != null) {
+            examAttachmentService.upload(saved.getId(), instructionFile, studentVisible, authorizationHeader);
+        }
+        return examMapper.toResponse(saved);
     }
 
     @Override
@@ -71,6 +85,13 @@ public class ExamServiceImpl implements ExamService {
     @Override
     @Transactional
     public ExamResponse updateExam(UUID examId, UpdateExamRequest request, String authorizationHeader) {
+        return updateExam(examId, request, null, false, authorizationHeader);
+    }
+
+    @Override
+    @Transactional
+    public ExamResponse updateExam(UUID examId, UpdateExamRequest request, MultipartFile instructionFile,
+                                   boolean studentVisible, String authorizationHeader) {
         Exam exam = findExam(examId);
         courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
         if (!EDITABLE.contains(exam.getStatus())) {
@@ -81,6 +102,9 @@ public class ExamServiceImpl implements ExamService {
                 request.getStartTime(), request.getEndTime());
         examMapper.applyUpdate(exam, request);
         Exam saved = examRepository.save(exam);
+        if (instructionFile != null) {
+            examAttachmentService.upload(saved.getId(), instructionFile, studentVisible, authorizationHeader);
+        }
         calendarProjectionService.projectIfEligible(saved, authorizationHeader);
         return examMapper.toResponse(saved);
     }

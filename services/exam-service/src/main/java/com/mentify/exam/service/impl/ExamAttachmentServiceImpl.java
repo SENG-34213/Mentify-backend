@@ -48,6 +48,7 @@ public class ExamAttachmentServiceImpl implements ExamAttachmentService {
                                                        String authorizationHeader) {
         Exam exam = findExam(examId);
         courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        assertEditable(exam);
         validateFile(file);
         UUID uploader = currentUserService.getCurrentUserId();
 
@@ -75,6 +76,15 @@ public class ExamAttachmentServiceImpl implements ExamAttachmentService {
                     .studentVisible(studentVisible)
                     .active(true)
                     .build());
+            List<ExamAttachment> previous = java.util.Optional.ofNullable(
+                            attachmentRepository.findByExamIdAndActiveTrueOrderByCreatedAtAsc(examId))
+                    .orElseGet(List::of).stream()
+                    .filter(existing -> !existing.getId().equals(saved.getId()))
+                    .peek(existing -> existing.setActive(false))
+                    .toList();
+            if (!previous.isEmpty()) {
+                attachmentRepository.saveAll(previous);
+            }
             return response(HttpStatus.CREATED, "Exam attachment uploaded successfully", toResponse(saved));
         } catch (RuntimeException ex) {
             try {
@@ -138,6 +148,7 @@ public class ExamAttachmentServiceImpl implements ExamAttachmentService {
     public ApiResponse<Object> delete(UUID examId, UUID attachmentId, String authorizationHeader) {
         Exam exam = findExam(examId);
         courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        assertEditable(exam);
         ExamAttachment attachment = attachmentRepository.findByIdAndExamIdAndActiveTrue(attachmentId, examId)
                 .orElseThrow(() -> new ResourceNotFoundException("ExamAttachment", "id", attachmentId));
         attachment.setActive(false);
@@ -174,8 +185,24 @@ public class ExamAttachmentServiceImpl implements ExamAttachmentService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Exam attachment file is required");
         }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
+            throw new IllegalArgumentException("Exam instructions must be a PDF file");
+        }
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.isBlank()
+                && !"application/pdf".equalsIgnoreCase(contentType)) {
+            throw new IllegalArgumentException("Exam instructions must be a PDF file");
+        }
         if (file.getSize() > 25 * 1024 * 1024) {
             throw new IllegalArgumentException("Exam attachment exceeds the maximum allowed size");
+        }
+    }
+
+    private void assertEditable(Exam exam) {
+        if (exam.getStatus() != ExamStatus.DRAFT && exam.getStatus() != ExamStatus.SCHEDULED) {
+            throw new com.mentify.exam.exception.ExamDomainException(
+                    HttpStatus.CONFLICT, "Exam in status " + exam.getStatus() + " cannot be modified");
         }
     }
 
