@@ -108,7 +108,8 @@ Request body:
 ```json
 {
   "identifier": "student@mentify.com",
-  "password": "your-password"
+  "password": "your-password",
+  "rememberMe": false
 }
 ```
 
@@ -160,7 +161,17 @@ Refresh token handling is controlled by:
 KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE=true
 ```
 
-Refresh-token rotation, logout, MFA, account lockout dashboards, and long-term session storage are intentionally deferred to follow-up tickets. This flow does not bypass Keycloak brute-force protection; failed credential validation remains inside Keycloak.
+### Remember Me sessions
+
+The login request may include `"rememberMe": true`. Mentify then requests the Keycloak optional `offline_access` scope using the existing Direct Access Grant and returns the Keycloak-issued offline refresh token in the usual `refreshToken` field. Omitted or false `rememberMe` preserves the normal session request. The backend client must have the `offline_access` optional client scope assigned, as in `keycloak/mentify-realm.json`.
+
+Remembered sessions use Keycloak offline-session policy; no Mentify token or database session is created. The bundled realm import sets a 30-day idle timeout (`offlineSessionIdleTimeout`) and a 60-day maximum lifetime (`offlineSessionMaxLifespan`). Change those realm settings in the Keycloak Admin Console under **Realm settings → Sessions** to tune lifetime for an environment. The scope request can be configured with `KEYCLOAK_REMEMBER_ME_SCOPE` (default `offline_access`); the configured scope must be permitted for the auth client.
+
+Use the ordinary `/api/v1/auth/refresh` endpoint with the returned persistent refresh token. Logout uses the same `/api/v1/auth/logout` endpoint and revokes the Keycloak session through its logout endpoint. Expired or revoked persistent tokens receive the same controlled `401` as ordinary refresh tokens. The UI's token persistence policy is separate from backend token validation.
+
+Remembered logins return the refresh token even when `KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE=false`; that setting continues to suppress refresh-token metadata for ordinary logins only.
+
+This flow does not bypass Keycloak brute-force protection; failed credential validation remains inside Keycloak.
 
 Known local profiles also track failed login attempts. Each failed Keycloak credential response increments `users.login_attempts`; on the 5th failed attempt the backend sets `users.account_non_locked=false` and returns `403` with `Your account is locked`. Later attempts for that locked local profile return the same locked message. Unknown identifiers still receive the generic `401` response.
 
@@ -201,6 +212,7 @@ keycloak:
   auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:mentify-backend-client}
   auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:change-me}
   include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
+  remember-me-scope: ${KEYCLOAK_REMEMBER_ME_SCOPE:offline_access}
 ```
 
 Safe logging rules:

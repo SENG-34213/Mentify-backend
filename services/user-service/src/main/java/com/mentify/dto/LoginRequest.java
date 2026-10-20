@@ -22,4 +22,7 @@ public class LoginRequest {
     @NotBlank(message = "Password is required")
     @Size(max = 256, message = "Password must not exceed 256 characters")
     private String password;
+
+    @Builder.Default
+    private boolean rememberMe = false;
 }
