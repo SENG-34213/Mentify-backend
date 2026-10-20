@@ -74,6 +74,7 @@ class AuthenticationServiceTest {
     @Test
     void login_whenSuccessful_loadsLocalProfileAndReturnsSafeMetadata() {
         LoginRequest request = loginRequest();
+        assertThat(request.isRememberMe()).isFalse();
         KeycloakAuthenticationResult keycloakSession = keycloakSession("keycloak-student-id", "student@gmail.com", Set.of("STUDENT"));
         User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
         user.setStudentProfile(new StudentProfile());
@@ -109,6 +110,25 @@ class AuthenticationServiceTest {
 
         assertThat(response.getRefreshToken()).isNull();
         assertThat(response.getRefreshExpiresIn()).isNull();
+    }
+
+    @Test
+    void login_whenRememberedSessionIsRequested_includesRefreshTokenEvenWhenNormallyHidden() {
+        keycloakProperties.setIncludeRefreshTokenInLoginResponse(false);
+        LoginRequest request = loginRequest();
+        request.setRememberMe(true);
+        KeycloakAuthenticationResult keycloakSession =
+                keycloakSession("keycloak-student-id", "student@gmail.com", Set.of("STUDENT"));
+        User user = activeUser(Role.STUDENT, AccountStatus.ACTIVE);
+        user.setStudentProfile(new StudentProfile());
+
+        when(keycloakAuthenticationClient.authenticate(request)).thenReturn(keycloakSession);
+        when(userRepository.findByKeycloakUserId("keycloak-student-id")).thenReturn(Optional.of(user));
+
+        LoginResponse response = authenticationService.login(request);
+
+        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+        assertThat(response.getRefreshExpiresIn()).isEqualTo(1800L);
     }
 
     @Test

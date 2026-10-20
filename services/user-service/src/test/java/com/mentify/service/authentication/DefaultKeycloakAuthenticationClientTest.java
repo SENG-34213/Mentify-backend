@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -52,6 +53,39 @@ class DefaultKeycloakAuthenticationClientTest {
         properties.setAuthClientSecret("secret-value");
 
         client = new DefaultKeycloakAuthenticationClient(restClientBuilder, properties);
+    }
+
+    @Test
+    void authenticate_whenRememberMeIsOmitted_doesNotRequestPersistentScope() throws Exception {
+        server.expect(requestTo(TOKEN_ENDPOINT))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(not(containsString("scope="))))
+                .andRespond(withSuccess(tokenResponseJson(), MediaType.APPLICATION_JSON));
+
+        client.authenticate(LoginRequest.builder()
+                .identifier("student@gmail.com")
+                .password("Password@123")
+                .build());
+
+        server.verify();
+    }
+
+    @Test
+    void authenticate_whenRememberMeIsEnabled_requestsConfiguredOfflineAccessScope() throws Exception {
+        server.expect(requestTo(TOKEN_ENDPOINT))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("grant_type=password")))
+                .andExpect(content().string(containsString("scope=offline_access")))
+                .andRespond(withSuccess(tokenResponseJson(), MediaType.APPLICATION_JSON));
+
+        KeycloakAuthenticationResult result = client.authenticate(LoginRequest.builder()
+                .identifier("student@gmail.com")
+                .password("Password@123")
+                .rememberMe(true)
+                .build());
+
+        assertThat(result.getRefreshToken()).isEqualTo("refresh-token");
+        server.verify();
     }
 
     @Test
