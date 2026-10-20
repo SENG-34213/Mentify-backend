@@ -15,5 +15,6 @@ public class InternalLessonResponse {
     private UUID id;
     private String title;
     private String description;
+    private Integer durationMinutes;
     private UUID courseId;
 }

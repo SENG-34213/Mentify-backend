@@ -1,6 +1,8 @@
 package com.mentify.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,6 +23,10 @@ public class LessonCreateRequest {
 
     @Size(max = 2000, message = "Description must not exceed 2000 characters")
     private String description;
+
+    @NotNull(message = "Lesson duration is required")
+    @Min(value = 1, message = "Lesson duration must be at least 1 minute")
+    private Integer durationMinutes;
 
     @Size(max = 500000, message = "Lesson content must not exceed 500000 characters")
     private String contentMarkdown;

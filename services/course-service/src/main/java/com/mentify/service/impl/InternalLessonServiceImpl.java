@@ -41,6 +41,7 @@ public class InternalLessonServiceImpl implements InternalLessonService {
                 .id(lesson.getId())
                 .title(lesson.getTitle())
                 .description(lesson.getDescription())
+                .durationMinutes(lesson.getDurationMinutes())
                 .courseId(lesson.getModule().getCourse().getId())
                 .build();
 
