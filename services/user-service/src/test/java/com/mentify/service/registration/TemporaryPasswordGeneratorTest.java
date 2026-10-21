@@ -12,15 +12,11 @@ class TemporaryPasswordGeneratorTest {
     private final TemporaryPasswordGenerator generator = new TemporaryPasswordGenerator();
 
     @Test
-    void generate_returnsLongRandomPasswordWithAllCommonCharacterClasses() {
+    void generate_returnsEightDigitNumericPassword() {
         Set<String> generated = new HashSet<>();
         for (int i = 0; i < 100; i++) {
             String password = generator.generate();
-            assertThat(password).hasSize(32);
-            assertThat(password).matches(".*[A-Z].*");
-            assertThat(password).matches(".*[a-z].*");
-            assertThat(password).matches(".*[0-9].*");
-            assertThat(password).matches(".*[^A-Za-z0-9].*");
+            assertThat(password).matches("[0-9]{8}");
             generated.add(password);
         }
         assertThat(generated).hasSize(100);
