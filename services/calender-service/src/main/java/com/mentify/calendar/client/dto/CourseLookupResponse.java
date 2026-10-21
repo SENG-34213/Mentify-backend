@@ -9,5 +9,8 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CourseLookupResponse {
     private UUID id;
+    private String courseName;
+    private String courseCode;
     private UUID assignedTeacherId;
+    private Integer maxCapacity;
 }

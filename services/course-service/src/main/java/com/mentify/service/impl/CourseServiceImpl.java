@@ -281,6 +281,10 @@ public class CourseServiceImpl implements CourseService {
         existingCourse.setSemester(trimToNull(request.getSemester()));
         existingCourse.setAcademicYear(trimToNull(request.getAcademicYear()));
         existingCourse.setMaxCapacity(request.getMaxCapacity());
+        existingCourse.setCredits(request.getCredits());
+        existingCourse.setSchedule(trimToNull(request.getSchedule()));
+        existingCourse.setGradingWeights(request.getGradingWeights() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(request.getGradingWeights()));
+        existingCourse.setTeachingAssistantIds(request.getTeachingAssistantIds() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(request.getTeachingAssistantIds()));
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
         existingCourse.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);

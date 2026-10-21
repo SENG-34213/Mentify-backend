@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.math.BigDecimal;
+import java.util.HashMap;
 
 @Entity
 @Table(name = "courses")
@@ -83,6 +85,25 @@ public class Course extends BaseEntity {
 
     @Column(name = "max_capacity")
     private Integer maxCapacity;
+
+    @Column
+    private Integer credits;
+
+    @Column(length = 255)
+    private String schedule;
+
+    @ElementCollection
+    @CollectionTable(name = "course_grading_weights", joinColumns = @JoinColumn(name = "course_id"))
+    @MapKeyColumn(name = "assessment_type", length = 50)
+    @Column(name = "weight", precision = 5, scale = 2)
+    @Builder.Default
+    private java.util.Map<String, BigDecimal> gradingWeights = new HashMap<>();
+
+    @ElementCollection
+    @CollectionTable(name = "course_teaching_assistants", joinColumns = @JoinColumn(name = "course_id"))
+    @Column(name = "assistant_id", nullable = false, columnDefinition = "uuid")
+    @Builder.Default
+    private java.util.Set<UUID> teachingAssistantIds = new java.util.HashSet<>();
 
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)

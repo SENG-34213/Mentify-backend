@@ -10,6 +10,8 @@ import com.mentify.dto.ChangePasswordRequest;
 import com.mentify.dto.UpdateTeacherProfileRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.StudentDirectoryProfileResponse;
+import com.mentify.dto.TeacherGuidanceNoteRequest;
+import com.mentify.dto.TeacherGuidanceNoteResponse;
 import com.mentify.entity.User;
 import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.UUID;
 import java.util.List;
@@ -46,6 +49,25 @@ public class UserRegistration {
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;
     private final UserRepository userRepository;
+    private final ObjectProvider<com.mentify.service.TeacherGuidanceNoteService> teacherGuidanceNoteService;
+
+    @PostMapping("/students/{studentId}/guidance-notes")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<TeacherGuidanceNoteResponse>> createGuidanceNote(
+            @PathVariable UUID studentId, @Valid @RequestBody TeacherGuidanceNoteRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        TeacherGuidanceNoteResponse response = teacherGuidanceNoteService.getObject().create(studentId, jwt.getSubject(), request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                HttpStatus.CREATED.value(), "Guidance note created successfully", response));
+    }
+
+    @GetMapping("/students/{studentId}/guidance-notes")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<List<TeacherGuidanceNoteResponse>>> getGuidanceNotes(
+            @PathVariable UUID studentId, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Guidance notes fetched successfully",
+                teacherGuidanceNoteService.getObject().list(studentId, jwt.getSubject())));
+    }
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
@@ -171,6 +193,24 @@ public class UserRegistration {
     public ResponseEntity<Boolean> teacherExists(@PathVariable String teacherId) {
         boolean exists = existsByIdentity(teacherId, Role.TEACHER);
         return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/teachers/{teacherId}/lookup")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<com.mentify.dto.UserResponse>> teacherLookup(@PathVariable UUID teacherId) {
+        User teacher = userRepository.findByIdAndRole(teacherId, Role.TEACHER)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Teacher not found"));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Teacher fetched successfully",
+                com.mentify.dto.UserResponse.builder()
+                        .id(teacher.getId()).email(teacher.getEmail())
+                        .firstName(teacher.getFirstName()).lastName(teacher.getLastName())
+                        .fullName((teacher.getFirstName() + " " + teacher.getLastName()).trim())
+                        .teacherCode(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getTeacherCode())
+                        .title(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getAcademicTitle())
+                        .department(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getDepartment())
+                        .role(teacher.getRole()).accountStatus(teacher.getAccountStatus())
+                        .emailVerified(teacher.isEmailVerified()).createdAt(teacher.getCreatedAt()).build()));
     }
 
     @GetMapping("/teachers/{teacherId}/canonical-id")
