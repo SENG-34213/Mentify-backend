@@ -4,10 +4,14 @@ import com.mentify.config.AuthProperties;
 import com.mentify.dto.AuthResponse;
 import com.mentify.dto.LoginRequest;
 import com.mentify.dto.ProvisionUserRequest;
+import com.mentify.dto.ForgotPasswordRequest;
+import com.mentify.dto.ResetPasswordRequest;
+import com.mentify.dto.VerifyResetOtpRequest;
 import com.mentify.dto.TokenRequest;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.AuthenticationService;
 import com.mentify.service.JwtTokenService;
+import com.mentify.service.PasswordResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +27,32 @@ public class AuthController {
     private final AuthenticationService authenticationService;
     private final JwtTokenService tokenService;
     private final AuthProperties properties;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(200, "Login successful", authenticationService.login(request)));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.request(request.email());
+        return ResponseEntity.ok(ApiResponse.success(200,
+                "If an account exists for this email, a password reset code has been sent.", null));
+    }
+
+    @PostMapping("/forgot-password/verify")
+    public ResponseEntity<ApiResponse<Map<String, String>>> verifyResetOtp(
+            @Valid @RequestBody VerifyResetOtpRequest request) {
+        String resetToken = passwordResetService.verify(request.email(), request.otp());
+        return ResponseEntity.ok(ApiResponse.success(200, "OTP verified successfully",
+                Map.of("resetToken", resetToken)));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.reset(request.resetToken(), request.newPassword());
+        return ResponseEntity.ok(ApiResponse.success(200, "Password reset successfully", null));
     }
 
     @PostMapping("/refresh")

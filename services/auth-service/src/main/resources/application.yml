@@ -8,6 +8,17 @@ spring:
     username: ${AUTH_DB_USERNAME:postgres}
     password: ${AUTH_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
   jpa:
     hibernate:
       ddl-auto: ${AUTH_HIBERNATE_DDL_AUTO:validate}
@@ -16,6 +27,10 @@ spring:
 server:
   port: ${AUTH_SERVICE_PORT:8085}
 mentify:
+  password-reset:
+    otp-expiry-minutes: ${AUTH_PASSWORD_RESET_OTP_EXPIRY_MINUTES:10}
+    email:
+      from: ${SMTP_FROM:no-reply@mentify.local}
   auth:
     issuer: ${AUTH_ISSUER_URI:http://localhost:8085}
     audience: ${AUTH_AUDIENCE:mentify-api}
