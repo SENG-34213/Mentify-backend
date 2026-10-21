@@ -4,16 +4,12 @@ import org.springframework.stereotype.Component;
 
 import java.security.SecureRandom;
 
-/** Generates high-entropy temporary credentials without relying on java.util.Random. */
+/** Generates unpredictable numeric temporary credentials without relying on java.util.Random. */
 @Component
 public class TemporaryPasswordGenerator {
 
-    private static final int PASSWORD_LENGTH = 32;
-    private static final String UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    private static final String LOWER = "abcdefghijkmnopqrstuvwxyz";
-    private static final String DIGITS = "23456789";
-    private static final String SYMBOLS = "!@#$%^&*()-_=+";
-    private static final String ALL = UPPER + LOWER + DIGITS + SYMBOLS;
+    private static final int PASSWORD_LENGTH = 8;
+    private static final int DIGIT_BOUND = 10;
 
     private final SecureRandom secureRandom;
 
@@ -27,23 +23,9 @@ public class TemporaryPasswordGenerator {
 
     public String generate() {
         char[] password = new char[PASSWORD_LENGTH];
-        password[0] = pick(UPPER);
-        password[1] = pick(LOWER);
-        password[2] = pick(DIGITS);
-        password[3] = pick(SYMBOLS);
-        for (int i = 4; i < password.length; i++) {
-            password[i] = pick(ALL);
-        }
-        for (int i = password.length - 1; i > 0; i--) {
-            int swapIndex = secureRandom.nextInt(i + 1);
-            char current = password[i];
-            password[i] = password[swapIndex];
-            password[swapIndex] = current;
+        for (int i = 0; i < password.length; i++) {
+            password[i] = (char) ('0' + secureRandom.nextInt(DIGIT_BOUND));
         }
         return new String(password);
-    }
-
-    private char pick(String alphabet) {
-        return alphabet.charAt(secureRandom.nextInt(alphabet.length()));
     }
 }
