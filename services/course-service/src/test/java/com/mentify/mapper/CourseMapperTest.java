@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,6 +27,10 @@ class CourseMapperTest {
                 .courseThumbnail("science.png")
                 .gradeId(gradeId)
                 .assignedTeacherId(teacherId)
+                .credits(3)
+                .schedule("Monday 09:00-11:00")
+                .gradingWeights(Map.of("ASSIGNMENT", new BigDecimal("40.00")))
+                .teachingAssistantIds(Set.of(UUID.randomUUID()))
                 .build();
 
         Course course = CourseMapper.toCourseEntity(request);
@@ -34,6 +40,10 @@ class CourseMapperTest {
         assertThat(course.getCourseThumbnail()).isEqualTo("science.png");
         assertThat(course.getGradeId()).isEqualTo(gradeId);
         assertThat(course.getAssignedTeacherId()).isEqualTo(teacherId);
+        assertThat(course.getCredits()).isEqualTo(3);
+        assertThat(course.getSchedule()).isEqualTo("Monday 09:00-11:00");
+        assertThat(course.getGradingWeights()).containsEntry("ASSIGNMENT", new BigDecimal("40.00"));
+        assertThat(course.getTeachingAssistantIds()).hasSize(1);
         assertThat(course.getStatus()).isEqualTo(CourseStatus.DRAFT);
         assertThat(course.isPublished()).isFalse();
         assertThat(course.getNumberOfStudents()).isZero();
@@ -55,6 +65,8 @@ class CourseMapperTest {
                 .isPublished(true)
                 .publishedDate(publishedDate)
                 .numberOfStudents(12)
+                .credits(4)
+                .schedule("Tuesday 10:00-12:00")
                 .build();
         course.setId(courseId);
 
@@ -70,6 +82,8 @@ class CourseMapperTest {
         assertThat(response.isPublished()).isTrue();
         assertThat(response.getPublishedDate()).isEqualTo(publishedDate);
         assertThat(response.getNumberOfStudents()).isEqualTo(12);
+        assertThat(response.getCredits()).isEqualTo(4);
+        assertThat(response.getSchedule()).isEqualTo("Tuesday 10:00-12:00");
     }
 
     @Test

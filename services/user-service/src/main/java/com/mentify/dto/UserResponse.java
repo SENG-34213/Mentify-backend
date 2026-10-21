@@ -17,6 +17,15 @@ import java.util.UUID;
 public class UserResponse {
     private UUID id;
     private String email;
+    private String firstName;
+    private String lastName;
+    private String fullName;
+    private String teacherCode;
+    private String title;
+    private String department;
+    private String officeLocation;
+    private String officeHours;
+    private String staffMetadata;
     private Role role;
     private AccountStatus accountStatus;
     private boolean emailVerified;

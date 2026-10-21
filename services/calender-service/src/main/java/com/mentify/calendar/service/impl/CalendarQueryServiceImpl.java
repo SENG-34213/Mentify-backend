@@ -10,6 +10,11 @@ import com.mentify.calendar.repository.CalendarEventRepository;
 import com.mentify.calendar.security.CurrentCalendarUserService;
 import com.mentify.calendar.service.CalendarCourseAccessService;
 import com.mentify.calendar.service.CalendarQueryService;
+import com.mentify.calendar.client.CourseServiceClient;
+import com.mentify.calendar.client.UserServiceClient;
+import com.mentify.calendar.client.dto.CourseLookupResponse;
+import com.mentify.calendar.client.dto.TeacherLookupResponse;
+import com.mentify.payload.response.ApiResponse;
 import com.mentify.calendar.exception.CalendarDomainException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +39,8 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
     private final CalendarEventMapper mapper;
     private final CurrentCalendarUserService currentUser;
     private final CalendarCourseAccessService courseAccess;
+    private final CourseServiceClient courseServiceClient;
+    private final UserServiceClient userServiceClient;
 
     @Value("${calendar.query.max-range-days:31}")
     private long maxRangeDays;
@@ -55,7 +62,7 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         courseAccess.assertCanQueryCourse(courseId, authorizationHeader);
 
         List<CalendarEvent> events = query(start, end, type, courseId, status, authorizationHeader);
-        return events.stream().map(event -> mapper.toResponse(event, false, false)).toList();
+        return events.stream().map(event -> enrich(event, authorizationHeader)).toList();
     }
 
     @Override
@@ -70,7 +77,40 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         CalendarEventStatus status = resolveStatus(null);
         LocalDateTime from = LocalDateTime.now(APPLICATION_ZONE);
         List<CalendarEvent> events = upcoming(from, status, authorizationHeader);
-        return events.stream().limit(limit).map(event -> mapper.toResponse(event, false, false)).toList();
+        return events.stream().limit(limit).map(event -> enrich(event, authorizationHeader)).toList();
+    }
+
+    private CalendarEventResponse enrich(CalendarEvent event, String authorizationHeader) {
+        CalendarEventResponse response = mapper.toResponse(event, false, false);
+        if (event.getCourseId() == null) return response;
+        try {
+            ApiResponse<CourseLookupResponse> lookup = courseServiceClient.getCourseById(event.getCourseId(), authorizationHeader);
+            CourseLookupResponse course = lookup == null ? null : lookup.getData();
+            if (course == null) return response;
+            CalendarEventResponse enriched = response.toBuilder()
+                    .courseName(course.getCourseName())
+                    .courseCode(course.getCourseCode())
+                    .instructorId(course.getAssignedTeacherId())
+                    .capacity(course.getMaxCapacity())
+                    .build();
+            if (course.getAssignedTeacherId() == null) return enriched;
+            try {
+                ApiResponse<TeacherLookupResponse> teacherLookup = userServiceClient.getTeacherById(
+                        course.getAssignedTeacherId(), authorizationHeader);
+                TeacherLookupResponse teacher = teacherLookup == null ? null : teacherLookup.getData();
+                if (teacher == null) return enriched;
+                return enriched.toBuilder()
+                        .instructorName(teacher.getFullName())
+                        .instructorEmail(teacher.getEmail())
+                        .instructorTitle(teacher.getTitle())
+                        .instructorDepartment(teacher.getDepartment())
+                        .build();
+            } catch (RuntimeException ignored) {
+                return enriched;
+            }
+        } catch (RuntimeException exception) {
+            return response;
+        }
     }
 
     private List<CalendarEvent> query(LocalDateTime start, LocalDateTime end,

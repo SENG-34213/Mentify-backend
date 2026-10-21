@@ -112,6 +112,20 @@ public class MaterialController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Materials retrieved successfully", response));
     }
 
+    @GetMapping("/ai-sources")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Page<MaterialDetailsResponse>>> listVerifiedAiSources(
+            @RequestParam UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        Page<MaterialDetailsResponse> response = materialManagementService.listMaterials(
+                new MaterialSearchCriteria(null, null, MaterialPurpose.AI_SOURCE, MaterialStatus.AVAILABLE,
+                        null, courseId, null, null, null, null, null),
+                authorizationHeader, pageable);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Verified AI sources retrieved successfully", response));
+    }
+
     @GetMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<MaterialDetailsResponse>> getMaterial(

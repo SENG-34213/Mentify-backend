@@ -12,6 +12,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.UUID;
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.Set;
 
 @Data
 @Builder
@@ -53,6 +56,16 @@ public class CourseRequest {
 
     @Min(value = 0, message = "Maximum capacity cannot be negative")
     private Integer maxCapacity;
+
+    @Min(value = 0, message = "Credits cannot be negative")
+    private Integer credits;
+
+    @Size(max = 255, message = "Schedule must not exceed 255 characters")
+    private String schedule;
+
+    private Map<String, BigDecimal> gradingWeights;
+
+    private Set<UUID> teachingAssistantIds;
 
     private Boolean isOnline;
 

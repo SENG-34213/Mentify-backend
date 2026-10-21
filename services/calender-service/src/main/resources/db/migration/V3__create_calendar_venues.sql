@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS calendar_venues (
+    id UUID PRIMARY KEY,
+    name VARCHAR(150) NOT NULL UNIQUE,
+    location VARCHAR(255) NOT NULL,
+    capacity INTEGER NOT NULL CHECK (capacity > 0),
+    active BOOLEAN NOT NULL DEFAULT TRUE
+);

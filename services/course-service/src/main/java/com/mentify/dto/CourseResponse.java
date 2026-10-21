@@ -10,6 +10,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.math.BigDecimal;
+import java.util.Map;
+import java.util.Set;
 
 @Data
 @Builder
@@ -45,6 +47,10 @@ public class CourseResponse {
     private Long examCount;
     private BigDecimal averageGrade;
     private Integer maxCapacity;
+    private Integer credits;
+    private String schedule;
+    private Map<String, BigDecimal> gradingWeights;
+    private Set<UUID> teachingAssistantIds;
     private UUID createdBy;
     private UUID lastModifiedBy;
     private LocalDateTime createdAt;

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class CalendarEventResponse {
     UUID id;
     String title;
@@ -22,6 +22,14 @@ public class CalendarEventResponse {
     LocalDateTime endDateTime;
     boolean allDay;
     UUID courseId;
+    String courseName;
+    String courseCode;
+    UUID instructorId;
+    String instructorName;
+    String instructorEmail;
+    String instructorTitle;
+    String instructorDepartment;
+    Integer capacity;
     CalendarSourceType sourceType;
     UUID sourceId;
     UUID createdBy;
