@@ -5,6 +5,8 @@ import com.mentify.entity.Payment;
 import com.mentify.enums.PaymentProvider;
 import com.mentify.enums.PaymentStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -22,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
+@TestMethodOrder(MethodOrderer.MethodName.class)
 @TestPropertySource(properties = {
         "spring.cloud.config.enabled=false",
         "eureka.client.enabled=false",
@@ -235,14 +238,15 @@ class PaymentRepositoryIntegrationTest {
                 LocalDateTime.of(2026, 10, 10, 13, 0)
         );
         entityManager.clear();
+        LocalDateTime matchingCreatedAt = matchingPayment.getCreatedAt();
 
         Page<Payment> result = paymentRepository.findAll(
                 PaymentSpecifications.adminFilter(AdminPaymentFilter.builder()
                         .status(PaymentStatus.SUCCESS)
                         .studentId(matchingStudentId)
                         .courseId(matchingCourseId)
-                        .createdFrom(LocalDateTime.of(2026, 10, 10, 9, 0))
-                        .createdTo(LocalDateTime.of(2026, 10, 10, 10, 30))
+                        .createdFrom(matchingCreatedAt.minusMinutes(1))
+                        .createdTo(matchingCreatedAt.plusMinutes(1))
                         .build()),
                 PageRequest.of(0, 10)
         );

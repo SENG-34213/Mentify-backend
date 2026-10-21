@@ -15,5 +15,16 @@ import java.util.UUID;
 public class CourseLookupResponse {
     private UUID id;
     private String courseName;
+    private String courseCode;
+    private String level;
+    private String semester;
+    private String academicYear;
+    private Integer maxCapacity;
     private UUID assignedTeacherId;
+
+    public CourseLookupResponse(UUID id, String courseName, UUID assignedTeacherId) {
+        this.id = id;
+        this.courseName = courseName;
+        this.assignedTeacherId = assignedTeacherId;
+    }
 }
