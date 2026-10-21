@@ -52,7 +52,7 @@ public class AuthenticationService {
         user.setLastLoginAt(LocalDateTime.now(ZoneOffset.UTC));
         authUsers.save(user);
         profiles.recordLastLogin(user.getEmail());
-        return response(tokens.issue(user, profile), profile, user.isMustChangePassword());
+        return response(tokens.issue(user, profile, request.isRememberMe()), profile, user.isMustChangePassword());
     }
 
     @Transactional
@@ -96,8 +96,9 @@ public class AuthenticationService {
 
     @Transactional
     public AuthResponse refresh(String raw) {
-        UUID userId = tokens.rotate(raw);
-        AuthUser user = authUsers.findById(userId).orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+        JwtTokenService.RefreshSession session = tokens.rotate(raw);
+        AuthUser user = authUsers.findById(session.userId())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
         if (!user.isEnabled() || user.isLocked() || user.isMustChangePassword()) {
             throw new IllegalStateException("Account is not allowed to access the platform");
         }
@@ -107,7 +108,7 @@ public class AuthenticationService {
                 || !"ACTIVE".equals(profile.getAccountStatus())) {
             throw new IllegalStateException("Account is not allowed to access the platform");
         }
-        return response(tokens.issue(user, profile), profile, user.isMustChangePassword());
+        return response(tokens.issue(user, profile, session.rememberMe()), profile, user.isMustChangePassword());
     }
 
     private AuthResponse response(JwtTokenService.IssuedTokens issued, UserProfileClient.AuthProfile profile,
@@ -118,6 +119,7 @@ public class AuthenticationService {
                 .tokenType("Bearer")
                 .expiresIn(issued.expiresIn())
                 .refreshExpiresIn(issued.refreshExpiresIn())
+                .rememberMe(issued.rememberMe())
                 .scope("profile")
                 .issuedAt(java.time.Instant.now())
                 .mustChangePassword(mustChangePassword)
