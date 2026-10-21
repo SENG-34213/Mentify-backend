@@ -4,6 +4,7 @@ import com.mentify.client.UserServiceClient;
 import com.mentify.client.AssignmentDashboardClient;
 import com.mentify.client.CalendarDashboardClient;
 import com.mentify.client.ExamDashboardClient;
+import com.mentify.client.QuizGradebookClient;
 import com.mentify.client.EntrollmentServiceClient;
 import com.mentify.client.dto.AssignmentDashboardResponse;
 import com.mentify.client.dto.CalendarDashboardResponse;
@@ -21,6 +22,9 @@ import com.mentify.mapper.CourseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
 import com.mentify.repository.GradeRepository;
+import com.mentify.repository.CourseCountProjection;
+import com.mentify.repository.ModuleRepository;
+import com.mentify.repository.LessonRepository;
 import com.mentify.service.CourseService;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -44,36 +48,45 @@ public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
     private final GradeRepository gradeRepository;
+    private final ModuleRepository moduleRepository;
+    private final LessonRepository lessonRepository;
     private final UserServiceClient userServiceClient;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
     private final EntrollmentServiceClient entrollmentServiceClient;
     private final AssignmentDashboardClient assignmentDashboardClient;
     private final ExamDashboardClient examDashboardClient;
+    private final QuizGradebookClient quizGradebookClient;
     private final CalendarDashboardClient calendarDashboardClient;
 
     public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
                              UserServiceClient userServiceClient,
                              TeacherCourseAccessGuard teacherCourseAccessGuard) {
-        this(courseRepository, gradeRepository, userServiceClient, teacherCourseAccessGuard,
-                null, null, null, null);
+        this(courseRepository, gradeRepository, null, null, userServiceClient, teacherCourseAccessGuard,
+                null, null, null, null, null);
     }
 
     @Autowired
     public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
+                             ModuleRepository moduleRepository,
+                             LessonRepository lessonRepository,
                              UserServiceClient userServiceClient,
                              TeacherCourseAccessGuard teacherCourseAccessGuard,
                              EntrollmentServiceClient entrollmentServiceClient,
                              AssignmentDashboardClient assignmentDashboardClient,
                              ExamDashboardClient examDashboardClient,
-                             CalendarDashboardClient calendarDashboardClient) {
+                             CalendarDashboardClient calendarDashboardClient,
+                             QuizGradebookClient quizGradebookClient) {
         this.courseRepository = courseRepository;
         this.gradeRepository = gradeRepository;
+        this.moduleRepository = moduleRepository;
+        this.lessonRepository = lessonRepository;
         this.userServiceClient = userServiceClient;
         this.teacherCourseAccessGuard = teacherCourseAccessGuard;
         this.entrollmentServiceClient = entrollmentServiceClient;
         this.assignmentDashboardClient = assignmentDashboardClient;
         this.examDashboardClient = examDashboardClient;
         this.calendarDashboardClient = calendarDashboardClient;
+        this.quizGradebookClient = quizGradebookClient;
     }
 
     @Override
@@ -349,11 +362,15 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId) {
-        List<CourseResponse> courses = courseRepository
-                .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId)
-                .stream()
-                .map(this::toCourseResponse)
-                .collect(Collectors.toList());
+        return getCoursesForTeacher(teacherId, null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId, String authorizationHeader) {
+        List<Course> teacherCourses = courseRepository
+                .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId);
+        List<CourseResponse> courses = toCourseResponses(teacherCourses, authorizationHeader);
 
         return ApiResponse.<List<CourseResponse>>builder()
                 .message("Teacher courses fetched successfully")
@@ -361,6 +378,66 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    private List<CourseResponse> toCourseResponses(List<Course> source, String authorizationHeader) {
+        if (source.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> courseIds = source.stream().map(Course::getId).collect(Collectors.toSet());
+        java.util.Map<UUID, Long> moduleCounts = moduleRepository == null ? java.util.Map.of()
+                : moduleRepository.countByCourseIds(courseIds).stream()
+                .collect(Collectors.toMap(CourseCountProjection::getCourseId, CourseCountProjection::getCount));
+        java.util.Map<UUID, Long> lessonCounts = lessonRepository == null ? java.util.Map.of()
+                : lessonRepository.countByCourseIds(courseIds).stream()
+                .collect(Collectors.toMap(CourseCountProjection::getCourseId, CourseCountProjection::getCount));
+
+        return source.stream().map(course -> {
+            CourseResponse response = toCourseResponse(course);
+            response.setModuleCount(moduleCounts.getOrDefault(course.getId(), 0L));
+            response.setLessonCount(lessonCounts.getOrDefault(course.getId(), 0L));
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && assignmentDashboardClient != null) {
+                response.setAssignmentCount(countAssignments(course.getId(), authorizationHeader));
+            }
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && examDashboardClient != null) {
+                response.setExamCount(countExams(course.getId(), authorizationHeader));
+            }
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && quizGradebookClient != null) {
+                response.setQuizCount(countQuizzes(course.getId(), authorizationHeader));
+            }
+            return response;
+        }).toList();
+    }
+
+    private long countAssignments(UUID courseId, String authorizationHeader) {
+        try {
+            List<AssignmentDashboardResponse> response = assignments(courseId, authorizationHeader);
+            return response == null ? 0L : response.size();
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve assignment count for course [{}]", courseId, exception);
+            return 0L;
+        }
+    }
+
+    private long countExams(UUID courseId, String authorizationHeader) {
+        try {
+            return exams(courseId, authorizationHeader).size();
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve exam count for course [{}]", courseId, exception);
+            return 0L;
+        }
+    }
+
+    private long countQuizzes(UUID courseId, String authorizationHeader) {
+        try {
+            ApiResponse<List<com.mentify.client.dto.QuizGradebookResponse>> response = quizGradebookClient
+                    .getQuizzes(courseId, authorizationHeader);
+            return response == null || response.getData() == null ? 0L : response.getData().size();
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve quiz count for course [{}]", courseId, exception);
+            return 0L;
+        }
     }
 
     @Override

@@ -25,9 +25,11 @@ public class CourseController {
 
     @GetMapping("/my-courses")
     @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<ApiResponse<List<CourseResponse>>> getMyCourses() {
+    public ResponseEntity<ApiResponse<List<CourseResponse>>> getMyCourses(
+            @RequestHeader("Authorization") String authorizationHeader) {
         UUID teacherId = teacherCourseAccessGuard.getAuthenticatedTeacherId();
-        ApiResponse<List<CourseResponse>> response = courseService.getCoursesForTeacher(teacherId);
+        ApiResponse<List<CourseResponse>> response = courseService
+                .getCoursesForTeacher(teacherId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

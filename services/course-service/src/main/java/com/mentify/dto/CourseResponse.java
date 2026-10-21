@@ -34,6 +34,13 @@ public class CourseResponse {
     private CourseStatus courseStatus;
     private LocalDate publishedDate;
     private int numberOfStudents;
+    private Long moduleCount;
+    private Long lessonCount;
+    private Long assignmentCount;
+    private Long quizCount;
+    private Long examCount;
+    private BigDecimal averageGrade;
+    private Integer maxCapacity;
     private UUID createdBy;
     private UUID lastModifiedBy;
     private LocalDateTime createdAt;
