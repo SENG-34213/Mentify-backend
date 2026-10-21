@@ -161,7 +161,7 @@ public class UserRegistrationService {
     public void changePassword(String identityId, ChangePasswordRequest request) {
         User user = findByIdentity(identityId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        authCredentialService.setInitialPassword(user.getAuthUserId(), request.getNewPassword());
+        authCredentialService.changePassword(user.getId().toString(), request.getCurrentPassword(), request.getNewPassword());
     }
 
     @Transactional

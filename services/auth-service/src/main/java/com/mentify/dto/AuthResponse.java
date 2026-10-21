@@ -16,6 +16,7 @@ public class AuthResponse {
     private long refreshExpiresIn;
     private String scope;
     private Instant issuedAt;
+    private boolean mustChangePassword;
     private Profile profile;
 
     @Data
@@ -29,5 +30,6 @@ public class AuthResponse {
         private String accountStatus;
         private boolean emailVerified;
         private boolean profileComplete;
+        private boolean mustChangePassword;
     }
 }

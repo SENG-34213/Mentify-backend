@@ -12,4 +12,5 @@ public class ProvisionUserRequest {
     @NotNull private UUID userId;
     @Email @NotBlank private String email;
     @NotBlank private String password;
+    private boolean mustChangePassword = true;
 }

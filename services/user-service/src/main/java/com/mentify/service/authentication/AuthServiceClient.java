@@ -38,6 +38,21 @@ public class AuthServiceClient {
                 .toBodilessEntity();
     }
 
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        RestClient.builder()
+                .baseUrl(serviceUrl)
+                .build()
+                .post()
+                .uri("/api/v1/auth/internal/users/{userId}/password", userId)
+                .header("X-Internal-Token", internalToken)
+                .body(new PasswordChangeRequest(currentPassword, newPassword))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
     public record ProvisionUserRequest(UUID userId, String email, String password) {
+    }
+
+    public record PasswordChangeRequest(String currentPassword, String newPassword) {
     }
 }
