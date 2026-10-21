@@ -271,11 +271,16 @@ public class CourseServiceImpl implements CourseService {
         validateTeacherExists(assignedTeacherId, authorizationHeader);
 
         existingCourse.setCourseName(request.getCourseName().trim());
+        existingCourse.setCourseCode(trimToNull(request.getCourseCode()));
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
         existingCourse.setCourseThumbnail(request.getCourseThumbnail());
         existingCourse.setGradeId(request.getGradeId());
         existingCourse.setAssignedTeacherId(assignedTeacherId);
         existingCourse.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
+        existingCourse.setLevel(trimToNull(request.getLevel()));
+        existingCourse.setSemester(trimToNull(request.getSemester()));
+        existingCourse.setAcademicYear(trimToNull(request.getAcademicYear()));
+        existingCourse.setMaxCapacity(request.getMaxCapacity());
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
         existingCourse.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
@@ -479,5 +484,13 @@ public class CourseServiceImpl implements CourseService {
     private CourseResponse toCourseResponse(Course course) {
         Grade grade = gradeRepository.findById(course.getGradeId()).orElse(null);
         return CourseMapper.toCourseResponse(course, grade);
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

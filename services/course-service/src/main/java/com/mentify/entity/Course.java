@@ -21,6 +21,9 @@ public class Course extends BaseEntity {
     @Column(nullable = false, length = 150)
     private String courseName;
 
+    @Column(name = "course_code", length = 50)
+    private String courseCode;
+
     @Column(columnDefinition = "TEXT")
     private String courseDescription;
 
@@ -35,6 +38,15 @@ public class Course extends BaseEntity {
 
     @Column(length = 150)
     private String subject;
+
+    @Column(length = 100)
+    private String level;
+
+    @Column(length = 100)
+    private String semester;
+
+    @Column(name = "academic_year", length = 20)
+    private String academicYear;
 
     @Column(nullable = false)
     @Builder.Default
@@ -68,6 +80,9 @@ public class Course extends BaseEntity {
 
     @Column(nullable = false)
     private int numberOfStudents = 0;
+
+    @Column(name = "max_capacity")
+    private Integer maxCapacity;
 
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)

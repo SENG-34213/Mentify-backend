@@ -19,6 +19,7 @@ public class CourseResponse {
 
     private UUID id;
     private String courseName;
+    private String courseCode;
     private String courseDescription;
     private String courseThumbnail;
     private BigDecimal gradeMonthlyFee;
@@ -28,6 +29,9 @@ public class CourseResponse {
     private UUID assignedTeacherId;
     private UUID gradeId;
     private String subject;
+    private String level;
+    private String semester;
+    private String academicYear;
     private boolean online;
     private boolean visible;
     private boolean isPublished;
