@@ -3,6 +3,7 @@ package com.mentify.mapper;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
 import com.mentify.entity.Course;
+import com.mentify.entity.Grade;
 import com.mentify.enums.CourseStatus;
 import org.junit.jupiter.api.Test;
 
@@ -69,5 +70,22 @@ class CourseMapperTest {
         assertThat(response.isPublished()).isTrue();
         assertThat(response.getPublishedDate()).isEqualTo(publishedDate);
         assertThat(response.getNumberOfStudents()).isEqualTo(12);
+    }
+
+    @Test
+    void toCourseResponse_includesGradeNameWhenGradeIsResolved() {
+        UUID gradeId = UUID.randomUUID();
+        Course course = Course.builder()
+                .courseName("English")
+                .courseDescription("Spoken English")
+                .gradeId(gradeId)
+                .assignedTeacherId(UUID.randomUUID())
+                .build();
+        Grade grade = Grade.builder().name("Grade 10").build();
+
+        CourseResponse response = CourseMapper.toCourseResponse(course, grade);
+
+        assertThat(response.getGradeId()).isEqualTo(gradeId);
+        assertThat(response.getGradeName()).isEqualTo("Grade 10");
     }
 }

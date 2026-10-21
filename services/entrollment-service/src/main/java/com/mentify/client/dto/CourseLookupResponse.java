@@ -11,6 +11,8 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CourseLookupResponse {
     private UUID id;
+    private String courseName;
+    private String gradeName;
     private UUID assignedTeacherId;
     private BigDecimal gradeMonthlyFee;
 

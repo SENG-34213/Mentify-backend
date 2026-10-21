@@ -16,6 +16,7 @@ public class CommunicationGroupResponse {
 
     private UUID id;
     private UUID courseId;
+    private String courseName;
     private String name;
     private String description;
     private GroupStatus status;

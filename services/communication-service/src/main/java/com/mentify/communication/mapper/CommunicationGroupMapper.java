@@ -11,9 +11,14 @@ public final class CommunicationGroupMapper {
     }
 
     public static CommunicationGroupResponse toGroupResponse(CommunicationGroup group) {
+        return toGroupResponse(group, null);
+    }
+
+    public static CommunicationGroupResponse toGroupResponse(CommunicationGroup group, String courseName) {
         return CommunicationGroupResponse.builder()
                 .id(group.getId())
                 .courseId(group.getCourseId())
+                .courseName(courseName)
                 .name(group.getName())
                 .description(group.getDescription())
                 .status(group.getStatus())

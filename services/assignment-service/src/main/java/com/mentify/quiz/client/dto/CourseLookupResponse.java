@@ -8,6 +8,7 @@ import java.util.UUID;
 public class CourseLookupResponse {
 
     private UUID id;
+    private String courseName;
     private UUID assignedTeacherId;
     private boolean published;
     private boolean visible;

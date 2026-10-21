@@ -23,6 +23,8 @@ public class CourseResponse {
     private String courseThumbnail;
     private BigDecimal gradeMonthlyFee;
     private String gradeCurrencyCode;
+    /** Human-readable grade label for user-facing clients. */
+    private String gradeName;
     private UUID assignedTeacherId;
     private UUID gradeId;
     private String subject;

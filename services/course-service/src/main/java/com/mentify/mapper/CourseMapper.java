@@ -50,6 +50,7 @@ public class CourseMapper {
                 .courseThumbnail(course.getCourseThumbnail())
                 .gradeMonthlyFee(grade != null ? grade.getMonthlyFee() : null)
                 .gradeCurrencyCode(grade != null ? grade.getCurrencyCode() : null)
+                .gradeName(grade != null ? grade.getName() : null)
                 .assignedTeacherId(course.getAssignedTeacherId())
                 .gradeId(course.getGradeId())
                 .subject(course.getSubject())
