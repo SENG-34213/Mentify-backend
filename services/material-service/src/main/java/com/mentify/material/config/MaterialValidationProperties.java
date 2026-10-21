@@ -63,6 +63,7 @@ public class MaterialValidationProperties {
                 new FileTypeRule(MaterialType.VIDEO, List.of("mp4"), List.of("video/mp4")),
                 new FileTypeRule(MaterialType.VIDEO, List.of("mov"), List.of("video/quicktime")),
                 new FileTypeRule(MaterialType.VIDEO, List.of("webm"), List.of("video/webm")),
+                new FileTypeRule(MaterialType.AUDIO, List.of("webm"), List.of("audio/webm")),
                 new FileTypeRule(MaterialType.AUDIO, List.of("mp3"), List.of("audio/mpeg")),
                 new FileTypeRule(MaterialType.AUDIO, List.of("wav"), List.of("audio/wav", "audio/x-wav")),
                 new FileTypeRule(MaterialType.AUDIO, List.of("m4a"), List.of("audio/mp4")),

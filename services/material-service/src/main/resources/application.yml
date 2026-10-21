@@ -126,6 +126,9 @@ material:
       - material-type: VIDEO
         extensions: [webm]
         content-types: [video/webm]
+      - material-type: AUDIO
+        extensions: [webm]
+        content-types: [audio/webm]
       - material-type: VIDEO
         extensions: [avi]
         content-types: [video/avi, video/x-msvideo]

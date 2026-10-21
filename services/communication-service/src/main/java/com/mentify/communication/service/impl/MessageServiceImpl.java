@@ -334,6 +334,10 @@ public class MessageServiceImpl implements MessageService {
 
     private MessageType resolveMessageType(List<MessageAttachment> attachments) {
         if (attachments.isEmpty()) return MessageType.TEXT;
+        if (attachments.size() == 1
+                && attachments.get(0).getAttachmentType() == com.mentify.communication.enums.AttachmentType.AUDIO) {
+            return MessageType.VOICE;
+        }
         return attachments.size() == 1 && attachments.get(0).getAttachmentType() == com.mentify.communication.enums.AttachmentType.IMAGE
                 ? MessageType.IMAGE : MessageType.FILE;
     }

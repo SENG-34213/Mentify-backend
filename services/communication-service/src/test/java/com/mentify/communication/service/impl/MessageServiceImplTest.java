@@ -2,6 +2,8 @@ package com.mentify.communication.service.impl;
 
 import com.mentify.communication.dto.request.SendMessageRequest;
 import com.mentify.communication.dto.request.UpdateMessageRequest;
+import com.mentify.communication.client.MaterialServiceClient;
+import com.mentify.communication.client.dto.MaterialLookupResponse;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.dto.response.PageResponse;
 import com.mentify.communication.entity.CommunicationGroup;
@@ -22,6 +24,7 @@ import com.mentify.communication.repository.MessageHiddenForUserRepository;
 import com.mentify.communication.repository.MessageRepository;
 import com.mentify.communication.security.AuthenticatedUserService;
 import com.mentify.communication.service.GroupMemberService;
+import com.mentify.payload.response.ApiResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -65,6 +68,9 @@ class MessageServiceImplTest {
 
     @Mock
     private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private MaterialServiceClient materialServiceClient;
 
     @InjectMocks
     private MessageServiceImpl messageService;
@@ -123,6 +129,35 @@ class MessageServiceImplTest {
 
         verify(groupMemberService).validateActiveMembership(groupId, studentId);
         verify(messageRepository).save(any(Message.class));
+    }
+
+    @Test
+    void audioAttachmentIsReturnedAsVoiceMessage() {
+        UUID groupId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID materialId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
+
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
+        when(authenticatedUserService.getAuthorizationHeader()).thenReturn("Bearer test-token");
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(materialServiceClient.getMaterial(eq(materialId), eq("Bearer test-token")))
+                .thenReturn(ApiResponse.success(200, "ok", new MaterialLookupResponse(
+                        materialId, "Voice", null, "voice.webm", "audio/webm", 128L,
+                        "AUDIO", "COMMUNICATION_ATTACHMENT", "AVAILABLE", senderId,
+                        group.getCourseId(), "checksum", null, null)));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
+            Message message = invocation.getArgument(0);
+            message.setId(UUID.randomUUID());
+            return message;
+        });
+
+        MessageResponse response = messageService.sendMessage(groupId,
+                SendMessageRequest.builder().attachmentIds(List.of(materialId)).build());
+
+        assertEquals(MessageType.VOICE, response.getType());
+        assertEquals(1, response.getAttachments().size());
+        assertEquals("audio/webm", response.getAttachments().get(0).getContentType());
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.mentify.communication.websocket;
 import com.mentify.communication.dto.request.SendMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.service.MessageService;
+import com.mentify.communication.service.MessageBroadcastService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -10,7 +11,6 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -26,7 +26,7 @@ public class CommunicationWebSocketController {
     private static final String SESSION_AUTHENTICATION_KEY = "mentify.websocket.authentication";
 
     private final MessageService messageService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final MessageBroadcastService messageBroadcastService;
 
     @MessageMapping("/groups/{groupId}/messages")
     public void sendMessage(
@@ -38,7 +38,7 @@ public class CommunicationWebSocketController {
     ) {
         UUID senderId = resolveSenderId(senderIdHeader, principal, headerAccessor);
         MessageResponse response = messageService.sendMessage(groupId, request, senderId);
-        messagingTemplate.convertAndSend("/topic/groups/" + groupId, response);
+        messageBroadcastService.broadcast(groupId, response);
     }
 
     private UUID resolveSenderId(String senderIdHeader, Principal principal, SimpMessageHeaderAccessor headerAccessor) {

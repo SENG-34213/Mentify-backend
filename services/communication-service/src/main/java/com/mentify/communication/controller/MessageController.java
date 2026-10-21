@@ -8,6 +8,7 @@ import com.mentify.communication.dto.response.CommunicationAttachmentResponse;
 import com.mentify.communication.dto.response.AttachmentDownloadResponse;
 import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.service.MessageService;
+import com.mentify.communication.service.MessageBroadcastService;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ import java.util.UUID;
 public class MessageController {
 
     private final MessageService messageService;
+    private final MessageBroadcastService messageBroadcastService;
 
     @PostMapping(value = "/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<CommunicationAttachmentResponse>> uploadAttachment(
@@ -50,6 +52,7 @@ public class MessageController {
             @Valid @RequestBody SendMessageRequest request
     ) {
         MessageResponse response = messageService.sendMessage(groupId, request);
+        messageBroadcastService.broadcast(groupId, response);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Message sent successfully", response));
