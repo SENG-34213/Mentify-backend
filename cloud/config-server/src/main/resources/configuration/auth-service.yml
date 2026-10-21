@@ -19,6 +19,7 @@ mentify:
     audience: ${AUTH_AUDIENCE:mentify-api}
     access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}
     refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:2592000}
+    session-refresh-token-seconds: ${AUTH_SESSION_REFRESH_TOKEN_SECONDS:86400}
     key-id: ${AUTH_JWT_KEY_ID:mentify-auth-rsa}
     private-key-base64: ${AUTH_JWT_PRIVATE_KEY_BASE64:}
     public-key-base64: ${AUTH_JWT_PUBLIC_KEY_BASE64:}

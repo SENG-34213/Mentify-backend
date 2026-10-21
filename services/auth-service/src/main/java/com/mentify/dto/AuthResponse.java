@@ -14,6 +14,7 @@ public class AuthResponse {
     private String tokenType;
     private long expiresIn;
     private long refreshExpiresIn;
+    private boolean rememberMe;
     private String scope;
     private Instant issuedAt;
     private boolean mustChangePassword;

@@ -42,7 +42,7 @@ public class JwtTokenService {
         this.encoder = encoder;
     }
 
-    public IssuedTokens issue(AuthUser user, UserProfileClient.AuthProfile profile) {
+    public IssuedTokens issue(AuthUser user, UserProfileClient.AuthProfile profile, boolean rememberMe) {
         Instant now = Instant.now();
         Instant expires = now.plusSeconds(properties.getAccessTokenSeconds());
         JwtClaimsSet claims = JwtClaimsSet.builder().issuer(properties.getIssuer())
@@ -67,14 +67,19 @@ public class JwtTokenService {
         entity.setUserId(user.getUserId());
         entity.setTokenHash(hash(refresh));
         entity.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
+        entity.setRememberMe(rememberMe);
+        long refreshTokenSeconds = rememberMe
+                ? properties.getRefreshTokenSeconds()
+                : properties.getSessionRefreshTokenSeconds();
         entity.setExpiresAt(
-                LocalDateTime.now(ZoneOffset.UTC).plusSeconds(properties.getRefreshTokenSeconds())
+                LocalDateTime.now(ZoneOffset.UTC).plusSeconds(refreshTokenSeconds)
         );
         refreshTokens.save(entity);
-        return new IssuedTokens(access, refresh, properties.getAccessTokenSeconds(), properties.getRefreshTokenSeconds(), expires);
+        return new IssuedTokens(access, refresh, properties.getAccessTokenSeconds(), refreshTokenSeconds,
+                rememberMe, expires);
     }
 
-    public UUID rotate(String raw) {
+    public RefreshSession rotate(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("Invalid or expired refresh token");
         }
@@ -86,7 +91,7 @@ public class JwtTokenService {
         }
         token.setRevokedAt(LocalDateTime.now(ZoneOffset.UTC));
         refreshTokens.save(token);
-        return token.getUserId();
+        return new RefreshSession(token.getUserId(), token.isRememberMe());
     }
 
     @Transactional
@@ -127,7 +132,11 @@ public class JwtTokenService {
             String refreshToken,
             long expiresIn,
             long refreshExpiresIn,
+            boolean rememberMe,
             Instant expiresAt
     ) {
+    }
+
+    public record RefreshSession(UUID userId, boolean rememberMe) {
     }
 }

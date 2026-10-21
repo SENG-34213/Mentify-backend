@@ -25,6 +25,8 @@ public class RefreshToken {
     private UUID userId;
     @Column(nullable = false)
     private LocalDateTime expiresAt;
+    @Column(name = "remember_me", nullable = false)
+    private boolean rememberMe;
     private LocalDateTime revokedAt;
     @Column(nullable = false)
     private LocalDateTime createdAt;
