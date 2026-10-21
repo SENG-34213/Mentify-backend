@@ -57,6 +57,21 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/internal/users/{userId}/password")
+    public ResponseEntity<Void> changePassword(
+            @RequestHeader("X-Internal-Token") String token,
+            @PathVariable UUID userId,
+            @RequestBody PasswordChangeRequest request
+    ) {
+        if (!properties.getInternalToken().equals(token)) {
+            return ResponseEntity.status(403).build();
+        }
+        authenticationService.changePassword(userId, request.currentPassword(), request.newPassword());
+        return ResponseEntity.noContent().build();
+    }
+
+    public record PasswordChangeRequest(String currentPassword, String newPassword) {}
+
     @DeleteMapping("/internal/users/{userId}")
     public ResponseEntity<Void> deleteUser(
             @RequestHeader("X-Internal-Token") String token,

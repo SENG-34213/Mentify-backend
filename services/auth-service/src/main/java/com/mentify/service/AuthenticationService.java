@@ -52,7 +52,7 @@ public class AuthenticationService {
         user.setLastLoginAt(LocalDateTime.now(ZoneOffset.UTC));
         authUsers.save(user);
         profiles.recordLastLogin(user.getEmail());
-        return response(tokens.issue(user, profile), profile);
+        return response(tokens.issue(user, profile), profile, user.isMustChangePassword());
     }
 
     @Transactional
@@ -63,9 +63,25 @@ public class AuthenticationService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setEnabled(true);
         user.setLocked(false);
+        user.setMustChangePassword(request.isMustChangePassword());
         if (user.getCreatedAt() == null) {
             user.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
         }
+        user.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+        authUsers.save(user);
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        AuthUser user = authUsers.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid user"));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Invalid current password");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        user.setFailedAttempts(0);
+        user.setLocked(false);
         user.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
         authUsers.save(user);
     }
@@ -82,7 +98,7 @@ public class AuthenticationService {
     public AuthResponse refresh(String raw) {
         UUID userId = tokens.rotate(raw);
         AuthUser user = authUsers.findById(userId).orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
-        if (!user.isEnabled() || user.isLocked()) {
+        if (!user.isEnabled() || user.isLocked() || user.isMustChangePassword()) {
             throw new IllegalStateException("Account is not allowed to access the platform");
         }
         UserProfileClient.AuthProfile profile = profiles.findByEmail(user.getEmail());
@@ -91,10 +107,11 @@ public class AuthenticationService {
                 || !"ACTIVE".equals(profile.getAccountStatus())) {
             throw new IllegalStateException("Account is not allowed to access the platform");
         }
-        return response(tokens.issue(user, profile), profile);
+        return response(tokens.issue(user, profile), profile, user.isMustChangePassword());
     }
 
-    private AuthResponse response(JwtTokenService.IssuedTokens issued, UserProfileClient.AuthProfile profile) {
+    private AuthResponse response(JwtTokenService.IssuedTokens issued, UserProfileClient.AuthProfile profile,
+                                  boolean mustChangePassword) {
         return AuthResponse.builder()
                 .accessToken(issued.accessToken())
                 .refreshToken(issued.refreshToken())
@@ -103,6 +120,7 @@ public class AuthenticationService {
                 .refreshExpiresIn(issued.refreshExpiresIn())
                 .scope("profile")
                 .issuedAt(java.time.Instant.now())
+                .mustChangePassword(mustChangePassword)
                 .profile(AuthResponse.Profile.builder()
                         .userId(profile.getUserId())
                         .email(profile.getEmail())
@@ -112,6 +130,7 @@ public class AuthenticationService {
                         .accountStatus(profile.getAccountStatus())
                         .emailVerified(profile.isEmailVerified())
                         .profileComplete(profile.isProfileComplete())
+                        .mustChangePassword(mustChangePassword)
                         .build())
                 .build();
     }

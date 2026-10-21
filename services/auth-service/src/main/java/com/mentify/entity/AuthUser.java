@@ -33,6 +33,9 @@ public class AuthUser {
     private boolean locked = false;
 
     @Column(nullable = false)
+    private boolean mustChangePassword = false;
+
+    @Column(nullable = false)
     private int failedAttempts = 0;
 
     private LocalDateTime lastLoginAt;

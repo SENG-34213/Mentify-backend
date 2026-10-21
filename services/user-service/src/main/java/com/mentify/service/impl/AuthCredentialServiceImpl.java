@@ -38,6 +38,11 @@ public class AuthCredentialServiceImpl implements AuthCredentialService {
     }
 
     @Override
+    public void changePassword(String userId, String currentPassword, String newPassword) {
+        authServiceClient.changePassword(UUID.fromString(userId), currentPassword, newPassword);
+    }
+
+    @Override
     @Transactional
     public void applyPendingPassword(String userId) {
         String password = pendingPasswords.remove(userId);

@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 @ConditionalOnClass(name = "org.springframework.security.oauth2.jwt.Jwt")
 public class JwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
     private final JwtRoleConverter roleConverter;
-    @Value("${mentify.security.principal-claim:preferred_username}") private String principalClaim;
+    @Value("${mentify.security.principal-claim:preferred_username}") private String principalClaim = "preferred_username";
     @Override public AbstractAuthenticationToken convert(Jwt jwt) {
-        String principal = jwt.getClaimAsString(principalClaim);
+        String principal = jwt.hasClaim(principalClaim) ? jwt.getClaimAsString(principalClaim) : null;
         return new JwtAuthenticationToken(jwt, roleConverter.convert(jwt),
                 principal == null || principal.isBlank() ? jwt.getSubject() : principal);
     }
