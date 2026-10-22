@@ -19,6 +19,37 @@ management:
 
 mentify:
   gateway:
+    rate-limit:
+      enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+      trust-forwarded-headers: ${GATEWAY_RATE_LIMIT_TRUST_FORWARDED_HEADERS:false}
+      default-policy:
+        requests-per-second: ${RATE_LIMIT_DEFAULT_REQUESTS_PER_SECOND:20.0}
+        burst-capacity: ${RATE_LIMIT_DEFAULT_BURST_CAPACITY:40}
+        requested-tokens: 1
+      login-policy:
+        requests-per-second: ${RATE_LIMIT_LOGIN_REQUESTS_PER_SECOND:0.5}
+        burst-capacity: ${RATE_LIMIT_LOGIN_BURST_CAPACITY:5}
+        requested-tokens: 1
+      session-policy:
+        requests-per-second: ${RATE_LIMIT_SESSION_REQUESTS_PER_SECOND:1.0}
+        burst-capacity: ${RATE_LIMIT_SESSION_BURST_CAPACITY:10}
+        requested-tokens: 1
+      recovery-policy:
+        requests-per-second: ${RATE_LIMIT_RECOVERY_REQUESTS_PER_SECOND:0.2}
+        burst-capacity: ${RATE_LIMIT_RECOVERY_BURST_CAPACITY:3}
+        requested-tokens: 1
+      ai-policy:
+        requests-per-second: ${RATE_LIMIT_AI_REQUESTS_PER_SECOND:1.0}
+        burst-capacity: ${RATE_LIMIT_AI_BURST_CAPACITY:4}
+        requested-tokens: 1
+      upload-policy:
+        requests-per-second: ${RATE_LIMIT_UPLOAD_REQUESTS_PER_SECOND:2.0}
+        burst-capacity: ${RATE_LIMIT_UPLOAD_BURST_CAPACITY:6}
+        requested-tokens: 1
+      websocket-policy:
+        requests-per-second: ${RATE_LIMIT_WEBSOCKET_REQUESTS_PER_SECOND:1.0}
+        burst-capacity: ${RATE_LIMIT_WEBSOCKET_BURST_CAPACITY:5}
+        requested-tokens: 1
     cors:
       allowed-origin-patterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
       allowed-methods: ${GATEWAY_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
