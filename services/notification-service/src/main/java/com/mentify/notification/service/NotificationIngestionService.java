@@ -1,6 +1,8 @@
 package com.mentify.notification.service;
 
 import com.mentify.common.notification.NotificationEvent;
+import com.mentify.redis.RedisCacheService;
+import com.mentify.redis.RedisKey;
 import com.mentify.notification.entity.EmailDeliveryStatus;
 import com.mentify.notification.entity.Notification;
 import com.mentify.notification.repository.NotificationRepository;
@@ -17,6 +19,7 @@ import java.util.UUID;
 public class NotificationIngestionService {
 
     private final NotificationRepository notificationRepository;
+    private final RedisCacheService redisCache;
 
     @Transactional
     public void ingest(NotificationEvent event) {
@@ -46,6 +49,11 @@ public class NotificationIngestionService {
         notification.setEmailAttempts(0);
         notification.setNextEmailAttemptAt(shouldSendEmail ? now : null);
         notificationRepository.save(notification);
+        String notificationPrefix = RedisKey.of("mentify:v1", "notifications", event.recipientUserId());
+        if (redisCache != null) {
+            redisCache.evict(notificationPrefix + ":unread-count");
+            redisCache.evictByPattern(notificationPrefix + ":page:*");
+        }
     }
 
     private void validate(NotificationEvent event) {
