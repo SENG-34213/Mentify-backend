@@ -83,6 +83,8 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, senderId))
+                .thenReturn(member(group, senderId, GroupMemberRole.STUDENT));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
             Message message = invocation.getArgument(0);
             message.setId(UUID.randomUUID());
@@ -107,6 +109,8 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, teacherId))
+                .thenReturn(member(group, teacherId, GroupMemberRole.TEACHER));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         messageService.sendMessage(groupId, request("Teacher update"));
@@ -123,6 +127,8 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(studentId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, studentId))
+                .thenReturn(member(group, studentId, GroupMemberRole.STUDENT));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         messageService.sendMessage(groupId, request("Student question"));
@@ -141,6 +147,8 @@ class MessageServiceImplTest {
         when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
         when(authenticatedUserService.getAuthorizationHeader()).thenReturn("Bearer test-token");
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, senderId))
+                .thenReturn(member(group, senderId, GroupMemberRole.STUDENT));
         when(materialServiceClient.getMaterial(eq(materialId), eq("Bearer test-token")))
                 .thenReturn(ApiResponse.success(200, "ok", new MaterialLookupResponse(
                         materialId, "Voice", null, "voice.webm", "audio/webm", 128L,
@@ -224,6 +232,8 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group(groupId, GroupStatus.ACTIVE)));
+        when(groupMemberService.validateActiveMembership(groupId, senderId))
+                .thenReturn(member(group(groupId, GroupStatus.ACTIVE), senderId, GroupMemberRole.STUDENT));
 
         assertThrows(
                 InvalidMessageException.class,
@@ -241,6 +251,8 @@ class MessageServiceImplTest {
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
         when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, senderId))
+                .thenReturn(member(group, senderId, GroupMemberRole.STUDENT));
         when(messageRepository.save(messageCaptor.capture())).thenAnswer(invocation -> {
             Message message = invocation.getArgument(0);
             message.setId(UUID.randomUUID());
@@ -485,9 +497,12 @@ class MessageServiceImplTest {
     private void assertInvalidContent(String content) {
         UUID groupId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
+        CommunicationGroup group = group(groupId, GroupStatus.ACTIVE);
 
         when(authenticatedUserService.getCurrentUserId()).thenReturn(senderId);
-        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group(groupId, GroupStatus.ACTIVE)));
+        when(communicationGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberService.validateActiveMembership(groupId, senderId))
+                .thenReturn(member(group, senderId, GroupMemberRole.STUDENT));
 
         assertThrows(
                 InvalidMessageException.class,
