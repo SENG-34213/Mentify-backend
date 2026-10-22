@@ -12,6 +12,8 @@ import com.mentify.client.dto.UserLookupResponse;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.CoursePopularityResponse;
+import com.mentify.dto.EnrollmentAnalyticsOverviewResponse;
 import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.entity.Entrollment;
@@ -36,8 +38,12 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -242,6 +248,64 @@ public class EntrollmentServiceImpl implements EntrollmentService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<EnrollmentAnalyticsOverviewResponse> getAnalyticsOverview() {
+        return analyticsResponse(entrollmentRepository.findAllByIsActiveTrueOrderByCreatedAtDesc(), null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<EnrollmentAnalyticsOverviewResponse> getAnalyticsCourseSummary(UUID courseId) {
+        return analyticsResponse(entrollmentRepository.findAllByCourseIdAndIsActiveTrue(courseId), courseId);
+    }
+
+    private ApiResponse<EnrollmentAnalyticsOverviewResponse> analyticsResponse(
+            List<Entrollment> source,
+            UUID courseId
+    ) {
+        List<Entrollment> approved = source.stream()
+                .filter(this::isAnalyticsEnrollment)
+                .toList();
+        LocalDate monthStart = LocalDate.now().withDayOfMonth(1);
+        DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+
+        Map<String, Long> trend = approved.stream()
+                .filter(enrollment -> enrollment.getEnrolledOn() != null)
+                .collect(Collectors.groupingBy(
+                        enrollment -> YearMonth.from(enrollment.getEnrolledOn()).format(monthFormatter),
+                        java.util.TreeMap::new,
+                        Collectors.counting()
+                ));
+        List<CoursePopularityResponse> popularity = approved.stream()
+                .flatMap(enrollment -> enrollment.getCourseIds().stream())
+                .filter(course -> courseId == null || courseId.equals(course))
+                .collect(Collectors.groupingBy(course -> course, Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> new CoursePopularityResponse(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparingLong(CoursePopularityResponse::enrollmentCount).reversed()
+                        .thenComparing(result -> result.courseId().toString()))
+                .toList();
+        EnrollmentAnalyticsOverviewResponse data = new EnrollmentAnalyticsOverviewResponse(
+                approved.size(),
+                approved.stream().map(Entrollment::getStudentId).distinct().count(),
+                approved.stream().filter(enrollment -> enrollment.getEnrolledOn() != null
+                        && !enrollment.getEnrolledOn().isBefore(monthStart)).count(),
+                popularity,
+                trend
+        );
+        return ApiResponse.<EnrollmentAnalyticsOverviewResponse>builder()
+                .message("Enrollment analytics fetched successfully")
+                .data(data)
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .build();
+    }
+
+    private boolean isAnalyticsEnrollment(Entrollment enrollment) {
+        return enrollment.getStatus() == null || enrollment.getStatus() == EnrollmentStatus.APPROVED;
     }
 
     private List<UserLookupResponse> getStudents(String authorizationHeader) {

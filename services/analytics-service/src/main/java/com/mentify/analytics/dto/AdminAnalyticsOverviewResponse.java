@@ -10,6 +10,10 @@ public record AdminAnalyticsOverviewResponse(
         CourseAnalyticsOverview courses,
         EnrollmentAnalyticsOverview enrollment,
         PaymentAnalyticsOverview payments,
+        AttendanceAnalyticsSummary attendance,
+        AssessmentAnalyticsSummary assignments,
+        AssessmentAnalyticsSummary quizzes,
+        AssessmentAnalyticsSummary exams,
         boolean partial,
         List<String> unavailableSections
 ) {
