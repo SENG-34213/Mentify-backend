@@ -24,6 +24,8 @@ public class CreateQuestionRequest {
     @NotBlank(message = "Question text is required")
     private String questionText;
 
+    private String explanation;
+
     @NotNull(message = "Question type is required")
     private QuestionType questionType;
 

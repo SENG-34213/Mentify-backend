@@ -17,6 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -38,6 +41,10 @@ public class GradeServiceImpl implements GradeService {
         }
 
         Grade savedGrade = gradeRepository.save(GradeMapper.toGradeEntity(request));
+        if (savedGrade.getSubjectDomains().isEmpty()) {
+            savedGrade.setSubjectDomains(defaultSubjectDomains(gradeName));
+            savedGrade = gradeRepository.save(savedGrade);
+        }
 
         return ApiResponse.<GradeResponse>builder()
                 .message("Grade created successfully")
@@ -62,6 +69,11 @@ public class GradeServiceImpl implements GradeService {
         grade.setDescription(GradeMapper.trimToNull(request.getDescription()));
         grade.setMonthlyFee(request.getMonthlyFee());
         grade.setCurrencyCode(request.getCurrencyCode() == null ? "LKR" : request.getCurrencyCode().toUpperCase());
+        if (request.getSubjectDomains() != null && !request.getSubjectDomains().isEmpty()) {
+            grade.setSubjectDomains(new LinkedHashSet<>(request.getSubjectDomains()));
+        } else if (grade.getSubjectDomains() == null || grade.getSubjectDomains().isEmpty()) {
+            grade.setSubjectDomains(defaultSubjectDomains(gradeName));
+        }
 
         Grade savedGrade = gradeRepository.save(grade);
 
@@ -119,5 +131,27 @@ public class GradeServiceImpl implements GradeService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    private Set<String> defaultSubjectDomains(String gradeName) {
+        String normalizedName = gradeName.toLowerCase(Locale.ROOT);
+        if (normalizedName.contains("12")) {
+            return new LinkedHashSet<>(List.of(
+                    "Mathematics", "Physics", "Chemistry", "Biology", "Tamil", "English", "Information Technology"
+            ));
+        }
+        if (normalizedName.contains("10") || normalizedName.contains("11")) {
+            return new LinkedHashSet<>(List.of(
+                    "Mathematics", "Science", "Tamil", "English", "History", "Information Technology"
+            ));
+        }
+        if (normalizedName.matches(".*\\b[6-9]\\b.*")) {
+            return new LinkedHashSet<>(List.of(
+                    "Mathematics", "Science", "Tamil", "English", "Social Studies", "Information Technology"
+            ));
+        }
+        return new LinkedHashSet<>(List.of(
+                "Mathematics", "Science", "Tamil", "English", "Social Studies"
+        ));
     }
 }

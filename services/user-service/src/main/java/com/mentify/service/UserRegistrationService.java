@@ -89,7 +89,8 @@ public class UserRegistrationService {
                         .email(user.getEmail())
                         .studentNumber(user.getStudentProfile() != null
                                 ? user.getStudentProfile().getStudentId() : null)
-                        .avatar(null)
+                        .avatar(user.getStudentProfile() != null
+                                ? user.getStudentProfile().getAvatarUrl() : null)
                         .program(null)
                         .status(!user.isActive() ? "INACTIVE"
                                 : user.getAccountStatus() != null ? user.getAccountStatus().name() : null)

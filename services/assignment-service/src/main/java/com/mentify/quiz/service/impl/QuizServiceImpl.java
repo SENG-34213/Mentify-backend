@@ -11,6 +11,7 @@ import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizQuestion;
 import com.mentify.quiz.enums.QuestionType;
+import com.mentify.quiz.enums.AttemptStatus;
 import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.exception.InvalidQuestionOptionsException;
@@ -19,6 +20,7 @@ import com.mentify.quiz.exception.StudentNotEnrolledException;
 import com.mentify.quiz.exception.UnauthorizedQuizAccessException;
 import com.mentify.quiz.mapper.QuizMapper;
 import com.mentify.quiz.repository.QuizQuestionRepository;
+import com.mentify.quiz.repository.QuizAttemptRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
@@ -44,6 +46,7 @@ public class QuizServiceImpl implements QuizService {
 
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final CurrentUserService currentUserService;
     private final CourseQuizAuthorizationService courseQuizAuthorizationService;
@@ -195,7 +198,7 @@ public class QuizServiceImpl implements QuizService {
         List<StudentQuizResponse> quizzes = quizRepository
                 .findByCourseIdAndStatusAndIsActiveTrueOrderByStartTimeAsc(courseId, QuizStatus.PUBLISHED)
                 .stream()
-                .map(quiz -> QuizMapper.toStudentQuizResponse(quiz, null))
+                .map(quiz -> studentQuizResponse(quiz, studentId, null))
                 .toList();
 
         return response(HttpStatus.OK, "Quizzes fetched successfully", quizzes);
@@ -212,7 +215,21 @@ public class QuizServiceImpl implements QuizService {
         assertStudentEnrolled(studentId, quiz.getCourseId(), authorizationHeader);
 
         List<QuizQuestion> questions = quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quizId);
-        return response(HttpStatus.OK, "Quiz fetched successfully", QuizMapper.toStudentQuizResponse(quiz, questions));
+        return response(HttpStatus.OK, "Quiz fetched successfully", studentQuizResponse(quiz, studentId, questions));
+    }
+
+    private StudentQuizResponse studentQuizResponse(Quiz quiz, UUID studentId, List<QuizQuestion> questions) {
+        StudentQuizResponse response = QuizMapper.toStudentQuizResponse(quiz, questions);
+        long attemptsUsed = quizAttemptRepository.countByQuizIdAndStudentIdAndIsActiveTrue(quiz.getId(), studentId);
+        response.setAttemptsUsed((int) attemptsUsed);
+        response.setStatus(attemptsUsed >= quiz.getMaxAttempts() ? QuizStatus.CLOSED : QuizStatus.PUBLISHED);
+        quizAttemptRepository.findTopByQuizIdAndStudentIdAndStatusAndIsActiveTrueOrderBySubmittedAtDesc(
+                        quiz.getId(), studentId, AttemptStatus.SUBMITTED)
+                .ifPresent(attempt -> {
+                    response.setLastScore(attempt.getScore());
+                    response.setLastScorePercentage(attempt.getPercentage());
+                });
+        return response;
     }
 
     private void validatePublishable(List<QuizQuestion> questions) {

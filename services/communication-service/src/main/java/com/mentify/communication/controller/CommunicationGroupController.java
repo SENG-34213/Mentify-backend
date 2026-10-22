@@ -2,6 +2,7 @@ package com.mentify.communication.controller;
 
 import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
+import com.mentify.communication.dto.request.UpdateCommunicationGroupRequest;
 import com.mentify.communication.dto.request.AddStudentToGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
 import com.mentify.communication.dto.response.GroupMemberResponse;
@@ -17,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,6 +61,17 @@ public class CommunicationGroupController {
         CommunicationGroupResponse response = communicationGroupService.getGroupById(groupId);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Communication group fetched successfully", response));
+    }
+
+    @PatchMapping("/{groupId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<CommunicationGroupResponse>> updateGroup(
+            @PathVariable UUID groupId,
+            @Valid @RequestBody UpdateCommunicationGroupRequest request
+    ) {
+        CommunicationGroupResponse response = communicationGroupService.updateGroup(groupId, request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(),
+                "Communication group updated successfully", response));
     }
 
     @GetMapping("/{groupId}/members")

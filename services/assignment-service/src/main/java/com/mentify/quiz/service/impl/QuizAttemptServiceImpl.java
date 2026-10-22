@@ -6,6 +6,7 @@ import com.mentify.quiz.client.UserServiceClient;
 import com.mentify.quiz.dto.request.SaveStudentAnswerRequest;
 import com.mentify.quiz.dto.response.StartQuizAttemptResponse;
 import com.mentify.quiz.dto.response.StudentAnswerResponse;
+import com.mentify.quiz.dto.response.QuizAnswerReviewResponse;
 import com.mentify.quiz.dto.response.SubmitQuizResponse;
 import com.mentify.quiz.entity.QuestionOption;
 import com.mentify.quiz.entity.Quiz;
@@ -181,6 +182,7 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
         List<StudentAnswer> answers = studentAnswerRepository.findByAttempt_IdAndIsActiveTrue(attemptId);
         attempt.setSubmittedAt(LocalDateTime.now());
         SubmitQuizResponse result = quizGradingService.grade(quiz, attempt, questions, answers);
+        result.setAnswers(buildAnswerReview(questions, answers));
         attempt.setStatus(AttemptStatus.SUBMITTED);
 
         studentAnswerRepository.saveAll(answers);
@@ -188,6 +190,39 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
 
         result.setSubmittedAt(attempt.getSubmittedAt());
         return response(HttpStatus.OK, "Quiz submitted successfully", result);
+    }
+
+    private List<QuizAnswerReviewResponse> buildAnswerReview(
+            List<QuizQuestion> questions,
+            List<StudentAnswer> answers
+    ) {
+        return questions.stream().map(question -> {
+            StudentAnswer studentAnswer = answers.stream()
+                    .filter(answer -> answer.getQuestionId().equals(question.getId()))
+                    .findFirst()
+                    .orElse(null);
+            QuestionOption correctOption = question.getOptions().stream()
+                    .filter(option -> Boolean.TRUE.equals(option.getCorrect()))
+                    .findFirst()
+                    .orElse(null);
+            QuestionOption selectedOption = studentAnswer == null ? null : question.getOptions().stream()
+                    .filter(option -> option.getId().equals(studentAnswer.getSelectedOptionId()))
+                    .findFirst()
+                    .orElse(null);
+
+            return QuizAnswerReviewResponse.builder()
+                    .questionId(question.getId())
+                    .questionText(question.getQuestionText())
+                    .explanation(question.getExplanation())
+                    .selectedOptionId(selectedOption == null ? null : selectedOption.getId())
+                    .selectedAnswer(selectedOption == null ? null : selectedOption.getOptionText())
+                    .correctOptionId(correctOption == null ? null : correctOption.getId())
+                    .correctAnswer(correctOption == null ? null : correctOption.getOptionText())
+                    .correct(studentAnswer != null && Boolean.TRUE.equals(studentAnswer.getCorrect()))
+                    .awardedMarks(studentAnswer == null ? BigDecimal.ZERO : studentAnswer.getAwardedMarks())
+                    .questionMarks(question.getMarks())
+                    .build();
+        }).toList();
     }
 
     private void assertAttemptInProgress(QuizAttempt attempt) {

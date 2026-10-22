@@ -22,6 +22,7 @@ public final class CommunicationGroupMapper {
                 .name(group.getName())
                 .description(group.getDescription())
                 .status(group.getStatus())
+                .studentMessagingEnabled(group.isStudentMessagingEnabled())
                 .build();
     }
 

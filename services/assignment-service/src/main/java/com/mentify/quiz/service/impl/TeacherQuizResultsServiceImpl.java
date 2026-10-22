@@ -7,9 +7,12 @@ import com.mentify.quiz.client.dto.StudentLookupResponse;
 import com.mentify.quiz.dto.response.TeacherQuizResultsResponse;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizAttempt;
+import com.mentify.quiz.entity.QuestionOption;
+import com.mentify.quiz.entity.QuizQuestion;
 import com.mentify.quiz.enums.AttemptStatus;
 import com.mentify.quiz.exception.QuizNotFoundException;
 import com.mentify.quiz.repository.QuizAttemptRepository;
+import com.mentify.quiz.repository.QuizQuestionRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
 import com.mentify.quiz.service.TeacherQuizResultsService;
@@ -33,6 +36,7 @@ public class TeacherQuizResultsServiceImpl implements TeacherQuizResultsService 
 
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final QuizQuestionRepository quizQuestionRepository;
     private final UserServiceClient userServiceClient;
     private final CourseQuizAuthorizationService courseAuthorizationService;
 
@@ -58,11 +62,15 @@ public class TeacherQuizResultsServiceImpl implements TeacherQuizResultsService 
                 ));
 
         Map<UUID, String> studentNames = studentNames(latestAttempts.keySet().stream().toList(), authorizationHeader);
+        Map<UUID, QuizQuestion> questions = quizQuestionRepository
+                .findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quizId)
+                .stream()
+                .collect(Collectors.toMap(QuizQuestion::getId, Function.identity()));
         List<TeacherQuizResultsResponse.TeacherQuizResultResponse> results = latestAttempts.values().stream()
                 .sorted(Comparator.comparing(QuizAttempt::getSubmittedAt,
                                 Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(QuizAttempt::getStudentId))
-                .map(attempt -> result(quiz, attempt, studentNames))
+                .map(attempt -> result(quiz, attempt, studentNames, questions))
                 .toList();
 
         TeacherQuizResultsResponse data = TeacherQuizResultsResponse.builder()
@@ -103,7 +111,10 @@ public class TeacherQuizResultsServiceImpl implements TeacherQuizResultsService 
     }
 
     private TeacherQuizResultsResponse.TeacherQuizResultResponse result(
-            Quiz quiz, QuizAttempt attempt, Map<UUID, String> studentNames) {
+            Quiz quiz,
+            QuizAttempt attempt,
+            Map<UUID, String> studentNames,
+            Map<UUID, QuizQuestion> questions) {
         BigDecimal percentage = attempt.getPercentage();
         if (percentage == null && quiz.getTotalMarks() != null && quiz.getTotalMarks().signum() > 0
                 && attempt.getScore() != null) {
@@ -118,6 +129,33 @@ public class TeacherQuizResultsServiceImpl implements TeacherQuizResultsService 
                 .passed(quiz.getPassMark() != null && attempt.getScore() != null
                         && attempt.getScore().compareTo(quiz.getPassMark()) >= 0)
                 .submittedAt(attempt.getSubmittedAt())
+                .answers(attempt.getAnswers().stream()
+                        .map(answer -> answerResponse(answer, questions.get(answer.getQuestionId())))
+                        .toList())
+                .build();
+    }
+
+    private TeacherQuizResultsResponse.TeacherQuizAnswerResponse answerResponse(
+            com.mentify.quiz.entity.StudentAnswer answer, QuizQuestion question) {
+        QuestionOption selectedOption = question == null || answer.getSelectedOptionId() == null
+                ? null
+                : question.getOptions().stream()
+                        .filter(option -> answer.getSelectedOptionId().equals(option.getId()))
+                        .findFirst()
+                        .orElse(null);
+        QuestionOption correctOption = question == null
+                ? null
+                : question.getOptions().stream()
+                        .filter(option -> Boolean.TRUE.equals(option.getCorrect()))
+                        .findFirst()
+                        .orElse(null);
+        return TeacherQuizResultsResponse.TeacherQuizAnswerResponse.builder()
+                .questionId(answer.getQuestionId())
+                .questionText(question == null ? "Question unavailable" : question.getQuestionText())
+                .selectedAnswer(selectedOption == null ? "No answer" : selectedOption.getOptionText())
+                .correctAnswer(correctOption == null ? "Not available" : correctOption.getOptionText())
+                .correct(Boolean.TRUE.equals(answer.getCorrect()))
+                .awardedMarks(answer.getAwardedMarks())
                 .build();
     }
 }

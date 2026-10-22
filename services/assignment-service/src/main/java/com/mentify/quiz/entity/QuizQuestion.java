@@ -39,6 +39,9 @@ public class QuizQuestion extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String questionText;
 
+    @Column(columnDefinition = "TEXT")
+    private String explanation;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private QuestionType questionType;

@@ -22,4 +22,6 @@ eureka:
     fetch-registry: false   # config-server registers so others can discover it, but does not need the registry itself
   instance:
     prefer-ip-address: true
+    hostname: localhost
+    ip-address: ${EUREKA_INSTANCE_IP:127.0.0.1}
     instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}

@@ -20,4 +20,5 @@ public class CommunicationGroupResponse {
     private String name;
     private String description;
     private GroupStatus status;
+    private boolean studentMessagingEnabled;
 }

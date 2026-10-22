@@ -61,6 +61,8 @@ public class MaterialCleanupServiceImpl implements MaterialCleanupService {
         List<String> knownKeys = materialRepository.findAllStorageKeys();
         Set<String> knownKeySet = new HashSet<>(knownKeys);
         List<String> orphanKeys = storageService.listStorageKeys().stream()
+                // Profile images are owned by user-service, not material rows.
+                .filter(key -> !key.startsWith("materials/profile-images/"))
                 .filter(key -> !knownKeySet.contains(key))
                 .toList();
 

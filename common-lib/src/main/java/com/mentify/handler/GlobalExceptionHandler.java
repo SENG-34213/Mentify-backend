@@ -4,9 +4,13 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.mentify.exception.ResourceAlreadyExistsException;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -20,6 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -128,12 +133,35 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * Database connectivity and transaction failures are operational errors,
+     * not client errors. Log the technical cause on the server, but never send
+     * JDBC/Hibernate details to the browser.
+     */
+    @ExceptionHandler({
+            CannotCreateTransactionException.class,
+            DataAccessException.class,
+            TransactionSystemException.class
+    })
+    public ResponseEntity<ApiResponse<Object>> handleDatabaseFailure(Exception ex, WebRequest request) {
+        log.error("Database transaction failed for {}", request.getDescription(false), ex);
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "The service is temporarily unavailable. Please try again shortly.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex, WebRequest request) {
+        log.error("Unhandled application error for {}", request.getDescription(false), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Something went wrong. Please try again later.");
+    }
+
+    private ResponseEntity<ApiResponse<Object>> buildResponse(HttpStatus status, String message) {
         ApiResponse<Object> response = ApiResponse.builder()
-                .message(ex.getMessage())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .message(message)
+                .status(status)
+                .statusCode(status.value())
                 .build();
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(response, status);
     }
 }

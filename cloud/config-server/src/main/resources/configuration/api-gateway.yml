@@ -94,7 +94,7 @@ spring:
         - id: material-service
           uri: lb://material-service
           predicates:
-            - Path=/api/v1/materials,/api/v1/materials/**
+            - Path=/api/v1/materials,/api/v1/materials/**,/api/v1/profile-images,/api/v1/profile-images/**
           filters:
             - StripPrefix=0
 
@@ -111,6 +111,11 @@ spring:
             - Path=/api/communication/**
           filters:
             - StripPrefix=0
+
+        - id: communication-service-websocket
+          uri: lb:ws://communication-service
+          predicates:
+            - Path=/ws,/ws/**
 
         - id: assignment-service
           uri: lb://assignment-service
@@ -155,7 +160,8 @@ spring:
 logging:
   level:
     root: INFO
-    org.springframework.cloud.gateway: TRACE
-    org.springframework.http.server.reactive: DEBUG
-    org.springframework.web.reactive: DEBUG
-    reactor.netty: DEBUG
+    # TRACE logs STOMP frames and can expose Authorization headers.
+    org.springframework.cloud.gateway: INFO
+    org.springframework.http.server.reactive: INFO
+    org.springframework.web.reactive: INFO
+    reactor.netty: WARN

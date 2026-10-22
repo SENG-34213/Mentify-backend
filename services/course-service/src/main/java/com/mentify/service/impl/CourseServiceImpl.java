@@ -379,7 +379,12 @@ public class CourseServiceImpl implements CourseService {
     public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId, String authorizationHeader) {
         List<Course> teacherCourses = courseRepository
                 .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId);
-        List<CourseResponse> courses = toCourseResponses(teacherCourses, authorizationHeader);
+        // Keep the course-list request local and fast. Calling assignment,
+        // enrollment, exam, and quiz services synchronously here made the
+        // teacher portal wait for every downstream service before it could
+        // render even the basic course list. Those screens load their own
+        // detailed data after the course list is available.
+        List<CourseResponse> courses = toCourseResponses(teacherCourses, null);
 
         return ApiResponse.<List<CourseResponse>>builder()
                 .message("Teacher courses fetched successfully")
@@ -408,6 +413,13 @@ public class CourseServiceImpl implements CourseService {
             response.setLessonCount(lessonCounts.getOrDefault(course.getId(), 0L));
             if (authorizationHeader != null && !authorizationHeader.isBlank() && assignmentDashboardClient != null) {
                 response.setAssignmentCount(countAssignments(course.getId(), authorizationHeader));
+            }
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && entrollmentServiceClient != null) {
+                try {
+                    response.setNumberOfStudents(enrolledStudents(course.getId(), authorizationHeader).size());
+                } catch (RuntimeException exception) {
+                    log.warn("Unable to resolve live student count for course [{}]", course.getId(), exception);
+                }
             }
             if (authorizationHeader != null && !authorizationHeader.isBlank() && examDashboardClient != null) {
                 response.setExamCount(countExams(course.getId(), authorizationHeader));

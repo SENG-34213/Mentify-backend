@@ -196,11 +196,24 @@ public class UserRegistration {
     }
 
     @GetMapping("/teachers/{teacherId}/lookup")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<com.mentify.dto.UserResponse>> teacherLookup(@PathVariable UUID teacherId) {
-        User teacher = userRepository.findByIdAndRole(teacherId, Role.TEACHER)
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Teacher not found"));
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<com.mentify.dto.UserResponse>> teacherLookup(@PathVariable String teacherId) {
+        User teacher;
+        try {
+            teacher = userRepository.findByIdAndRole(UUID.fromString(teacherId), Role.TEACHER)
+                    .orElseGet(() -> userRepository.findByAuthUserId(teacherId)
+                            .filter(user -> user.getRole() == Role.TEACHER)
+                            .orElse(null));
+        } catch (IllegalArgumentException exception) {
+            teacher = userRepository.findByAuthUserId(teacherId)
+                    .filter(user -> user.getRole() == Role.TEACHER)
+                    .orElse(null);
+        }
+
+        if (teacher == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Teacher not found");
+        }
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Teacher fetched successfully",
                 com.mentify.dto.UserResponse.builder()
                         .id(teacher.getId()).email(teacher.getEmail())

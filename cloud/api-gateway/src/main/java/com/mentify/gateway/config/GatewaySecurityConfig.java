@@ -53,6 +53,8 @@ public class GatewaySecurityConfig {
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/forgot-password",
                                 "/api/assignments/quizzes/ai/generate",
+                                "/ws",
+                                "/ws/**",
                                 "/ws/ai",
                                 "/ws/ai/**",
                                 "/swagger-ui.html"

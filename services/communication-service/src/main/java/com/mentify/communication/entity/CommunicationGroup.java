@@ -47,4 +47,8 @@ public class CommunicationGroup extends BaseEntity {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private GroupStatus status = GroupStatus.ACTIVE;
+
+    @Column(name = "student_messaging_enabled", nullable = false)
+    @Builder.Default
+    private boolean studentMessagingEnabled = true;
 }

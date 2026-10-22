@@ -11,6 +11,7 @@ import com.mentify.communication.client.dto.MaterialDownloadResponse;
 import com.mentify.communication.client.dto.MaterialLookupResponse;
 import com.mentify.communication.client.dto.MaterialUploadResponse;
 import com.mentify.communication.entity.CommunicationGroup;
+import com.mentify.communication.entity.GroupMember;
 import com.mentify.communication.entity.Message;
 import com.mentify.communication.entity.MessageAttachment;
 import com.mentify.communication.entity.MessageHiddenForUser;
@@ -82,7 +83,11 @@ public class MessageServiceImpl implements MessageService {
             throw new GroupArchivedException(groupId);
         }
 
-        groupMemberService.validateActiveMembership(groupId, senderId);
+        GroupMember member = groupMemberService.validateActiveMembership(groupId, senderId);
+        if (GroupMemberRole.STUDENT.equals(member.getRole()) && !group.isStudentMessagingEnabled()) {
+            throw new UnauthorizedMessageActionException(
+                    "Student messaging is currently paused for this communication group");
+        }
 
         String content = normalizeContent(request);
         Message message = Message.builder()

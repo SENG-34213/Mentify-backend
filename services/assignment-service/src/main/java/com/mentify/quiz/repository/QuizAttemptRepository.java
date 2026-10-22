@@ -19,10 +19,14 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> 
 
     long countByQuizIdAndStudentIdAndIsActiveTrue(UUID quizId, UUID studentId);
 
+    Optional<QuizAttempt> findTopByQuizIdAndStudentIdAndStatusAndIsActiveTrueOrderBySubmittedAtDesc(
+            UUID quizId, UUID studentId, AttemptStatus status);
+
     boolean existsByQuizIdAndStudentIdAndStatusAndIsActiveTrue(UUID quizId, UUID studentId, AttemptStatus status);
 
     @EntityGraph(attributePaths = "answers")
     Optional<QuizAttempt> findWithAnswersByIdAndIsActiveTrue(UUID id);
 
+    @EntityGraph(attributePaths = "answers")
     List<QuizAttempt> findByQuizIdInAndStatusAndIsActiveTrue(List<UUID> quizIds, AttemptStatus status);
 }

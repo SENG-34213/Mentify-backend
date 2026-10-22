@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 @Data
 @Builder
@@ -22,4 +23,5 @@ public class SubmitQuizResponse {
     private BigDecimal percentage;
     private Boolean passed;
     private LocalDateTime submittedAt;
+    private List<QuizAnswerReviewResponse> answers;
 }

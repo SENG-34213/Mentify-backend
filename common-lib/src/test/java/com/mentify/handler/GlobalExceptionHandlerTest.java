@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.context.request.WebRequest;
 
@@ -64,5 +65,28 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("Invalid UUID format for parameter 'moduleId'", response.getBody().getMessage());
+    }
+
+    @Test
+    void shouldHideJpaTransactionDetailsFromClients() {
+        CannotCreateTransactionException ex = new CannotCreateTransactionException(
+                "Could not open JPA EntityManager for transaction", new RuntimeException("connection details"));
+
+        ResponseEntity<ApiResponse<Object>> response =
+                handler.handleDatabaseFailure(ex, mock(WebRequest.class));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        assertEquals("The service is temporarily unavailable. Please try again shortly.",
+                response.getBody().getMessage());
+    }
+
+    @Test
+    void shouldHideUnexpectedExceptionDetailsFromClients() {
+        ResponseEntity<ApiResponse<Object>> response = handler.handleGlobalException(
+                new RuntimeException("jdbc:postgresql://private-host:5432/course_db"),
+                mock(WebRequest.class));
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertEquals("Something went wrong. Please try again later.", response.getBody().getMessage());
     }
 }
