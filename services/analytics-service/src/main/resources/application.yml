@@ -13,8 +13,8 @@ spring:
           jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
   datasource:
     url: jdbc:postgresql://${ANALYTICS_DB_HOST:localhost}:${ANALYTICS_DB_PORT:5432}/${ANALYTICS_DB_NAME:analytics_db}
-    username: ${ANALYTICS_DB_USERNAME:postgres}
-    password: ${ANALYTICS_DB_PASSWORD:change-me}
+    username: ${ANALYTICS_DB_USERNAME:${APP_DB_USERNAME:postgres}}
+    password: ${ANALYTICS_DB_PASSWORD:${APP_DB_PASSWORD:root}}
   jpa:
     open-in-view: false
   flyway:
