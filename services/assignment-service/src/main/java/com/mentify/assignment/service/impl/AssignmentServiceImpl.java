@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -287,10 +288,25 @@ public class AssignmentServiceImpl implements AssignmentService {
     }
 
     private void validateAssignmentDates(LocalDateTime startDate, LocalDateTime dueDate) {
+        validateAssignmentDates(startDate, dueDate, LocalDateTime.now());
+    }
+
+    static void validateAssignmentDates(
+            LocalDateTime startDate,
+            LocalDateTime dueDate,
+            LocalDateTime currentTime
+    ) {
         if (startDate == null || dueDate == null) {
             throw new RuntimeException("Start date and due date are required");
         }
-        if (!startDate.isBefore(dueDate)) {
+
+        LocalDateTime preciseStartDate = startDate.truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime preciseDueDate = dueDate.truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime preciseCurrentTime = currentTime.truncatedTo(ChronoUnit.MICROS);
+        if (!preciseStartDate.isAfter(preciseCurrentTime)) {
+            throw new RuntimeException("Assignment start date must be in the future");
+        }
+        if (!preciseStartDate.isBefore(preciseDueDate)) {
             throw new RuntimeException("Assignment start date must be before due date");
         }
     }

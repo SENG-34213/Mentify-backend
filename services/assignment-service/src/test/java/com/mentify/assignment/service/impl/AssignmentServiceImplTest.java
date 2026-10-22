@@ -23,11 +23,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -112,6 +114,103 @@ class AssignmentServiceImplTest {
         assertThat(response.getData().getRubricItems())
                 .extracting("criterion", "marks")
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Correctness", 75));
+    }
+
+    @Test
+    void validateAssignmentDates_whenStartDateMissing_throws() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+        assertThatThrownBy(() -> AssignmentServiceImpl.validateAssignmentDates(
+                null, now.plusDays(1), now))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Start date and due date are required");
+    }
+
+    @Test
+    void validateAssignmentDates_whenStartDateIsInPast_throws() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+        assertThatThrownBy(() -> AssignmentServiceImpl.validateAssignmentDates(
+                now.minusNanos(1), now.plusDays(1), now))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Assignment start date must be in the future");
+    }
+
+    @Test
+    void validateAssignmentDates_whenStartDateEqualsCurrentTime_throws() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+        assertThatThrownBy(() -> AssignmentServiceImpl.validateAssignmentDates(
+                now, now.plusDays(1), now))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Assignment start date must be in the future");
+    }
+
+    @Test
+    void validateAssignmentDates_whenStartDateIsInFuture_acceptsDates() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                AssignmentServiceImpl.validateAssignmentDates(
+                        now.plusNanos(1_000), now.plusDays(1), now));
+    }
+
+    @Test
+    void updateAssignment_whenStartDateIsInPast_throws() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setId(assignmentId);
+        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId))
+                .thenReturn(Optional.of(assignment));
+        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
+
+        LocalDateTime now = LocalDateTime.now();
+        UpdateAssignmentRequest request = UpdateAssignmentRequest.builder()
+                .title("Essay")
+                .startDate(now.minusDays(1))
+                .dueDate(now.plusDays(1))
+                .maxMarks(100)
+                .allowedAttempts(1)
+                .allowLateSubmission(false)
+                .build();
+
+        assertThatThrownBy(() -> assignmentService.updateAssignment(assignmentId, request, "test-token"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Assignment start date must be in the future");
+    }
+
+    @Test
+    void patchAssignment_whenStartDateIsInPast_throws() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setCourseId(courseId);
+        assignment.setId(assignmentId);
+
+        CourseLookupResponse course = new CourseLookupResponse();
+        course.setId(courseId);
+        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId))
+                .thenReturn(Optional.of(assignment));
+        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(courseServiceClient.getCourseById(courseId, "test-token"))
+                .thenReturn(ApiResponse.<CourseLookupResponse>builder()
+                        .status(HttpStatus.OK)
+                        .statusCode(HttpStatus.OK.value())
+                        .data(course)
+                        .build());
+
+        assertThatThrownBy(() -> assignmentService.patchAssignment(
+                assignmentId,
+                PatchAssignmentRequest.builder().startDate(LocalDateTime.now().minusDays(1)).build(),
+                "test-token"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Assignment start date must be in the future");
     }
 
     @Test
@@ -214,5 +313,21 @@ class AssignmentServiceImplTest {
 
         assertThat(response.getTotalSubmissions()).isEqualTo(12L);
         assertThat(response.getGradedCount()).isEqualTo(8L);
+    }
+
+    private Assignment draftAssignment(UUID teacherId) {
+        LocalDateTime now = LocalDateTime.now();
+        return Assignment.builder()
+                .courseId(UUID.randomUUID())
+                .moduleId(UUID.randomUUID())
+                .teacherId(teacherId)
+                .title("Essay")
+                .startDate(now.plusDays(1))
+                .dueDate(now.plusDays(5))
+                .maxMarks(100)
+                .allowedAttempts(1)
+                .allowLateSubmission(false)
+                .status(AssignmentStatus.DRAFT)
+                .build();
     }
 }
