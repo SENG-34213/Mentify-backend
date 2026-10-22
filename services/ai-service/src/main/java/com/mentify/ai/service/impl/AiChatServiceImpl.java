@@ -9,6 +9,8 @@ import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
 import com.mentify.ai.dto.tool.AttendanceAnalyticsSummary;
+import com.mentify.ai.dto.tool.AssignmentAnalyticsSummary;
+import com.mentify.ai.dto.tool.QuizAnalyticsSummary;
 import com.mentify.ai.dto.tool.CourseSearchResponse;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
@@ -31,6 +33,8 @@ import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.AttendancePerformanceTool;
+import com.mentify.ai.tool.AssignmentPerformanceTool;
+import com.mentify.ai.tool.QuizPerformanceTool;
 import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
@@ -74,6 +78,8 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiAuditService auditService;
     private final TodayQuizPerformanceTool todayQuizPerformanceTool;
     private final AttendancePerformanceTool attendancePerformanceTool;
+    private final AssignmentPerformanceTool assignmentPerformanceTool;
+    private final QuizPerformanceTool quizPerformanceTool;
     private final CourseResolutionTool courseResolutionTool;
     private final UserRegistrationOverviewTool userRegistrationOverviewTool;
     private final UpcomingCalendarEventsTool upcomingCalendarEventsTool;
@@ -151,6 +157,10 @@ public class AiChatServiceImpl implements AiChatService {
 
         String routingMessage = buildRoutingMessage(rawMessage, conversationMemory);
 
+        if (isHistoricalQuizPerformanceRequest(rawMessage)) {
+            return answerQuizPerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
+        }
+
         if (requiresUnsupportedHistoricalMentifyData(rawMessage, routingMessage)) {
             return toolOnlyResponse(
                     "I can use the conversation to understand what you are referring to, but I don't currently have an authorized tool for that time period. Please specify a supported Mentify data view, such as upcoming calendar events or today's quiz performance, or provide the data you want summarized.",
@@ -179,6 +189,10 @@ public class AiChatServiceImpl implements AiChatService {
 
         if (isAttendancePerformanceRequest(routingMessage)) {
             return answerAttendancePerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
+        }
+
+        if (isAssignmentPerformanceRequest(routingMessage)) {
+            return answerAssignmentPerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
         if (isUserRegistrationOverviewRequest(routingMessage)) {
@@ -332,6 +346,128 @@ public class AiChatServiceImpl implements AiChatService {
         String groundedAnswer = generateGroundedAttendanceAnswer(
                 rawMessage, conversationContext, toolResult, traceId, userId);
         return response(groundedAnswer, List.of(attendancePerformanceTool.getName()));
+    }
+
+    private AiChatResponse answerAssignmentPerformance(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        AssignmentAnalyticsSummary toolResult;
+        UUID courseId = extractCourseId(rawMessage, conversationContext);
+        DateRange dateRange = resolveAttendanceDateRange(rawMessage);
+        if (courseId == null && !authenticatedUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            String courseQuery = extractCourseQuery(rawMessage);
+            if (courseQuery.isBlank()) {
+                return toolOnlyResponse(
+                        "Which course or class should I use for the assignment calculation?",
+                        List.of(), traceId, userId);
+            }
+            List<CourseSearchResponse.CourseSearchResult> matches =
+                    courseResolutionTool.resolve(courseQuery, authorizationHeader);
+            if (matches.isEmpty()) {
+                return toolOnlyResponse(
+                        "I couldn't find an authorized course matching '" + courseQuery + "'. Please provide the course name or course ID.",
+                        List.of(), traceId, userId);
+            }
+            if (matches.size() > 1) {
+                String choices = matches.stream()
+                        .map(match -> match.title() + " (" + match.courseId() + ")")
+                        .toList().toString();
+                return toolOnlyResponse(
+                        "I found multiple authorized courses: " + choices + ". Which one should I use?",
+                        List.of(), traceId, userId);
+            }
+            courseId = matches.get(0).courseId();
+        }
+
+        try {
+            toolResult = assignmentPerformanceTool.execute(
+                    courseId, dateRange.from(), dateRange.to(), authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", assignmentPerformanceTool.getName());
+            throw new AccessDeniedException("Not authorized to access assignment data");
+        }
+
+        if (toolResult == null) {
+            return toolOnlyResponse(
+                    "Assignment data is not available for the authorized data scope.",
+                    List.of(assignmentPerformanceTool.getName()), traceId, userId);
+        }
+
+        String groundedAnswer = generateGroundedAssignmentAnswer(
+                rawMessage, conversationContext, toolResult, traceId, userId);
+        return response(groundedAnswer, List.of(assignmentPerformanceTool.getName()));
+    }
+
+    private AiChatResponse answerQuizPerformance(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        QuizAnalyticsSummary toolResult;
+        UUID courseId = extractCourseId(rawMessage, conversationContext);
+        DateRange dateRange = resolveAttendanceDateRange(rawMessage);
+        if (courseId == null && !authenticatedUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            String courseQuery = extractCourseQuery(rawMessage);
+            if (courseQuery.isBlank()) {
+                return toolOnlyResponse("Which course or class should I use for the quiz calculation?", List.of(), traceId, userId);
+            }
+            List<CourseSearchResponse.CourseSearchResult> matches =
+                    courseResolutionTool.resolve(courseQuery, authorizationHeader);
+            if (matches.isEmpty()) {
+                return toolOnlyResponse(
+                        "I couldn't find an authorized course matching '" + courseQuery + "'. Please provide the course name or course ID.",
+                        List.of(), traceId, userId);
+            }
+            if (matches.size() > 1) {
+                String choices = matches.stream()
+                        .map(match -> match.title() + " (" + match.courseId() + ")")
+                        .toList().toString();
+                return toolOnlyResponse("I found multiple authorized courses: " + choices + ". Which one should I use?", List.of(), traceId, userId);
+            }
+            courseId = matches.get(0).courseId();
+        }
+
+        try {
+            toolResult = quizPerformanceTool.execute(courseId, dateRange.from(), dateRange.to(), authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", quizPerformanceTool.getName());
+            throw new AccessDeniedException("Not authorized to access quiz data");
+        }
+        if (toolResult == null) {
+            return toolOnlyResponse("Quiz data is not available for the authorized data scope.",
+                    List.of(quizPerformanceTool.getName()), traceId, userId);
+        }
+
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant.
+                        Use only the supplied quiz tool_result JSON to answer.
+                        Explain completionRate, averageScore, and missingRate as percentages.
+                        Do not invent quiz names, student counts, dates, or causes.
+                        Keep the response concise and useful for a teacher.
+                        """)
+                .userInput("""
+                        tool_name: getQuizPerformance
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toJson(toolResult), conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return response(generateResponse.getContent(), List.of(quizPerformanceTool.getName()));
     }
 
     private AiChatResponse answerUserRegistrationOverview(
@@ -520,6 +656,41 @@ public class AiChatServiceImpl implements AiChatService {
         return generateResponse.getContent();
     }
 
+    private String generateGroundedAssignmentAnswer(
+            String rawMessage,
+            String conversationContext,
+            AssignmentAnalyticsSummary toolResult,
+            String traceId,
+            UUID userId
+    ) {
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant.
+                        Use only the supplied assignment tool_result JSON to answer.
+                        Explain completionRate, averageScore, and missingRate as percentages.
+                        Do not invent assignment names, student counts, dates, or causes.
+                        If the result is scoped to a course or date range, mention that scope only when established by the JSON and request context.
+                        Keep the response concise and useful for a teacher.
+                        """)
+                .userInput("""
+                        tool_name: getAssignmentPerformance
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toJson(toolResult), conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return generateResponse.getContent();
+    }
+
     private boolean isUpcomingCalendarRequest(String message) {
         String normalized = normalize(message);
         return normalized.contains("calendar")
@@ -539,10 +710,26 @@ public class AiChatServiceImpl implements AiChatService {
     private boolean isTodayQuizPerformanceRequest(String message) {
         String normalized = normalize(message);
         return normalized.contains("quiz")
+                && !isHistoricalDateRequest(normalized)
                 && (normalized.contains("today")
                 || normalized.contains("performance")
                 || normalized.contains("average score")
                 || normalized.contains("score"));
+    }
+
+    private boolean isHistoricalQuizPerformanceRequest(String message) {
+        String normalized = normalize(message);
+        return normalized.contains("quiz") && isHistoricalDateRequest(normalized);
+    }
+
+    private boolean isHistoricalDateRequest(String normalized) {
+        return normalized.contains("yesterday")
+                || normalized.contains("last week")
+                || normalized.contains("past week")
+                || normalized.contains("previous week")
+                || normalized.contains("last month")
+                || normalized.contains("this month")
+                || normalized.contains("last year");
     }
 
     private boolean isAttendancePerformanceRequest(String message) {
@@ -552,6 +739,14 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalized.contains("absence")
                 || normalized.contains("present rate")
                 || normalized.contains("attendance percentage");
+    }
+
+    private boolean isAssignmentPerformanceRequest(String message) {
+        String normalized = normalize(message);
+        return normalized.contains("assignment")
+                || normalized.contains("submission")
+                || normalized.contains("completion rate")
+                || normalized.contains("missing assignment");
     }
 
     private UUID extractCourseId(String rawMessage, String conversationContext) {
@@ -566,7 +761,7 @@ public class AiChatServiceImpl implements AiChatService {
         String query = normalize(message)
                 .replaceAll("[0-9a-f]{8}-[0-9a-f-]{27,36}", " ")
                 .replaceAll("\\b(last month|this month|last week|today|yesterday)\\b", " ")
-                .replaceAll("\\b(attendance|attendance percentage|present rate|absence|absent|present)\\b", " ")
+                .replaceAll("\\b(attendance|attendance percentage|present rate|absence|absent|present|assignment|assignments|submission|submissions|completion rate|missing|quiz|quizzes|score|performance)\\b", " ")
                 .replaceAll("\\b(what|was|were|is|my|the|for|course|class|percentage|rate|please|show|me|calculate|calculate the)\\b", " ")
                 .replaceAll("[^a-z0-9]+", " ")
                 .trim();
@@ -579,6 +774,10 @@ public class AiChatServiceImpl implements AiChatService {
         if (normalized.contains("last month")) {
             YearMonth previousMonth = YearMonth.from(today).minusMonths(1);
             return new DateRange(previousMonth.atDay(1), previousMonth.atEndOfMonth());
+        }
+        if (normalized.contains("last year")) {
+            int year = today.getYear() - 1;
+            return new DateRange(LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31));
         }
         if (normalized.contains("this month")) {
             YearMonth currentMonth = YearMonth.from(today);
@@ -676,8 +875,6 @@ public class AiChatServiceImpl implements AiChatService {
         return normalizedRoutingMessage.contains("quiz")
                 || normalizedRoutingMessage.contains("student")
                 || normalizedRoutingMessage.contains("teacher")
-                || normalizedRoutingMessage.contains("assignment")
-                || normalizedRoutingMessage.contains("class")
                 || normalizedRoutingMessage.contains("calendar")
                 || normalizedRoutingMessage.contains("event")
                 || normalizedRoutingMessage.contains("schedule");

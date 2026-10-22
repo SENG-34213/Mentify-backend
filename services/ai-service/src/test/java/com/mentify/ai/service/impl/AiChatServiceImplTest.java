@@ -26,6 +26,8 @@ import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.AttendancePerformanceTool;
+import com.mentify.ai.tool.AssignmentPerformanceTool;
+import com.mentify.ai.tool.QuizPerformanceTool;
 import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
@@ -87,6 +89,12 @@ class AiChatServiceImplTest {
     private AttendancePerformanceTool attendancePerformanceTool;
 
     @Mock
+    private AssignmentPerformanceTool assignmentPerformanceTool;
+
+    @Mock
+    private QuizPerformanceTool quizPerformanceTool;
+
+    @Mock
     private CourseResolutionTool courseResolutionTool;
 
     @Mock
@@ -113,6 +121,8 @@ class AiChatServiceImplTest {
         lenient().when(aiProvider.getProviderName()).thenReturn("OPENAI");
         lenient().when(todayQuizPerformanceTool.getName()).thenReturn(TodayQuizPerformanceTool.TOOL_NAME);
         lenient().when(attendancePerformanceTool.getName()).thenReturn(AttendancePerformanceTool.TOOL_NAME);
+        lenient().when(assignmentPerformanceTool.getName()).thenReturn(AssignmentPerformanceTool.TOOL_NAME);
+        lenient().when(quizPerformanceTool.getName()).thenReturn(QuizPerformanceTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
         lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
 
@@ -125,6 +135,8 @@ class AiChatServiceImplTest {
                 auditService,
                 todayQuizPerformanceTool,
                 attendancePerformanceTool,
+                assignmentPerformanceTool,
+                quizPerformanceTool,
                 courseResolutionTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,
@@ -200,6 +212,38 @@ class AiChatServiceImplTest {
         assertThat(response.getToolsUsed()).containsExactly(AttendancePerformanceTool.TOOL_NAME);
         verify(attendancePerformanceTool).execute(
                 courseId, previousMonth.atDay(1), previousMonth.atEndOfMonth(), AUTH_HEADER);
+    }
+
+    @Test
+    void assignmentQuestionUsesAssignmentToolAndGroundedAiResponse() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        UUID courseId = UUID.randomUUID();
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(assignmentPerformanceTool.execute(
+                eq(courseId), any(), any(), eq(AUTH_HEADER))).thenReturn(
+                new com.mentify.ai.dto.tool.AssignmentAnalyticsSummary(
+                        courseId, new BigDecimal("80.00"), new BigDecimal("75.00"), new BigDecimal("20.00")));
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Assignment completion was 80.00%, with an average score of 75.00%.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("How did assignments perform for course " + courseId + " last month?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("80.00%", "75.00%");
+        assertThat(response.getToolsUsed()).containsExactly(AssignmentPerformanceTool.TOOL_NAME);
+        verify(assignmentPerformanceTool).execute(eq(courseId), any(), any(), eq(AUTH_HEADER));
     }
 
     @Test
