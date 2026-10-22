@@ -11,6 +11,11 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: create-drop
+
+management:
+  health:
+    redis:
+      enabled: false
   security:
     oauth2:
       resourceserver:

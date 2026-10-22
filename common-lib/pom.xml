@@ -42,6 +42,12 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
+        <!-- Shared Redis client for cache, coordination, and idempotency features. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Jakarta Persistence API -->
         <dependency>
             <groupId>jakarta.persistence</groupId>

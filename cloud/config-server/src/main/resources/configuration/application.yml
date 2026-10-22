@@ -1,3 +1,23 @@
 spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT_MS:2000}ms
+
+mentify:
+  redis:
+    enabled: ${REDIS_ENABLED:false}
+    key-prefix: ${REDIS_KEY_PREFIX:mentify:v1}
+    cache-default-ttl: ${REDIS_CACHE_DEFAULT_TTL_SECONDS:300s}
+    lock-default-ttl: ${REDIS_LOCK_DEFAULT_TTL_SECONDS:30s}
+    idempotency-ttl: ${REDIS_IDEMPOTENCY_TTL_SECONDS:86400s}
+
+management:
+  health:
+    redis:
+      enabled: ${REDIS_ENABLED:false}

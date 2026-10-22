@@ -29,3 +29,8 @@ mentify:
       url: ""
     enrollment-service:
       url: ""
+
+management:
+  health:
+    redis:
+      enabled: false
