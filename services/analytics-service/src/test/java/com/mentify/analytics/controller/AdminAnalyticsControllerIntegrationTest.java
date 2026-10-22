@@ -48,7 +48,7 @@ class AdminAnalyticsControllerIntegrationTest {
     @Test
     void allowsAdminRequestsAndReturnsOverview() throws Exception {
         when(adminAnalyticsService.getOverview()).thenReturn(
-                new AdminAnalyticsOverviewResponse(null, null, null, null, false, java.util.List.of()));
+                new AdminAnalyticsOverviewResponse(null, null, null, null, null, null, null, null, false, java.util.List.of()));
 
         mockMvc.perform(get("/api/v1/analytics/admin/overview")
                         .with(jwt().authorities(AuthorityUtils.createAuthorityList("ROLE_ADMIN"))))
