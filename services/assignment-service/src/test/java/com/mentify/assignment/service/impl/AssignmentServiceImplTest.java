@@ -32,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 
@@ -193,7 +194,7 @@ class AssignmentServiceImplTest {
         UUID teacherId = UUID.randomUUID();
         Assignment assignment = draftAssignment(teacherId);
         assignment.setId(assignmentId);
-        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId))
+        when(assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignmentId))
                 .thenReturn(Optional.of(assignment));
         when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
         when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
@@ -225,7 +226,7 @@ class AssignmentServiceImplTest {
 
         CourseLookupResponse course = new CourseLookupResponse();
         course.setId(courseId);
-        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId))
+        when(assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignmentId))
                 .thenReturn(Optional.of(assignment));
         when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
         when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
@@ -243,6 +244,167 @@ class AssignmentServiceImplTest {
                 "test-token"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Assignment start date must be in the future");
+    }
+
+    @Test
+    void updateAssignment_whenPublishedWithoutSubmissions_allowsFullEditAndPreservesPublishedStatus() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        String authorization = "test-token";
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setStatus(AssignmentStatus.PUBLISHED);
+        assignment.setId(assignmentId);
+        prepareAssignmentUpdate(assignment, teacherId, authorization);
+        when(submissionRepository.countByAssignmentIdAndIsActiveTrue(assignmentId)).thenReturn(0L);
+        when(assignmentRepository.save(any(Assignment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateAssignmentRequest request = UpdateAssignmentRequest.builder()
+                .title("Revised essay")
+                .description("Revised description")
+                .instructions("Revised instructions")
+                .startDate(assignment.getStartDate().plusHours(1))
+                .dueDate(assignment.getDueDate().plusDays(1))
+                .maxMarks(80)
+                .allowedAttempts(2)
+                .allowLateSubmission(true)
+                .latePenaltyPercentage(5)
+                .build();
+
+        AssignmentResponse response = assignmentService
+                .updateAssignment(assignmentId, request, authorization)
+                .getData();
+
+        assertThat(response.getStatus()).isEqualTo(AssignmentStatus.PUBLISHED);
+        assertThat(response.getTitle()).isEqualTo("Revised essay");
+        assertThat(response.getMaxMarks()).isEqualTo(80);
+        verify(calendarProjectionService).projectAssignmentIfEligible(assignment, authorization);
+    }
+
+    @Test
+    void updateAssignment_whenPublishedWithSubmissions_allowsMetadataEditsOnly() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        String authorization = "test-token";
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setStatus(AssignmentStatus.PUBLISHED);
+        assignment.setId(assignmentId);
+        assignment.getRubricItems().add(AssignmentRubricItem.builder()
+                .assignment(assignment)
+                .criterion("Quality")
+                .percentageWeight(new BigDecimal("100.00"))
+                .displayOrder(0)
+                .build());
+        prepareAssignmentUpdate(assignment, teacherId, authorization);
+        when(submissionRepository.countByAssignmentIdAndIsActiveTrue(assignmentId)).thenReturn(1L);
+        when(assignmentRepository.save(any(Assignment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateAssignmentRequest request = UpdateAssignmentRequest.builder()
+                .title("Revised essay")
+                .description("Revised description")
+                .instructions(assignment.getInstructions())
+                .startDate(assignment.getStartDate())
+                .dueDate(assignment.getDueDate())
+                .maxMarks(assignment.getMaxMarks())
+                .allowedAttempts(assignment.getAllowedAttempts())
+                .allowLateSubmission(assignment.getAllowLateSubmission())
+                .latePenaltyPercentage(assignment.getLatePenaltyPercentage())
+                .rubricItems(List.of(rubricItem("Quality", "100")))
+                .build();
+
+        AssignmentResponse response = assignmentService
+                .updateAssignment(assignmentId, request, authorization)
+                .getData();
+
+        assertThat(response.getStatus()).isEqualTo(AssignmentStatus.PUBLISHED);
+        assertThat(response.getTitle()).isEqualTo("Revised essay");
+        assertThat(response.getDescription()).isEqualTo("Revised description");
+        assertThat(response.getInstructions()).isEqualTo(assignment.getInstructions());
+        assertThat(response.getMaxMarks()).isEqualTo(assignment.getMaxMarks());
+        verify(calendarProjectionService).projectAssignmentIfEligible(assignment, authorization);
+    }
+
+    @Test
+    void updateAssignment_whenPublishedWithSubmissionsAndMaxMarksChange_throws() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setStatus(AssignmentStatus.PUBLISHED);
+        assignment.setId(assignmentId);
+        prepareAssignmentUpdate(assignment, teacherId, "test-token");
+        when(submissionRepository.countByAssignmentIdAndIsActiveTrue(assignmentId)).thenReturn(1L);
+
+        UpdateAssignmentRequest request = UpdateAssignmentRequest.builder()
+                .title(assignment.getTitle())
+                .description(assignment.getDescription())
+                .instructions(assignment.getInstructions())
+                .startDate(assignment.getStartDate())
+                .dueDate(assignment.getDueDate())
+                .maxMarks(assignment.getMaxMarks() + 1)
+                .allowedAttempts(assignment.getAllowedAttempts())
+                .allowLateSubmission(assignment.getAllowLateSubmission())
+                .latePenaltyPercentage(assignment.getLatePenaltyPercentage())
+                .build();
+
+        assertThatThrownBy(() -> assignmentService.updateAssignment(
+                assignmentId, request, "test-token"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Published assignments with submissions can only update the title and description");
+    }
+
+    @Test
+    void patchAssignment_whenPublishedWithSubmissionsAndOnlyMetadataChanged_allowsUpdate() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        String authorization = "test-token";
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setStatus(AssignmentStatus.PUBLISHED);
+        assignment.setId(assignmentId);
+        prepareAssignmentUpdate(assignment, teacherId, authorization);
+        when(submissionRepository.countByAssignmentIdAndIsActiveTrue(assignmentId)).thenReturn(1L);
+        when(assignmentRepository.save(any(Assignment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AssignmentResponse response = assignmentService.patchAssignment(
+                assignmentId,
+                PatchAssignmentRequest.builder()
+                        .title("Updated title")
+                        .description("Updated description")
+                        .build(),
+                authorization
+        ).getData();
+
+        assertThat(response.getStatus()).isEqualTo(AssignmentStatus.PUBLISHED);
+        assertThat(response.getTitle()).isEqualTo("Updated title");
+        assertThat(response.getDescription()).isEqualTo("Updated description");
+        verify(calendarProjectionService).projectAssignmentIfEligible(assignment, authorization);
+    }
+
+    @Test
+    void patchAssignment_whenPublishedWithSubmissionsAndRubricChanges_throws() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Assignment assignment = draftAssignment(teacherId);
+        assignment.setStatus(AssignmentStatus.PUBLISHED);
+        assignment.setId(assignmentId);
+        assignment.getRubricItems().add(AssignmentRubricItem.builder()
+                .assignment(assignment)
+                .criterion("Quality")
+                .percentageWeight(new BigDecimal("100.00"))
+                .displayOrder(0)
+                .build());
+        prepareAssignmentUpdate(assignment, teacherId, "test-token");
+        when(submissionRepository.countByAssignmentIdAndIsActiveTrue(assignmentId)).thenReturn(1L);
+
+        assertThatThrownBy(() -> assignmentService.patchAssignment(
+                assignmentId,
+                PatchAssignmentRequest.builder()
+                        .rubricItems(List.of(rubricItem("Quality", "50"), rubricItem("Effort", "50")))
+                        .build(),
+                "test-token"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Published assignments with submissions can only update the title and description");
     }
 
     @Test
@@ -287,7 +449,7 @@ class AssignmentServiceImplTest {
         CourseLookupResponse course = new CourseLookupResponse();
         course.setId(courseId);
 
-        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId)).thenReturn(Optional.of(assignment));
+        when(assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignmentId)).thenReturn(Optional.of(assignment));
         when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
         when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
         when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
@@ -361,6 +523,23 @@ class AssignmentServiceImplTest {
                 .allowLateSubmission(false)
                 .status(AssignmentStatus.DRAFT)
                 .build();
+    }
+
+    private void prepareAssignmentUpdate(Assignment assignment, UUID teacherId, String authorization) {
+        UUID courseId = assignment.getCourseId();
+        CourseLookupResponse course = new CourseLookupResponse();
+        course.setId(courseId);
+        when(assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignment.getId()))
+                .thenReturn(Optional.of(assignment));
+        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(courseServiceClient.getCourseById(courseId, authorization))
+                .thenReturn(ApiResponse.<CourseLookupResponse>builder()
+                        .status(HttpStatus.OK)
+                        .statusCode(HttpStatus.OK.value())
+                        .data(course)
+                        .build());
     }
 
     private static RubricItemRequest rubricItem(String criterion, String percentageWeight) {

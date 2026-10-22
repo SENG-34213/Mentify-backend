@@ -129,17 +129,22 @@ payment verification.
 | GET | `/api/internal/quizzes/analytics/today/performance` | `TEACHER`, `ADMIN`, `SUPER_ADMIN` | `TodayQuizPerformanceResponse` |
 
 Assignment creation requires `courseId`, `moduleId`, title (nonblank, max
-150), `startDate`, `dueDate`, `maxMarks >= 1`, `allowedAttempts >= 1`, and
-`allowLateSubmission`; full update requires the same editable fields. Both
-requests may include up to 50 `rubricItems`, each with a nonblank `criterion`
-(max 150) and nonnegative `marks`; the sum of rubric marks cannot exceed
-`maxMarks`. Assignment responses include ordered rubric items and
-`totalSubmissions`/`gradedCount`; graded counts include submissions with saved
-marks. `PATCH /api/v1/assignments/{assignmentId}` accepts any subset of
-editable assignment fields and preserves fields omitted from the request; an
-empty patch is rejected. A supplied rubric array replaces the current rubric,
-while an omitted rubric leaves it unchanged. Late penalty, if supplied, is
-0–100.
+150), `startDate` (strictly later than server time), `dueDate` (after the start),
+`maxMarks >= 1`, `allowedAttempts >= 1`, and `allowLateSubmission`; full update
+requires the same editable fields. Draft updates retain the future-start
+requirement. Requests may include up to 50 `rubricItems`, each with a nonblank
+`criterion` (max 150) and a `percentageWeight` from 0 through 100; provided
+rubric weights must total exactly 100%. Assignment responses include ordered
+rubric items and `totalSubmissions`/`gradedCount`; graded counts include
+submissions with saved marks. Drafts and published assignments without active
+submissions can be fully edited. For published assignments with active
+submissions, only title and description may change; closed assignments are
+read-only. Assignment saves preserve published status and refresh the eligible
+calendar projection. `PATCH /api/v1/assignments/{assignmentId}` accepts any
+subset of editable assignment fields and preserves fields omitted from the
+request; an empty patch is rejected. A supplied rubric array replaces the
+current rubric, while an omitted rubric leaves it unchanged. Late penalty, if
+supplied, is 0–100.
 
 The user service exposes `POST /api/v1/users/students/lookup` with
 `{"studentIds": ["<uuid>"]}` and returns each matching student's

@@ -42,7 +42,8 @@ public class SubmissionServiceImpl implements SubmissionService {
     @Override
     @Transactional
     public ApiResponse<SubmissionResponse> createSubmission(UUID assignmentId, CreateSubmissionRequest request, String authorizationHeader) {
-        Assignment assignment = getAssignmentOrThrow(assignmentId);
+        Assignment assignment = assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Assignment not found"));
         if (assignment.getStatus() != com.mentify.assignment.enums.AssignmentStatus.PUBLISHED) {
             throw new RuntimeException("Assignment is not published yet");
         }

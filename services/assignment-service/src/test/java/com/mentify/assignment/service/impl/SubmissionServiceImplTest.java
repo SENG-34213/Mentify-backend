@@ -83,7 +83,7 @@ class SubmissionServiceImplTest {
                 .build();
         assignment.setId(assignmentId);
 
-        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId)).thenReturn(Optional.of(assignment));
+        when(assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignmentId)).thenReturn(Optional.of(assignment));
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
         when(userServiceClient.isStudentExists(studentId, "Bearer token")).thenReturn(true);
         when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, "Bearer token")).thenReturn(true);
