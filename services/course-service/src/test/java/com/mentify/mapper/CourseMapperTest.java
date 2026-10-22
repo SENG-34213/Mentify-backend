@@ -59,6 +59,7 @@ class CourseMapperTest {
                 .courseName("English")
                 .courseDescription("Spoken English")
                 .courseThumbnail("english.png")
+                .subject("Languages")
                 .gradeId(gradeId)
                 .assignedTeacherId(teacherId)
                 .status(CourseStatus.PUBLISHED)
@@ -76,6 +77,7 @@ class CourseMapperTest {
         assertThat(response.getCourseName()).isEqualTo("English");
         assertThat(response.getCourseDescription()).isEqualTo("Spoken English");
         assertThat(response.getCourseThumbnail()).isEqualTo("english.png");
+        assertThat(response.getSubject()).isEqualTo("Languages");
         assertThat(response.getGradeId()).isEqualTo(gradeId);
         assertThat(response.getAssignedTeacherId()).isEqualTo(teacherId);
         assertThat(response.getCourseStatus()).isEqualTo(CourseStatus.PUBLISHED);
