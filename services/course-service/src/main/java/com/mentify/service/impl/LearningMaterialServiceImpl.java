@@ -82,6 +82,12 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
             MultipartFile file,
             String authorizationHeader
     ) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("A non-empty material file is required");
+        }
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Learning material title is required");
+        }
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
         teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());

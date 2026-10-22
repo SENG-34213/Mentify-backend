@@ -8,6 +8,10 @@ spring:
     name: material-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  servlet:
+    multipart:
+      max-file-size: ${MATERIAL_MAX_FILE_SIZE:100MB}
+      max-request-size: ${MATERIAL_MAX_REQUEST_SIZE:110MB}
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true

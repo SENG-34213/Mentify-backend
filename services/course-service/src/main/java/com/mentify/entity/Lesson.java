@@ -39,6 +39,9 @@ public class Lesson extends BaseEntity {
     @Column(nullable = false)
     private boolean isVisible = true;
 
+    @Column(name = "teaching_completed", nullable = false)
+    private boolean teachingCompleted = false;
+
     /**
      * Date on which this lesson becomes accessible to enrolled students.
      */

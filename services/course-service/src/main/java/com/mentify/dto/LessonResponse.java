@@ -18,6 +18,7 @@ public class LessonResponse {
     private UUID id;
     private String title;
     private boolean isVisible;
+    private boolean teachingCompleted;
     private String description;
     private Integer durationMinutes;
     private String contentMarkdown;

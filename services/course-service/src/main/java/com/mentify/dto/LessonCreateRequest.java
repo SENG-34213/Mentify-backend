@@ -36,5 +36,7 @@ public class LessonCreateRequest {
 
     private Boolean isVisible;
 
+    private Boolean teachingCompleted;
+
     private LocalDate releaseDate;
 }

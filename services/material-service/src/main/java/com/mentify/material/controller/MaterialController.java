@@ -56,7 +56,7 @@ public class MaterialController {
             @RequestParam String title,
             @RequestParam(required = false) String description,
             @RequestParam(defaultValue = "LEARNING_MATERIAL") MaterialPurpose purpose,
-            @RequestParam UUID courseId,
+            @RequestParam(required = false) UUID courseId,
             @RequestParam MultipartFile file,
             @RequestHeader("Authorization") String authorizationHeader
     ) {
@@ -72,6 +72,27 @@ public class MaterialController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Material uploaded successfully", response));
+    }
+
+    @PostMapping(value = "/marketplace", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<MaterialResponse>> uploadMarketplaceMaterial(
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam MultipartFile file,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        MaterialResponse response = materialUploadService.upload(
+                title,
+                description,
+                MaterialPurpose.MARKETPLACE_PRODUCT,
+                file,
+                currentUserService.getCurrentUserId(),
+                null,
+                authorizationHeader
+        );
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED.value(), "Marketplace material uploaded successfully", response));
     }
 
     @GetMapping
