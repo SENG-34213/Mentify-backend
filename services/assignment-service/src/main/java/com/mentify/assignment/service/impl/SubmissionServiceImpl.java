@@ -10,12 +10,14 @@ import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.SubmissionService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.EnrollmentServiceClient;
 import com.mentify.quiz.client.UserServiceClient;
 import com.mentify.quiz.security.CurrentUserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +35,9 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
     private final SubmissionResponseMapper submissionResponseMapper;
+
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -107,8 +112,18 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setSubmittedAt(LocalDateTime.now());
         submission.setIsLate(LocalDateTime.now().isAfter(assignment.getDueDate()));
 
+        Submission saved = submissionRepository.save(submission);
+        if (notificationEventPublisher != null && assignment.getTeacherId() != null) {
+            notificationEventPublisher.publishForRecipient(
+                    assignment.getTeacherId().toString(),
+                    null,
+                    "SUBMISSION_SUBMITTED",
+                    "Assignment submitted",
+                    "A student submitted an assignment for your course."
+            );
+        }
         return response(HttpStatus.OK, "Assignment submitted successfully",
-                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
+                submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
 
     @Override

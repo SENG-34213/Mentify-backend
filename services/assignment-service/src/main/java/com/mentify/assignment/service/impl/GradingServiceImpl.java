@@ -8,10 +8,12 @@ import com.mentify.assignment.enums.SubmissionStatus;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.GradingService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.security.CurrentUserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +28,9 @@ public class GradingServiceImpl implements GradingService {
     private final SubmissionRepository submissionRepository;
     private final CurrentUserService currentUserService;
     private final SubmissionResponseMapper submissionResponseMapper;
+
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -44,8 +49,11 @@ public class GradingServiceImpl implements GradingService {
         submission.setGradedAt(LocalDateTime.now());
         submission.setGradedBy(currentUserService.getCurrentUserId());
 
+        Submission saved = submissionRepository.save(submission);
+        publishStudentNotification(saved.getStudentId(), "SUBMISSION_GRADED", "Submission graded",
+                "Your assignment submission was graded successfully.");
         return response(HttpStatus.OK, "Submission graded successfully",
-                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
+                submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
 
     @Override
@@ -55,8 +63,17 @@ public class GradingServiceImpl implements GradingService {
         ensureTeacherCanGrade(submission);
         submission.setStatus(SubmissionStatus.RETURNED);
         submission.setReturnedAt(LocalDateTime.now());
+        Submission saved = submissionRepository.save(submission);
+        publishStudentNotification(saved.getStudentId(), "SUBMISSION_RETURNED", "Submission returned",
+                "Your assignment submission was returned successfully.");
         return response(HttpStatus.OK, "Submission returned successfully",
-                submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
+                submissionResponseMapper.toResponse(saved, authorizationHeader));
+    }
+
+    private void publishStudentNotification(UUID studentId, String type, String title, String message) {
+        if (notificationEventPublisher != null && studentId != null) {
+            notificationEventPublisher.publishForRecipient(studentId.toString(), null, type, title, message);
+        }
     }
 
     private void ensureTeacherCanGrade(Submission submission) {
