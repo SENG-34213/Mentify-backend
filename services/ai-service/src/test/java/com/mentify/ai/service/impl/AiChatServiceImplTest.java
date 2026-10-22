@@ -7,6 +7,7 @@ import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
+import com.mentify.ai.dto.tool.AttendanceAnalyticsSummary;
 import com.mentify.ai.dto.tool.QuizPerformanceSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
@@ -24,6 +25,7 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.AttendancePerformanceTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
@@ -41,6 +43,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +83,9 @@ class AiChatServiceImplTest {
     private TodayQuizPerformanceTool todayQuizPerformanceTool;
 
     @Mock
+    private AttendancePerformanceTool attendancePerformanceTool;
+
+    @Mock
     private UserRegistrationOverviewTool userRegistrationOverviewTool;
 
     @Mock
@@ -102,6 +108,7 @@ class AiChatServiceImplTest {
 
         lenient().when(aiProvider.getProviderName()).thenReturn("OPENAI");
         lenient().when(todayQuizPerformanceTool.getName()).thenReturn(TodayQuizPerformanceTool.TOOL_NAME);
+        lenient().when(attendancePerformanceTool.getName()).thenReturn(AttendancePerformanceTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
         lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
 
@@ -113,12 +120,80 @@ class AiChatServiceImplTest {
                 contentGuardService,
                 auditService,
                 todayQuizPerformanceTool,
+                attendancePerformanceTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,
                 new ObjectMapper().findAndRegisterModules(),
                 conversationRepository,
                 messageRepository
         );
+    }
+
+    @Test
+    void attendanceQuestionUsesAttendanceToolAndGroundedAiResponse() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(attendancePerformanceTool.execute(null, null, null, AUTH_HEADER)).thenReturn(
+                new AttendanceAnalyticsSummary(null, new BigDecimal("87.50")));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Average attendance is 87.50% across the authorized completed attendance records.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What is the attendance percentage?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("87.50%");
+        assertThat(response.getToolsUsed()).containsExactly(AttendancePerformanceTool.TOOL_NAME);
+        verify(attendancePerformanceTool).execute(null, null, null, AUTH_HEADER);
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains(AttendancePerformanceTool.TOOL_NAME, "87.50");
+    }
+
+    @Test
+    void lastMonthAttendanceQuestionUsesFilteredCourseTool() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        UUID courseId = UUID.randomUUID();
+        YearMonth previousMonth = YearMonth.now().minusMonths(1);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(attendancePerformanceTool.execute(
+                eq(courseId), eq(previousMonth.atDay(1)), eq(previousMonth.atEndOfMonth()), eq(AUTH_HEADER)))
+                .thenReturn(new AttendanceAnalyticsSummary(courseId, new BigDecimal("91.00")));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Attendance was 91.00% last month.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What was attendance last month for course " + courseId + "?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("91.00%");
+        assertThat(response.getToolsUsed()).containsExactly(AttendancePerformanceTool.TOOL_NAME);
+        verify(attendancePerformanceTool).execute(
+                courseId, previousMonth.atDay(1), previousMonth.atEndOfMonth(), AUTH_HEADER);
     }
 
     @Test

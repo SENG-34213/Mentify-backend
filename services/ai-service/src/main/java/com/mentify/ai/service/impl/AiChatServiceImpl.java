@@ -8,6 +8,7 @@ import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
+import com.mentify.ai.dto.tool.AttendanceAnalyticsSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
 import com.mentify.ai.entity.AiConversation;
@@ -28,6 +29,7 @@ import com.mentify.ai.service.AiChatService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.AttendancePerformanceTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
@@ -40,6 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -66,6 +71,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiContentGuardService contentGuardService;
     private final AiAuditService auditService;
     private final TodayQuizPerformanceTool todayQuizPerformanceTool;
+    private final AttendancePerformanceTool attendancePerformanceTool;
     private final UserRegistrationOverviewTool userRegistrationOverviewTool;
     private final UpcomingCalendarEventsTool upcomingCalendarEventsTool;
     private final ObjectMapper objectMapper;
@@ -168,6 +174,10 @@ public class AiChatServiceImpl implements AiChatService {
             return answerTodayQuizPerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
+        if (isAttendancePerformanceRequest(routingMessage)) {
+            return answerAttendancePerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
+        }
+
         if (isUserRegistrationOverviewRequest(routingMessage)) {
             return answerUserRegistrationOverview(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
@@ -262,6 +272,38 @@ public class AiChatServiceImpl implements AiChatService {
 
         String groundedAnswer = generateGroundedToolAnswer(rawMessage, conversationContext, toolResult, traceId, userId);
         return response(groundedAnswer, List.of(todayQuizPerformanceTool.getName()));
+    }
+
+    private AiChatResponse answerAttendancePerformance(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        AttendanceAnalyticsSummary toolResult;
+        UUID courseId = extractCourseId(rawMessage, conversationContext);
+        DateRange dateRange = resolveAttendanceDateRange(rawMessage);
+        try {
+            toolResult = attendancePerformanceTool.execute(
+                    courseId, dateRange.from(), dateRange.to(), authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", attendancePerformanceTool.getName());
+            throw new AccessDeniedException("Not authorized to access attendance data");
+        }
+
+        if (toolResult == null || toolResult.averageAttendance() == null) {
+            return toolOnlyResponse(
+                    "Attendance data is not available for the authorized data scope.",
+                    List.of(attendancePerformanceTool.getName()),
+                    traceId,
+                    userId
+            );
+        }
+
+        String groundedAnswer = generateGroundedAttendanceAnswer(
+                rawMessage, conversationContext, toolResult, traceId, userId);
+        return response(groundedAnswer, List.of(attendancePerformanceTool.getName()));
     }
 
     private AiChatResponse answerUserRegistrationOverview(
@@ -414,6 +456,42 @@ public class AiChatServiceImpl implements AiChatService {
         return generateResponse.getContent();
     }
 
+    private String generateGroundedAttendanceAnswer(
+            String rawMessage,
+            String conversationContext,
+            AttendanceAnalyticsSummary toolResult,
+            String traceId,
+            UUID userId
+    ) {
+        String toolJson = toJson(toolResult);
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant.
+                        Use only the supplied attendance tool_result JSON to answer.
+                        The value is the average attendance across completed attendance records in the authorized scope.
+                        Do not claim that it represents a specific class, student, or date range unless the JSON establishes that.
+                        If the requested course or date range is not represented in the JSON, explain that the requested scope could not be established.
+                        Keep the response concise and include the percentage exactly as supplied.
+                        """)
+                .userInput("""
+                        tool_name: getAttendancePerformance
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toolJson, conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return generateResponse.getContent();
+    }
+
     private boolean isUpcomingCalendarRequest(String message) {
         String normalized = normalize(message);
         return normalized.contains("calendar")
@@ -437,6 +515,48 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalized.contains("performance")
                 || normalized.contains("average score")
                 || normalized.contains("score"));
+    }
+
+    private boolean isAttendancePerformanceRequest(String message) {
+        String normalized = normalize(message);
+        return normalized.contains("attendance")
+                || normalized.contains("absent")
+                || normalized.contains("absence")
+                || normalized.contains("present rate")
+                || normalized.contains("attendance percentage");
+    }
+
+    private UUID extractCourseId(String rawMessage, String conversationContext) {
+        String combined = rawMessage + " " + conversationContext;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?i)(?:course|class)?\\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})")
+                .matcher(combined);
+        return matcher.find() ? UUID.fromString(matcher.group(1)) : null;
+    }
+
+    private DateRange resolveAttendanceDateRange(String message) {
+        String normalized = normalize(message);
+        LocalDate today = LocalDate.now();
+        if (normalized.contains("last month")) {
+            YearMonth previousMonth = YearMonth.from(today).minusMonths(1);
+            return new DateRange(previousMonth.atDay(1), previousMonth.atEndOfMonth());
+        }
+        if (normalized.contains("this month")) {
+            YearMonth currentMonth = YearMonth.from(today);
+            return new DateRange(currentMonth.atDay(1), currentMonth.atEndOfMonth());
+        }
+        if (normalized.contains("yesterday")) {
+            LocalDate yesterday = today.minusDays(1);
+            return new DateRange(yesterday, yesterday);
+        }
+        if (normalized.contains("today")) {
+            return new DateRange(today, today);
+        }
+        if (normalized.contains("last week")) {
+            LocalDate start = today.with(DayOfWeek.MONDAY).minusWeeks(1);
+            return new DateRange(start, start.plusDays(6));
+        }
+        return new DateRange(null, null);
     }
 
     private boolean isAmbiguousMentifyPerformanceRequest(String message) {
@@ -493,8 +613,6 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalized.contains("what about")
                 || normalized.contains("compare it")
                 || normalized.contains("compare them")
-                || normalized.contains("yesterday")
-                || normalized.contains("last month")
                 || normalized.contains("those")
                 || normalized.contains("these")
                 || normalized.contains("that")
@@ -519,7 +637,6 @@ public class AiChatServiceImpl implements AiChatService {
         return normalizedRoutingMessage.contains("quiz")
                 || normalizedRoutingMessage.contains("student")
                 || normalizedRoutingMessage.contains("teacher")
-                || normalizedRoutingMessage.contains("attendance")
                 || normalizedRoutingMessage.contains("assignment")
                 || normalizedRoutingMessage.contains("class")
                 || normalizedRoutingMessage.contains("calendar")
@@ -699,5 +816,8 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private record ConversationMemory(String prompt, boolean hasPriorContext) {
+    }
+
+    private record DateRange(LocalDate from, LocalDate to) {
     }
 }

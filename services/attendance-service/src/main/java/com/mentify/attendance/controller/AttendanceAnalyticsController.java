@@ -9,9 +9,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.time.LocalDate;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,13 +24,19 @@ public class AttendanceAnalyticsController {
     private final AttendanceSummaryService attendanceSummaryService;
 
     @GetMapping("/overview")
-    public ResponseEntity<ApiResponse<AttendanceAnalyticsSummaryResponse>> getOverview() {
-        return ResponseEntity.ok(attendanceSummaryService.getAnalyticsOverview());
+    public ResponseEntity<ApiResponse<AttendanceAnalyticsSummaryResponse>> getOverview(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        return ResponseEntity.ok(attendanceSummaryService.getAnalyticsOverview(from, to));
     }
 
     @GetMapping("/courses/{courseId}")
     public ResponseEntity<ApiResponse<AttendanceAnalyticsSummaryResponse>> getCourseSummary(
-            @PathVariable UUID courseId) {
-        return ResponseEntity.ok(attendanceSummaryService.getAnalyticsCourseSummary(courseId));
+            @PathVariable UUID courseId,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @org.springframework.web.bind.annotation.RequestHeader("Authorization") String authorizationHeader) {
+        return ResponseEntity.ok(attendanceSummaryService.getAnalyticsCourseSummary(
+                courseId, from, to, authorizationHeader));
     }
 }
