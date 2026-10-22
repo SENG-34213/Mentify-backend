@@ -40,11 +40,11 @@ public class GradeServiceImpl implements GradeService {
             throw new ResourceAlreadyExistsException("Grade", "name", gradeName);
         }
 
-        Grade savedGrade = gradeRepository.save(GradeMapper.toGradeEntity(request));
-        if (savedGrade.getSubjectDomains().isEmpty()) {
-            savedGrade.setSubjectDomains(defaultSubjectDomains(gradeName));
-            savedGrade = gradeRepository.save(savedGrade);
+        Grade grade = GradeMapper.toGradeEntity(request);
+        if (grade.getSubjectDomains().isEmpty()) {
+            grade.setSubjectDomains(defaultSubjectDomains(gradeName));
         }
+        Grade savedGrade = gradeRepository.save(grade);
 
         return ApiResponse.<GradeResponse>builder()
                 .message("Grade created successfully")
