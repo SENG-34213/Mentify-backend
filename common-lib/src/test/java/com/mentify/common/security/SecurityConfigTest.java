@@ -44,13 +44,14 @@ class SecurityConfigTest {
                 .andExpect(status().isOk());
     }
 
-    @Test
-    void givenNoToken_whenCallingForgotPasswordEndpoint_thenReturnsOk() throws Exception {
-        // Arrange
-        var request = post("/api/v1/auth/forgot-password");
-
-        // Act and Assert
-        mockMvc.perform(request)
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/forgot-password/verify",
+            "/api/v1/auth/forgot-password/reset"
+    })
+    void givenNoToken_whenCallingPasswordResetEndpoint_thenReturnsOk(String path) throws Exception {
+        mockMvc.perform(post(path))
                 .andExpect(status().isOk());
     }
 
@@ -85,6 +86,16 @@ class SecurityConfigTest {
 
         @PostMapping("/api/v1/auth/forgot-password")
         Map<String, String> forgotPassword() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/v1/auth/forgot-password/verify")
+        Map<String, String> verifyForgotPassword() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/v1/auth/forgot-password/reset")
+        Map<String, String> resetForgotPassword() {
             return Map.of("status", "success");
         }
 
