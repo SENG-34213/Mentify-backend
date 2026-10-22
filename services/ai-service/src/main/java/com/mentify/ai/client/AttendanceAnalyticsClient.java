@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.UUID;
 import java.time.LocalDate;
 
-@FeignClient(name = "attendance-service", path = "/api/v1/internal/analytics/attendance")
+@FeignClient(name = "attendance-service", contextId = "aiAttendanceAnalyticsClient", path = "/api/v1/internal/analytics/attendance")
 public interface AttendanceAnalyticsClient {
 
     @GetMapping("/overview")

@@ -28,6 +28,7 @@ import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.AttendancePerformanceTool;
 import com.mentify.ai.tool.AssignmentPerformanceTool;
 import com.mentify.ai.tool.QuizPerformanceTool;
+import com.mentify.ai.tool.StudentProgressTool;
 import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
@@ -95,6 +96,9 @@ class AiChatServiceImplTest {
     private QuizPerformanceTool quizPerformanceTool;
 
     @Mock
+    private StudentProgressTool studentProgressTool;
+
+    @Mock
     private CourseResolutionTool courseResolutionTool;
 
     @Mock
@@ -123,6 +127,7 @@ class AiChatServiceImplTest {
         lenient().when(attendancePerformanceTool.getName()).thenReturn(AttendancePerformanceTool.TOOL_NAME);
         lenient().when(assignmentPerformanceTool.getName()).thenReturn(AssignmentPerformanceTool.TOOL_NAME);
         lenient().when(quizPerformanceTool.getName()).thenReturn(QuizPerformanceTool.TOOL_NAME);
+        lenient().when(studentProgressTool.getName()).thenReturn(StudentProgressTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
         lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
 
@@ -137,6 +142,7 @@ class AiChatServiceImplTest {
                 attendancePerformanceTool,
                 assignmentPerformanceTool,
                 quizPerformanceTool,
+                studentProgressTool,
                 courseResolutionTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,

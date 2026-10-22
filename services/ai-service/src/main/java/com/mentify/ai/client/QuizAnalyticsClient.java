@@ -6,7 +6,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-@FeignClient(name = "assignment-service", path = "/api/internal/quizzes/analytics")
+@FeignClient(name = "assignment-service", contextId = "aiQuizAnalyticsClient", path = "/api/internal/quizzes/analytics")
 public interface QuizAnalyticsClient {
 
     @GetMapping("/today/performance")

@@ -14,6 +14,7 @@ import com.mentify.ai.dto.tool.QuizAnalyticsSummary;
 import com.mentify.ai.dto.tool.CourseSearchResponse;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
+import com.mentify.ai.dto.tool.StudentProgressSummary;
 import com.mentify.ai.entity.AiConversation;
 import com.mentify.ai.entity.AiMessage;
 import com.mentify.ai.enums.AiFeatureType;
@@ -38,6 +39,7 @@ import com.mentify.ai.tool.QuizPerformanceTool;
 import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
+import com.mentify.ai.tool.StudentProgressTool;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,6 +82,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final AttendancePerformanceTool attendancePerformanceTool;
     private final AssignmentPerformanceTool assignmentPerformanceTool;
     private final QuizPerformanceTool quizPerformanceTool;
+    private final StudentProgressTool studentProgressTool;
     private final CourseResolutionTool courseResolutionTool;
     private final UserRegistrationOverviewTool userRegistrationOverviewTool;
     private final UpcomingCalendarEventsTool upcomingCalendarEventsTool;
@@ -159,6 +162,10 @@ public class AiChatServiceImpl implements AiChatService {
 
         if (isHistoricalQuizPerformanceRequest(rawMessage)) {
             return answerQuizPerformance(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
+        }
+
+        if (isStudentProgressRequest(rawMessage)) {
+            return answerStudentProgress(rawMessage, conversationMemory.prompt(), authorizationHeader, traceId, userId);
         }
 
         if (requiresUnsupportedHistoricalMentifyData(rawMessage, routingMessage)) {
@@ -470,6 +477,52 @@ public class AiChatServiceImpl implements AiChatService {
         return response(generateResponse.getContent(), List.of(quizPerformanceTool.getName()));
     }
 
+    private AiChatResponse answerStudentProgress(
+            String rawMessage,
+            String conversationContext,
+            String authorizationHeader,
+            String traceId,
+            UUID userId
+    ) {
+        StudentProgressSummary toolResult;
+        try {
+            toolResult = studentProgressTool.execute(authorizationHeader);
+        } catch (FeignException.Forbidden ex) {
+            log.warn("AI tool authorization failed tool={}", studentProgressTool.getName());
+            throw new AccessDeniedException("Only students can access personal progress data");
+        }
+        if (toolResult == null) {
+            return toolOnlyResponse("Your progress data is not available right now.",
+                    List.of(studentProgressTool.getName()), traceId, userId);
+        }
+
+        AiGenerateResponse generateResponse = getProvider().generate(AiExecutionRequest.builder()
+                .featureType(AiFeatureType.TUTOR_CHAT)
+                .userId(userId)
+                .systemPrompt("""
+                        You are Mentify's AI assistant.
+                        Use only the supplied student progress tool_result JSON.
+                        It contains the authenticated student's own data across enrolled courses.
+                        Explain percentages exactly as supplied. Do not expose or infer another student's data.
+                        Mention that zero can mean no records are available; do not invent causes or recommendations.
+                        Keep the response concise and encouraging.
+                        """)
+                .userInput("""
+                        tool_name: getStudentProgress
+                        tool_result:
+                        %s
+
+                        %s
+                        current_user_message:
+                        %s
+                        """.formatted(toJson(toolResult), conversationContext, rawMessage))
+                .responseFormat(AiResponseFormat.TEXT)
+                .traceId(traceId)
+                .build());
+        auditService.recordCompleted(traceId, AiFeatureType.TUTOR_CHAT, userId, null, null, generateResponse);
+        return response(generateResponse.getContent(), List.of(studentProgressTool.getName()));
+    }
+
     private AiChatResponse answerUserRegistrationOverview(
             String rawMessage,
             String conversationContext,
@@ -747,6 +800,17 @@ public class AiChatServiceImpl implements AiChatService {
                 || normalized.contains("submission")
                 || normalized.contains("completion rate")
                 || normalized.contains("missing assignment");
+    }
+
+    private boolean isStudentProgressRequest(String message) {
+        String normalized = normalize(message);
+        return (normalized.contains("my progress")
+                || normalized.contains("my overall performance")
+                || normalized.contains("how am i doing")
+                || normalized.contains("how am i performing")
+                || normalized.contains("my academic performance")
+                || normalized.contains("my academic progress"))
+                && !normalized.contains("my students");
     }
 
     private UUID extractCourseId(String rawMessage, String conversationContext) {

@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "course-service", path = "/api/v1/teacher")
+@FeignClient(name = "course-service", contextId = "aiCourseSearchClient", path = "/api/v1/teacher")
 public interface CourseSearchClient {
 
     @GetMapping("/search")

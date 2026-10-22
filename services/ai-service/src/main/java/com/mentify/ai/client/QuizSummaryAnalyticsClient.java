@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.time.LocalDate;
 import java.util.UUID;
 
-@FeignClient(name = "assignment-service", path = "/api/v1/internal/analytics/quizzes")
+@FeignClient(name = "assignment-service", contextId = "aiQuizSummaryAnalyticsClient", path = "/api/v1/internal/analytics/quizzes")
 public interface QuizSummaryAnalyticsClient {
 
     @GetMapping("/overview")
