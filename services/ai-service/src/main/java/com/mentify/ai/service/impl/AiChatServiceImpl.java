@@ -9,6 +9,7 @@ import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
 import com.mentify.ai.dto.tool.AttendanceAnalyticsSummary;
+import com.mentify.ai.dto.tool.CourseSearchResponse;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
 import com.mentify.ai.entity.AiConversation;
@@ -30,6 +31,7 @@ import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.AttendancePerformanceTool;
+import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
@@ -72,6 +74,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiAuditService auditService;
     private final TodayQuizPerformanceTool todayQuizPerformanceTool;
     private final AttendancePerformanceTool attendancePerformanceTool;
+    private final CourseResolutionTool courseResolutionTool;
     private final UserRegistrationOverviewTool userRegistrationOverviewTool;
     private final UpcomingCalendarEventsTool upcomingCalendarEventsTool;
     private final ObjectMapper objectMapper;
@@ -284,6 +287,31 @@ public class AiChatServiceImpl implements AiChatService {
         AttendanceAnalyticsSummary toolResult;
         UUID courseId = extractCourseId(rawMessage, conversationContext);
         DateRange dateRange = resolveAttendanceDateRange(rawMessage);
+        if (courseId == null && !authenticatedUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            String courseQuery = extractCourseQuery(rawMessage);
+            if (courseQuery.isBlank()) {
+                return toolOnlyResponse(
+                        "Which course or class should I use for the attendance calculation?",
+                        List.of(), traceId, userId);
+            }
+
+            List<CourseSearchResponse.CourseSearchResult> matches =
+                    courseResolutionTool.resolve(courseQuery, authorizationHeader);
+            if (matches.isEmpty()) {
+                return toolOnlyResponse(
+                        "I couldn't find an authorized course matching '" + courseQuery + "'. Please provide the course name or course ID.",
+                        List.of(), traceId, userId);
+            }
+            if (matches.size() > 1) {
+                String choices = matches.stream()
+                        .map(match -> match.title() + " (" + match.courseId() + ")")
+                        .toList().toString();
+                return toolOnlyResponse(
+                        "I found multiple authorized courses: " + choices + ". Which one should I use?",
+                        List.of(), traceId, userId);
+            }
+            courseId = matches.get(0).courseId();
+        }
         try {
             toolResult = attendancePerformanceTool.execute(
                     courseId, dateRange.from(), dateRange.to(), authorizationHeader);
@@ -532,6 +560,17 @@ public class AiChatServiceImpl implements AiChatService {
                 .compile("(?i)(?:course|class)?\\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})")
                 .matcher(combined);
         return matcher.find() ? UUID.fromString(matcher.group(1)) : null;
+    }
+
+    private String extractCourseQuery(String message) {
+        String query = normalize(message)
+                .replaceAll("[0-9a-f]{8}-[0-9a-f-]{27,36}", " ")
+                .replaceAll("\\b(last month|this month|last week|today|yesterday)\\b", " ")
+                .replaceAll("\\b(attendance|attendance percentage|present rate|absence|absent|present)\\b", " ")
+                .replaceAll("\\b(what|was|were|is|my|the|for|course|class|percentage|rate|please|show|me|calculate|calculate the)\\b", " ")
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
+        return query.replaceAll("\\s+", " ");
     }
 
     private DateRange resolveAttendanceDateRange(String message) {

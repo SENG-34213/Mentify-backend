@@ -24,6 +24,7 @@ public class AttendanceAnalyticsController {
     private final AttendanceSummaryService attendanceSummaryService;
 
     @GetMapping("/overview")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceAnalyticsSummaryResponse>> getOverview(
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {

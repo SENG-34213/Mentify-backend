@@ -26,6 +26,7 @@ import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
 import com.mentify.ai.tool.AttendancePerformanceTool;
+import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
 import feign.FeignException;
@@ -86,6 +87,9 @@ class AiChatServiceImplTest {
     private AttendancePerformanceTool attendancePerformanceTool;
 
     @Mock
+    private CourseResolutionTool courseResolutionTool;
+
+    @Mock
     private UserRegistrationOverviewTool userRegistrationOverviewTool;
 
     @Mock
@@ -121,6 +125,7 @@ class AiChatServiceImplTest {
                 auditService,
                 todayQuizPerformanceTool,
                 attendancePerformanceTool,
+                courseResolutionTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,
                 new ObjectMapper().findAndRegisterModules(),
@@ -134,6 +139,7 @@ class AiChatServiceImplTest {
         UUID teacherId = UUID.randomUUID();
         UUID conversationId = prepareOwnedConversation(teacherId);
         when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(authenticatedUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(true);
         when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
                 .thenAnswer(invocation -> invocation.getArgument(2));
         when(attendancePerformanceTool.execute(null, null, null, AUTH_HEADER)).thenReturn(
