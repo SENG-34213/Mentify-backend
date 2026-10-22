@@ -200,7 +200,10 @@ public class S3MaterialStorageService implements MaterialStorageService {
         String normalizedPrefix = keyPrefix == null || keyPrefix.isBlank()
                 ? KEY_PREFIX
                 : keyPrefix.replaceAll("^/+|/+$", "");
-        return KEY_PREFIX + "/" + normalizedPrefix + "/" + UUID.randomUUID() + "." + extension.toLowerCase(Locale.ROOT);
+        String effectivePrefix = KEY_PREFIX.equals(normalizedPrefix)
+                ? KEY_PREFIX
+                : KEY_PREFIX + "/" + normalizedPrefix;
+        return effectivePrefix + "/" + UUID.randomUUID() + "." + extension.toLowerCase(Locale.ROOT);
     }
 
     private String requireBucket() {
