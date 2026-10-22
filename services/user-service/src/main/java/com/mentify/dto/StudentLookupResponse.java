@@ -13,6 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class StudentLookupResponse {
     private UUID studentId;
+    private String authUserId;
     private String firstName;
     private String lastName;
 }

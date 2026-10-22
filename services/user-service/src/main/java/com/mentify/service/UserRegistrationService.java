@@ -236,14 +236,22 @@ public class UserRegistrationService {
                 .filter(candidate -> users.stream().noneMatch(user -> user.getId().equals(candidate.getId())))
                 .forEach(users::add);
 
-        return users.stream()
-                .map(user -> StudentLookupResponse.builder()
-                        .studentId(user.getId() != null
-                                ? user.getId()
-                                : UUID.fromString(user.getAuthUserId()))
-                        .firstName(user.getFirstName())
-                        .lastName(user.getLastName())
-                        .build())
+        // Attendance records can contain either the local user id or the legacy
+        // auth-service id. Return the exact requested id so the caller can map
+        // the name without guessing which identity was stored in the record.
+        return requestedIds.stream()
+                .map(requestedId -> users.stream()
+                        .filter(user -> requestedId.equals(user.getId())
+                                || requestedId.toString().equals(user.getAuthUserId()))
+                        .findFirst()
+                        .map(user -> StudentLookupResponse.builder()
+                                .studentId(requestedId)
+                                .authUserId(user.getAuthUserId())
+                                .firstName(user.getFirstName())
+                                .lastName(user.getLastName())
+                                .build())
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 

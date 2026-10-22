@@ -2,6 +2,7 @@ package com.mentify.attendance.service.impl;
 
 import com.mentify.attendance.client.CourseServiceClient;
 import com.mentify.attendance.client.EnrollmentServiceClient;
+import com.mentify.attendance.client.UserServiceClient;
 import com.mentify.attendance.client.dto.CourseLookupResponse;
 import com.mentify.attendance.dto.request.AttendanceRecordMarkRequest;
 import com.mentify.attendance.dto.request.CreateAttendanceSessionRequest;
@@ -57,6 +58,9 @@ class AttendanceSessionServiceImplTest {
     private EnrollmentServiceClient enrollmentServiceClient;
 
     @Mock
+    private UserServiceClient userServiceClient;
+
+    @Mock
     private CurrentUserService currentUserService;
 
     @Mock
@@ -71,6 +75,7 @@ class AttendanceSessionServiceImplTest {
                 attendanceRecordRepository,
                 courseServiceClient,
                 enrollmentServiceClient,
+                userServiceClient,
                 currentUserService,
                 calendarProjectionService
         );

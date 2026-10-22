@@ -21,4 +21,6 @@ public interface AttendanceSessionService {
     ApiResponse<AttendanceSessionResponse> completeSession(UUID sessionId, String authorizationHeader);
 
     ApiResponse<AttendanceSessionResponse> cancelSession(UUID sessionId, String authorizationHeader);
+
+    ApiResponse<Void> deleteSession(UUID sessionId, String authorizationHeader);
 }
