@@ -45,6 +45,14 @@ spring:
           uri: lb://auth-service
           predicates:
             - Path=/api/v1/auth/**
+
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - StripPrefix=0
+
         - id: user-service
           uri: lb://user-service
           predicates:
