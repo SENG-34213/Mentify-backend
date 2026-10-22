@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -21,7 +22,8 @@ import java.util.UUID;
 public class NotificationManagementService {
 
     private final NotificationRepository notificationRepository;
-    private final RedisCacheService redisCache;
+    @Autowired(required = false)
+    private RedisCacheService redisCache;
 
     @Transactional(readOnly = true)
     public NotificationPageResponse getNotifications(String recipientUserId, int page, int size, boolean unreadOnly) {

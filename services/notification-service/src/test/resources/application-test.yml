@@ -12,6 +12,11 @@ spring:
   cloud:
     config:
       enabled: false
+
+management:
+  health:
+    redis:
+      enabled: false
   datasource:
     url: jdbc:h2:mem:notificationdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
     username: sa

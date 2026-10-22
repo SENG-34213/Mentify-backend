@@ -11,7 +11,9 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "mentify.redis")
 public class RedisFeatureProperties {
 
-    private boolean enabled = true;
+    // Redis is enabled explicitly by the deployment/config-server environment.
+    // This keeps tests and services that do not run Redis usable by default.
+    private boolean enabled = false;
     private String keyPrefix = "mentify:v1";
     private Duration cacheDefaultTtl = Duration.ofMinutes(5);
     private Duration lockDefaultTtl = Duration.ofSeconds(30);

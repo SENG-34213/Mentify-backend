@@ -11,8 +11,13 @@ spring:
 
 mentify:
   redis:
-    enabled: ${REDIS_ENABLED:true}
+    enabled: ${REDIS_ENABLED:false}
     key-prefix: ${REDIS_KEY_PREFIX:mentify:v1}
     cache-default-ttl: ${REDIS_CACHE_DEFAULT_TTL_SECONDS:300s}
     lock-default-ttl: ${REDIS_LOCK_DEFAULT_TTL_SECONDS:30s}
     idempotency-ttl: ${REDIS_IDEMPOTENCY_TTL_SECONDS:86400s}
+
+management:
+  health:
+    redis:
+      enabled: ${REDIS_ENABLED:false}
