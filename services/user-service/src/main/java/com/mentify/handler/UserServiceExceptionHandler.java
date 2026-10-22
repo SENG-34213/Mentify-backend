@@ -22,6 +22,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -142,6 +143,27 @@ public class UserServiceExceptionHandler {
             HttpServletRequest request
     ) {
         return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Database operation failed", request);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(
+            ResponseStatusException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        HttpStatus resolvedStatus = status == null ? HttpStatus.INTERNAL_SERVER_ERROR : status;
+        String message = exception.getReason() == null
+                ? resolvedStatus.getReasonPhrase()
+                : exception.getReason();
+
+        // Resource lookups can legitimately miss (for example, a stale teacher
+        // id in a course or message record). Return the intended HTTP response
+        // without logging a misleading server-side stack trace.
+        if (resolvedStatus.is4xxClientError()) {
+            log.debug("{} {} returned {}: {}", request.getMethod(), request.getRequestURI(),
+                    resolvedStatus.value(), message);
+        }
+        return buildErrorResponse(resolvedStatus, message, request);
     }
 
     @ExceptionHandler(Exception.class)

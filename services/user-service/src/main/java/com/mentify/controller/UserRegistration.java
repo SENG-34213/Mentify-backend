@@ -211,8 +211,11 @@ public class UserRegistration {
         }
 
         if (teacher == null) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.NOT_FOUND, "Teacher not found");
+            // A course/message may contain a stale or non-teacher identity.
+            // Return a normal 404 response directly instead of throwing a
+            // ResponseStatusException, which Spring logs as a warning even
+            // though this is an expected lookup miss.
+            return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Teacher fetched successfully",
                 com.mentify.dto.UserResponse.builder()

@@ -1,6 +1,7 @@
 package com.mentify.service.impl;
 
 import com.mentify.dto.UserRegistrationOverviewResponse;
+import com.mentify.dto.UserAnalyticsOverviewResponse;
 import com.mentify.enums.AccountStatus;
 import com.mentify.enums.Role;
 import com.mentify.repository.UserRepository;
@@ -43,5 +44,20 @@ public class UserAnalyticsServiceImpl implements UserAnalyticsService {
                         .map(UserRegistrationOverviewResponse.RegisteredUserSummary::from)
                         .toList())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserAnalyticsOverviewResponse getAnalyticsOverview() {
+        Map<AccountStatus, Long> accountStatusMix = Arrays.stream(AccountStatus.values())
+                .collect(Collectors.toMap(Function.identity(), userRepository::countByAccountStatus));
+
+        return new UserAnalyticsOverviewResponse(
+                userRepository.count(),
+                userRepository.countByRole(Role.STUDENT),
+                userRepository.countByRole(Role.TEACHER),
+                userRepository.countByRole(Role.ADMIN) + userRepository.countByRole(Role.SUPER_ADMIN),
+                accountStatusMix
+        );
     }
 }

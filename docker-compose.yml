@@ -23,6 +23,7 @@ services:
       MATERIAL_DB_NAME: ${MATERIAL_DB_NAME:-material_db}
       CALENDER_DB_NAME: ${CALENDER_DB_NAME:-calender_db}
       NOTIFICATION_DB_NAME: ${NOTIFICATION_DB_NAME:-notification_db}
+      ANALYTICS_DB_NAME: ${ANALYTICS_DB_NAME:-analytics_db}
     volumes:
       - postgres:/data/postgres
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro

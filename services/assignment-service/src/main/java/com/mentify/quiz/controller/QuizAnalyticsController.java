@@ -2,6 +2,7 @@ package com.mentify.quiz.controller;
 
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.dto.response.TodayQuizPerformanceResponse;
+import com.mentify.quiz.dto.response.QuizAnalyticsSummaryResponse;
 import com.mentify.quiz.service.QuizAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/internal/quizzes/analytics")
@@ -28,5 +32,20 @@ public class QuizAnalyticsController {
                 .message("Today's quiz performance fetched successfully")
                 .data(response)
                 .build());
+    }
+
+    @GetMapping("/overview")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<QuizAnalyticsSummaryResponse>> getOverview() {
+        return ResponseEntity.ok(ApiResponse.success(200, "Quiz analytics fetched successfully",
+                quizAnalyticsService.getOverview()));
+    }
+
+    @GetMapping("/courses/{courseId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<QuizAnalyticsSummaryResponse>> getCourseSummary(
+            @PathVariable UUID courseId) {
+        return ResponseEntity.ok(ApiResponse.success(200, "Quiz analytics fetched successfully",
+                quizAnalyticsService.getCourseSummary(courseId)));
     }
 }
