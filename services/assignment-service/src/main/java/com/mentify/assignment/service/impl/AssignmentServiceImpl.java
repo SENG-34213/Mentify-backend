@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -46,7 +47,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         CourseLookupResponse course = getCourseOrThrow(request.getCourseId(), authorizationHeader);
         assertTeacherCanManageCourse(course);
         validateAssignmentDates(request.getStartDate(), request.getDueDate());
-        validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
+        validateRubricWeights(request.getRubricItems());
 
         Assignment assignment = Assignment.builder()
                 .courseId(request.getCourseId())
@@ -79,7 +80,7 @@ public class AssignmentServiceImpl implements AssignmentService {
             throw new RuntimeException("Assignment can only be updated while it is in DRAFT status");
         }
         validateAssignmentDates(request.getStartDate(), request.getDueDate());
-        validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
+        validateRubricWeights(request.getRubricItems());
         getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
         assignment.setTitle(request.getTitle().trim());
@@ -121,14 +122,14 @@ public class AssignmentServiceImpl implements AssignmentService {
         LocalDateTime dueDate = request.getDueDate() == null ? assignment.getDueDate() : request.getDueDate();
         validateAssignmentDates(startDate, dueDate);
         int maxMarks = request.getMaxMarks() == null ? assignment.getMaxMarks() : request.getMaxMarks();
-        validateRubricMarks(request.getRubricItems() == null
+        validateRubricWeights(request.getRubricItems() == null
                 ? assignment.getRubricItems().stream()
                         .map(item -> RubricItemRequest.builder()
                                 .criterion(item.getCriterion())
-                                .marks(item.getMarks())
+                                .percentageWeight(item.getPercentageWeight())
                                 .build())
                         .toList()
-                : request.getRubricItems(), maxMarks);
+                : request.getRubricItems());
 
         if (request.getTitle() != null) {
             if (request.getTitle().isBlank()) {
@@ -329,23 +330,28 @@ public class AssignmentServiceImpl implements AssignmentService {
             assignment.getRubricItems().add(AssignmentRubricItem.builder()
                     .assignment(assignment)
                     .criterion(rubricItem.getCriterion().trim())
-                    .marks(rubricItem.getMarks())
+                    .percentageWeight(rubricItem.getPercentageWeight())
                     .displayOrder(index)
                     .build());
         }
     }
 
-    private void validateRubricMarks(List<RubricItemRequest> rubricItems, int maxMarks) {
-        if (rubricItems == null) {
+    void validateRubricWeights(List<RubricItemRequest> rubricItems) {
+        if (rubricItems == null || rubricItems.isEmpty()) {
             return;
         }
-        int totalRubricMarks = rubricItems.stream()
-                .map(RubricItemRequest::getMarks)
-                .filter(marks -> marks != null)
-                .mapToInt(Integer::intValue)
-                .sum();
-        if (totalRubricMarks > maxMarks) {
-            throw new IllegalArgumentException("Total rubric marks cannot exceed assignment maximum marks");
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        for (RubricItemRequest rubricItem : rubricItems) {
+            BigDecimal weight = rubricItem.getPercentageWeight();
+            if (weight == null || weight.compareTo(BigDecimal.ZERO) < 0
+                    || weight.compareTo(BigDecimal.valueOf(100)) > 0
+                    || weight.scale() > 2) {
+                throw new IllegalArgumentException("Rubric percentage weights must be between 0 and 100 with up to 2 decimal places");
+            }
+            totalWeight = totalWeight.add(weight);
+        }
+        if (totalWeight.compareTo(BigDecimal.valueOf(100)) != 0) {
+            throw new IllegalArgumentException("Rubric percentage weights must total 100");
         }
     }
 
@@ -386,7 +392,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                                 .map(item -> RubricItemResponse.builder()
                                         .id(item.getId())
                                         .criterion(item.getCriterion())
-                                        .marks(item.getMarks())
+                                        .percentageWeight(item.getPercentageWeight())
                                         .displayOrder(item.getDisplayOrder())
                                         .build())
                                 .toList())

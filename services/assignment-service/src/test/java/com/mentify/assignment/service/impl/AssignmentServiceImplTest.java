@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -78,14 +79,13 @@ class AssignmentServiceImplTest {
                 .instructions("Follow the rubric")
                 .startDate(LocalDateTime.now().plusDays(1))
                 .dueDate(LocalDateTime.now().plusDays(5))
-                .maxMarks(100)
+                .maxMarks(30)
                 .allowedAttempts(3)
                 .allowLateSubmission(true)
                 .latePenaltyPercentage(10)
-                .rubricItems(List.of(RubricItemRequest.builder()
-                        .criterion("Correctness")
-                        .marks(75)
-                        .build()))
+                .rubricItems(List.of(
+                        rubricItem("Correctness", "40.25"),
+                        rubricItem("Completeness", "59.75")))
                 .build();
 
         CourseLookupResponse course = new CourseLookupResponse();
@@ -110,10 +110,42 @@ class AssignmentServiceImplTest {
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getData().getTitle()).isEqualTo("Essay Assignment");
+        assertThat(response.getData().getMaxMarks()).isEqualTo(30);
         assertThat(response.getData().getStatus()).isEqualTo(AssignmentStatus.DRAFT);
         assertThat(response.getData().getRubricItems())
-                .extracting("criterion", "marks")
-                .containsExactly(org.assertj.core.groups.Tuple.tuple("Correctness", 75));
+                .extracting("criterion", "percentageWeight")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Correctness", new BigDecimal("40.25")),
+                        org.assertj.core.groups.Tuple.tuple("Completeness", new BigDecimal("59.75")));
+    }
+
+    @Test
+    void validateRubricWeights_whenWeightsAreWithinRangeAndTotal100_accepts() {
+        assignmentService.validateRubricWeights(List.of(
+                rubricItem("No weight", "0"),
+                rubricItem("Main criterion", "100")));
+    }
+
+    @Test
+    void validateRubricWeights_whenWeightIsOutsideRange_throws() {
+        assertThatThrownBy(() -> assignmentService.validateRubricWeights(List.of(
+                rubricItem("Invalid criterion", "100.01"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Rubric percentage weights must be between 0 and 100 with up to 2 decimal places");
+
+        assertThatThrownBy(() -> assignmentService.validateRubricWeights(List.of(
+                rubricItem("Invalid criterion", "-0.01"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Rubric percentage weights must be between 0 and 100 with up to 2 decimal places");
+    }
+
+    @Test
+    void validateRubricWeights_whenTotalIsNot100_throws() {
+        assertThatThrownBy(() -> assignmentService.validateRubricWeights(List.of(
+                rubricItem("First criterion", "40"),
+                rubricItem("Second criterion", "59.99"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Rubric percentage weights must total 100");
     }
 
     @Test
@@ -249,7 +281,7 @@ class AssignmentServiceImplTest {
         assignment.getRubricItems().add(AssignmentRubricItem.builder()
                 .assignment(assignment)
                 .criterion("Correctness")
-                .marks(80)
+                .percentageWeight(new BigDecimal("100.00"))
                 .displayOrder(0)
                 .build());
         CourseLookupResponse course = new CourseLookupResponse();
@@ -328,6 +360,13 @@ class AssignmentServiceImplTest {
                 .allowedAttempts(1)
                 .allowLateSubmission(false)
                 .status(AssignmentStatus.DRAFT)
+                .build();
+    }
+
+    private static RubricItemRequest rubricItem(String criterion, String percentageWeight) {
+        return RubricItemRequest.builder()
+                .criterion(criterion)
+                .percentageWeight(new BigDecimal(percentageWeight))
                 .build();
     }
 }
