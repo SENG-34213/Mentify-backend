@@ -4,7 +4,6 @@ import com.mentify.assignment.dto.request.CreateSubmissionRequest;
 import com.mentify.assignment.dto.request.UpdateSubmissionRequest;
 import com.mentify.assignment.dto.response.SubmissionResponse;
 import com.mentify.assignment.service.SubmissionService;
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,6 @@ public class SubmissionController {
 
     @PostMapping("/assignments/{assignmentId}/submissions")
     @PreAuthorize("hasRole('STUDENT')")
-    @NotifyOnSuccess(type = "SUBMISSION_DRAFT_CREATED", title = "Submission started", message = "Your assignment submission was started successfully.")
     public ResponseEntity<ApiResponse<SubmissionResponse>> createSubmission(
             @PathVariable UUID assignmentId,
             @Valid @RequestBody CreateSubmissionRequest request,
@@ -36,7 +34,6 @@ public class SubmissionController {
 
     @PutMapping("/submissions/{submissionId}")
     @PreAuthorize("hasRole('STUDENT')")
-    @NotifyOnSuccess(type = "SUBMISSION_UPDATED", title = "Submission updated", message = "Your assignment submission was updated successfully.")
     public ResponseEntity<ApiResponse<SubmissionResponse>> updateSubmission(
             @PathVariable UUID submissionId,
             @Valid @RequestBody UpdateSubmissionRequest request,
@@ -48,7 +45,6 @@ public class SubmissionController {
 
     @PostMapping("/submissions/{submissionId}/submit")
     @PreAuthorize("hasRole('STUDENT')")
-    @NotifyOnSuccess(type = "SUBMISSION_SUBMITTED", title = "Assignment submitted", message = "Your assignment was submitted successfully.")
     public ResponseEntity<ApiResponse<SubmissionResponse>> submitAssignment(
             @PathVariable UUID submissionId,
             @RequestHeader("Authorization") String authorizationHeader

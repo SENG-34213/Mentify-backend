@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import com.mentify.quiz.enums.QuizStatus;
 
 @Data
 @Builder
@@ -26,5 +27,10 @@ public class StudentQuizResponse {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Integer maxAttempts;
+    private Integer attemptsUsed;
+    private BigDecimal lastScore;
+    private BigDecimal lastScorePercentage;
+    private QuizStatus status;
+    private Boolean showResultImmediately;
     private List<StudentQuestionResponse> questions;
 }

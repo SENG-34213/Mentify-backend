@@ -17,6 +17,7 @@ import com.mentify.quiz.enums.QuizCreationMethod;
 import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.mapper.QuizMapper;
 import com.mentify.quiz.repository.QuizQuestionRepository;
+import com.mentify.quiz.repository.QuizAttemptRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
@@ -52,6 +53,9 @@ class QuizServiceImplTest {
     private QuizQuestionRepository quizQuestionRepository;
 
     @Mock
+    private QuizAttemptRepository quizAttemptRepository;
+
+    @Mock
     private EnrollmentServiceClient enrollmentServiceClient;
 
     @Mock
@@ -73,6 +77,7 @@ class QuizServiceImplTest {
         quizService = new QuizServiceImpl(
                 quizRepository,
                 quizQuestionRepository,
+                quizAttemptRepository,
                 enrollmentServiceClient,
                 currentUserService,
                 courseQuizAuthorizationService,

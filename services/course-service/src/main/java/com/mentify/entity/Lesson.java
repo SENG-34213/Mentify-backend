@@ -33,8 +33,14 @@ public class Lesson extends BaseEntity {
     @Column(name = "content_markdown", columnDefinition = "TEXT")
     private String contentMarkdown;
 
+    @Column(name = "content_type", length = 30)
+    private String contentType;
+
     @Column(nullable = false)
     private boolean isVisible = true;
+
+    @Column(name = "teaching_completed", nullable = false)
+    private boolean teachingCompleted = false;
 
     /**
      * Date on which this lesson becomes accessible to enrolled students.

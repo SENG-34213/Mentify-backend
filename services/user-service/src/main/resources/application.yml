@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   data:
     web:
       pageable:
@@ -23,12 +25,28 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
   flyway:
     baseline-on-migrate: true
     baseline-version: 0
 
 mentify:
+  auth:
+    internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
+    service-url: ${AUTH_SERVICE_URL:http://localhost:8085}
+  super-admin-bootstrap:
+    enabled: ${MENTIFY_SUPER_ADMIN_BOOTSTRAP_ENABLED:false}
+    email: ${MENTIFY_SUPER_ADMIN_EMAIL:}
+    password: ${MENTIFY_SUPER_ADMIN_PASSWORD:}
+    first-name: ${MENTIFY_SUPER_ADMIN_FIRST_NAME:System}
+    last-name: ${MENTIFY_SUPER_ADMIN_LAST_NAME:Administrator}
+    phone-number: ${MENTIFY_SUPER_ADMIN_PHONE_NUMBER:}
+    address-line1: ${MENTIFY_SUPER_ADMIN_ADDRESS_LINE1:System address}
+    city: ${MENTIFY_SUPER_ADMIN_CITY:Colombo}
+    district: ${MENTIFY_SUPER_ADMIN_DISTRICT:Colombo}
+    postal-code: ${MENTIFY_SUPER_ADMIN_POSTAL_CODE:}
+    nic: ${MENTIFY_SUPER_ADMIN_NIC:}
   registration:
     email:
       from: ${SMTP_FROM:mohanathasholins17@gmail.com}
@@ -37,6 +55,7 @@ mentify:
   security:
     enabled: true
     principal-claim: preferred_username
+    audience: ${AUTH_AUDIENCE:mentify-api}
   sample-users:
     enabled: ${MENTIFY_SAMPLE_USERS_ENABLED:false}
     users-per-role: ${MENTIFY_SAMPLE_USERS_PER_ROLE:5}
@@ -46,23 +65,6 @@ mentify:
     retry-attempts: ${MENTIFY_SAMPLE_USERS_RETRY_ATTEMPTS:10}
     retry-delay-millis: ${MENTIFY_SAMPLE_USERS_RETRY_DELAY_MILLIS:2000}
 
-keycloak:
-  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
-  realm: ${KEYCLOAK_REALM:mentify}
-  admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
-  admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
-  auth-client-id: ${KEYCLOAK_AUTH_CLIENT_ID:${KEYCLOAK_BACKEND_CLIENT_ID:mentify-backend-client}}
-  auth-client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:${KEYCLOAK_BACKEND_CLIENT_SECRET:change-me}}
-  include-refresh-token-in-login-response: ${KEYCLOAK_INCLUDE_REFRESH_TOKEN_IN_LOGIN_RESPONSE:true}
-  bootstrap-super-admin:
-    enabled: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_ENABLED:true}
-    email: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_EMAIL:superadmin@gmail.com}
-    password: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_PASSWORD:SuperAdmin@123}
-    first-name: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_FIRST_NAME:Super}
-    last-name: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_LAST_NAME:Admin}
-    reset-password-on-startup: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RESET_PASSWORD:true}
-    retry-attempts: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RETRY_ATTEMPTS:10}
-    retry-delay-millis: ${KEYCLOAK_BOOTSTRAP_SUPER_ADMIN_RETRY_DELAY_MILLIS:2000}
 
 eureka:
   instance:

@@ -128,6 +128,17 @@ class MaterialFileValidationServiceImplTest {
     }
 
     @Test
+    void acceptsBrowserRecordedWebmAudio() {
+        byte[] webmHeader = new byte[]{0x1A, 0x45, (byte) 0xDF, (byte) 0xA3, 0x42, (byte) 0x86};
+
+        ValidatedMaterialFile validated = validationService.validate(
+                file("voice.webm", "audio/webm;codecs=opus", webmHeader));
+
+        assertThat(validated.materialType()).isEqualTo(MaterialType.AUDIO);
+        assertThat(validated.contentType()).isEqualTo("audio/webm");
+    }
+
+    @Test
     void validationErrorResponsesUseSafeMessages() {
         MaterialExceptionHandler handler = new MaterialExceptionHandler();
 

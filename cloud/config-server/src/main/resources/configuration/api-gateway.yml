@@ -32,7 +32,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
   cloud:
     gateway:
       discovery:
@@ -40,10 +41,22 @@ spring:
           enabled: true
           lower-case-service-id: true
       routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - StripPrefix=0
+
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/users/**,/api/students/**,/api/teachers/**,/api/internal/users/analytics/**
+            - Path=/api/v1/users/**,/api/v1/admin/users/**,/api/students/**,/api/teachers/**,/api/internal/users/analytics/**,/api/v1/internal/users/**
           filters:
             - StripPrefix=0
 
@@ -72,6 +85,11 @@ spring:
           uri: lb://course-service
           predicates:
             - Path=/api/v1/course/**
+
+        - id: marketplace-catalog
+          uri: lb://course-service
+          predicates:
+            - Path=/api/v1/marketplace/**
         - id: teacher-dashboard-course-service
           uri: lb://course-service
           predicates:
@@ -89,7 +107,7 @@ spring:
         - id: material-service
           uri: lb://material-service
           predicates:
-            - Path=/api/v1/materials,/api/v1/materials/**
+            - Path=/api/v1/materials,/api/v1/materials/**,/api/v1/profile-images,/api/v1/profile-images/**
           filters:
             - StripPrefix=0
 
@@ -107,10 +125,15 @@ spring:
           filters:
             - StripPrefix=0
 
+        - id: communication-service-websocket
+          uri: lb:ws://communication-service
+          predicates:
+            - Path=/ws,/ws/**
+
         - id: assignment-service
           uri: lb://assignment-service
           predicates:
-            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/submissions/**,/api/internal/quizzes/analytics/**
+            - Path=/api/quizzes/**,/api/quiz-attempts/**,/api/courses/*/quizzes,/api/assignments/**,/api/v1/assignments/**,/api/v1/courses/*/assignments,/api/v1/submissions/**,/api/internal/quizzes/analytics/**
           filters:
             - StripPrefix=0
 
@@ -150,7 +173,8 @@ spring:
 logging:
   level:
     root: INFO
-    org.springframework.cloud.gateway: TRACE
-    org.springframework.http.server.reactive: DEBUG
-    org.springframework.web.reactive: DEBUG
-    reactor.netty: DEBUG
+    # TRACE logs STOMP frames and can expose Authorization headers.
+    org.springframework.cloud.gateway: INFO
+    org.springframework.http.server.reactive: INFO
+    org.springframework.web.reactive: INFO
+    reactor.netty: WARN

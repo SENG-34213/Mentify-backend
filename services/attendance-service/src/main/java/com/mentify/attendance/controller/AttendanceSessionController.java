@@ -88,4 +88,15 @@ public class AttendanceSessionController {
         ApiResponse<AttendanceSessionResponse> response = attendanceSessionService.cancelSession(sessionId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @NotifyOnSuccess(type = "ATTENDANCE_SESSION_DELETED", title = "Attendance session deleted", message = "Your attendance session was deleted successfully.")
+    public ResponseEntity<ApiResponse<Void>> deleteSession(
+            @PathVariable UUID sessionId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<Void> response = attendanceSessionService.deleteSession(sessionId, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 }

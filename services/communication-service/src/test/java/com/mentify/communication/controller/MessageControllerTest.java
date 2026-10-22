@@ -8,6 +8,7 @@ import com.mentify.communication.dto.response.PageResponse;
 import com.mentify.communication.enums.MessageDeleteScope;
 import com.mentify.communication.enums.MessageType;
 import com.mentify.communication.service.MessageService;
+import com.mentify.communication.service.MessageBroadcastService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,6 +49,9 @@ class MessageControllerTest {
     @MockBean
     private MessageService messageService;
 
+    @MockBean
+    private MessageBroadcastService messageBroadcastService;
+
     @Test
     void sendMessageReturnsCreatedResponse() throws Exception {
         UUID groupId = UUID.randomUUID();
@@ -72,6 +76,7 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.data.type").value("TEXT"));
 
         verify(messageService).sendMessage(eq(groupId), any(SendMessageRequest.class));
+        verify(messageBroadcastService).broadcast(eq(groupId), any(MessageResponse.class));
     }
 
     @Test

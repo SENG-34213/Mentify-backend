@@ -259,7 +259,7 @@ class EntrollmentServiceImplTest {
     }
 
     @Test
-    void createEnrollment_whenAdminEnrollsPaidCourse_requiresSuccessfulPayment() {
+    void createEnrollment_whenStaffEnrollsPaidCourse_succeedsWithoutStudentPayment() {
         UUID studentId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
         EntrollmentCreateRequest request = EntrollmentCreateRequest.builder()
@@ -270,14 +270,12 @@ class EntrollmentServiceImplTest {
         when(courseServiceClient.getCoursesByIds(any(CourseBulkLookupRequest.class), eq("Bearer admin-token")))
                 .thenReturn(successCourseLookupResponse(List.of(courseId), "2500.00"));
         when(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId)).thenReturn(List.of());
-        when(paymentServiceClient.verifySuccessfulPayment(studentId, courseId, "Bearer admin-token"))
-                .thenReturn(successPaymentVerification(studentId, courseId, true));
         when(entrollmentRepository.save(any(Entrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApiResponse<EntrollmentResponse> response = entrollmentService.createEntrollment(request, "Bearer admin-token");
 
         assertEquals(HttpStatus.CREATED, response.getStatus());
-        verify(paymentServiceClient).verifySuccessfulPayment(studentId, courseId, "Bearer admin-token");
+        verify(paymentServiceClient, never()).verifySuccessfulPayment(any(), any(), any());
     }
 
     @Test

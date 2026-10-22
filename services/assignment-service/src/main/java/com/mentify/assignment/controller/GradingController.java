@@ -3,7 +3,6 @@ package com.mentify.assignment.controller;
 import com.mentify.assignment.dto.request.GradeSubmissionRequest;
 import com.mentify.assignment.dto.response.SubmissionResponse;
 import com.mentify.assignment.service.GradingService;
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +21,6 @@ public class GradingController {
 
     @PostMapping("/submissions/{submissionId}/grade")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "SUBMISSION_GRADED", title = "Submission graded", message = "The assignment submission was graded successfully.")
     public ResponseEntity<ApiResponse<SubmissionResponse>> gradeSubmission(
             @PathVariable UUID submissionId,
             @Valid @RequestBody GradeSubmissionRequest request,
@@ -34,7 +32,6 @@ public class GradingController {
 
     @PostMapping("/submissions/{submissionId}/return")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    @NotifyOnSuccess(type = "SUBMISSION_RETURNED", title = "Submission returned", message = "The assignment submission was returned successfully.")
     public ResponseEntity<ApiResponse<SubmissionResponse>> returnSubmission(
             @PathVariable UUID submissionId,
             @RequestHeader("Authorization") String authorizationHeader

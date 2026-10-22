@@ -2,6 +2,7 @@ package com.mentify.quiz.service.impl;
 
 import com.mentify.quiz.dto.response.QuizPerformanceSummaryResponse;
 import com.mentify.quiz.dto.response.TodayQuizPerformanceResponse;
+import com.mentify.quiz.dto.response.QuizAnalyticsSummaryResponse;
 import com.mentify.quiz.entity.Quiz;
 import com.mentify.quiz.entity.QuizAttempt;
 import com.mentify.quiz.enums.AttemptStatus;
@@ -23,6 +24,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.math.RoundingMode;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,6 +55,47 @@ public class QuizAnalyticsServiceImpl implements QuizAnalyticsService {
                 .resultType(resolveResultType(summaries.size()))
                 .quizzes(summaries)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuizAnalyticsSummaryResponse getOverview() {
+        return summarize(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuizAnalyticsSummaryResponse getCourseSummary(UUID courseId) {
+        return summarize(courseId);
+    }
+
+    private QuizAnalyticsSummaryResponse summarize(UUID courseId) {
+        List<Quiz> quizzes = quizRepository.findAll().stream()
+                .filter(Quiz::isActive)
+                .filter(quiz -> quiz.getStatus() == QuizStatus.CLOSED)
+                .filter(quiz -> courseId == null || courseId.equals(quiz.getCourseId()))
+                .toList();
+        List<UUID> quizIds = quizzes.stream().map(Quiz::getId).toList();
+        List<QuizAttempt> attempts = quizAttemptRepository.findAll().stream()
+                .filter(QuizAttempt::isActive)
+                .filter(attempt -> quizIds.contains(attempt.getQuizId()))
+                .toList();
+        List<QuizAttempt> submitted = attempts.stream()
+                .filter(attempt -> attempt.getStatus() == AttemptStatus.SUBMITTED)
+                .toList();
+        BigDecimal completionRate = percentage(submitted.size(), attempts.size());
+        BigDecimal missingRate = BigDecimal.valueOf(100).subtract(completionRate);
+        List<BigDecimal> percentages = submitted.stream().map(QuizAttempt::getPercentage)
+                .filter(value -> value != null).toList();
+        BigDecimal average = percentages.isEmpty() ? BigDecimal.ZERO : percentages.stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(percentages.size()), 2, RoundingMode.HALF_UP);
+        return new QuizAnalyticsSummaryResponse(courseId, completionRate, average, missingRate);
+    }
+
+    private BigDecimal percentage(long numerator, long denominator) {
+        return denominator == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(numerator * 100.0 / denominator).setScale(2, RoundingMode.HALF_UP);
     }
 
     private List<Quiz> findVisibleQuizzes(LocalDateTime startOfDay, LocalDateTime endOfDay) {

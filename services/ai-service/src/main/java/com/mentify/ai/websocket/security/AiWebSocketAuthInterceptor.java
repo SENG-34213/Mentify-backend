@@ -1,6 +1,6 @@
 package com.mentify.ai.websocket.security;
 
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -35,7 +35,7 @@ public class AiWebSocketAuthInterceptor implements ChannelInterceptor {
     private static final Set<String> ALLOWED_ROLES = Set.of("ROLE_TEACHER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN");
 
     private final JwtDecoder jwtDecoder;
-    private final KeycloakJwtAuthenticationConverter jwtAuthenticationConverter;
+    private final JwtAuthenticationConverter jwtAuthenticationConverter;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {

@@ -13,9 +13,9 @@ public interface ModuleService {
 
     ApiResponse<ModuleResponse> updateModule(UUID courseId, UUID moduleId, ModuleCreateRequest request);
 
-    ApiResponse<ModuleResponse> getModule(UUID courseId, UUID moduleId);
+    ApiResponse<ModuleResponse> getModule(UUID courseId, UUID moduleId, String authorizationHeader);
 
-    ApiResponse<List<ModuleResponse>> getModules(UUID courseId);
+    ApiResponse<List<ModuleResponse>> getModules(UUID courseId, String authorizationHeader);
 
     ApiResponse<Object> deleteModule(UUID courseId, UUID moduleId);
 }

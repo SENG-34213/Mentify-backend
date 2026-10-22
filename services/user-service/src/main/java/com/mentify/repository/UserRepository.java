@@ -18,10 +18,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmailIgnoreCase(String email);
     Page<User> findAllByRole(Role role, Pageable pageable);
     boolean existsByEmail(String email);
-    Optional<User> findByKeycloakUserId(String keycloakUserId);
-    boolean existsByKeycloakUserIdAndRole(String keycloakUserId, Role role);
+    boolean existsByEmailIgnoreCase(String email);
+    Optional<User> findByAuthUserId(String authUserId);
+    Optional<User> findByIdAndRole(UUID id, Role role);
+    boolean existsByAuthUserIdAndRole(String authUserId, Role role);
     boolean existsByIdAndRole(UUID id, Role role);
-    List<User> findAllByKeycloakUserIdInAndRole(List<String> keycloakUserIds, Role role);
+    List<User> findAllByAuthUserIdInAndRole(List<String> authUserIds, Role role);
     List<User> findAllByRoleOrderByCreatedAtDesc(Role role);
     List<User> findAllByIdInAndRole(List<UUID> ids, Role role);
     List<User> findTop5ByRoleOrderByCreatedAtDesc(Role role);

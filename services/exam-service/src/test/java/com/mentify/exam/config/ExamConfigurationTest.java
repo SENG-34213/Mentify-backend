@@ -41,7 +41,7 @@ class ExamConfigurationTest {
     void configServerFileIsEnvDrivenWithoutHardcodedSecrets() throws Exception {
         String yml = Files.readString(CONFIG);
         for (String placeholder : new String[]{"${EXAM_DB_HOST", "${EXAM_DB_PORT", "${EXAM_DB_NAME",
-                "${EXAM_DB_USERNAME", "${EXAM_DB_PASSWORD", "${KEYCLOAK_ISSUER_URI", "${EXAM_SERVICE_PORT",
+                "${EXAM_DB_USERNAME", "${EXAM_DB_PASSWORD", "${AUTH_ISSUER_URI", "${EXAM_SERVICE_PORT",
                 "${COURSE_SERVICE_URL", "${ENROLLMENT_SERVICE_URL"}) {
             assertTrue(yml.contains(placeholder), "Missing placeholder " + placeholder);
         }

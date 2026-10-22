@@ -31,7 +31,7 @@ public class UserRegistrationOverviewResponse {
     @AllArgsConstructor
     public static class RegisteredUserSummary {
         private UUID id;
-        private String keycloakUserId;
+        private String authUserId;
         private String email;
         private String firstName;
         private String lastName;
@@ -46,7 +46,7 @@ public class UserRegistrationOverviewResponse {
         public static RegisteredUserSummary from(User user) {
             return RegisteredUserSummary.builder()
                     .id(user.getId())
-                    .keycloakUserId(user.getKeycloakUserId())
+                    .authUserId(user.getAuthUserId())
                     .email(user.getEmail())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())

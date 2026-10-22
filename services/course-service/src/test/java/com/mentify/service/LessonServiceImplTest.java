@@ -12,6 +12,7 @@ import com.mentify.repository.LearningMaterialRepository;
 import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.impl.LessonServiceImpl;
+import com.mentify.service.impl.CourseContentAccessGuard;
 import com.mentify.service.impl.TeacherCourseAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class LessonServiceImplTest {
     @Mock
     private TeacherCourseAccessGuard teacherCourseAccessGuard;
 
+    @Mock
+    private CourseContentAccessGuard courseContentAccessGuard;
+
     private LessonServiceImpl lessonService;
 
     @BeforeEach
@@ -55,7 +59,8 @@ class LessonServiceImplTest {
                 moduleRepository,
                 lessonRepository,
                 learningMaterialRepository,
-                teacherCourseAccessGuard
+                teacherCourseAccessGuard,
+                courseContentAccessGuard
         );
     }
 
@@ -231,7 +236,7 @@ class LessonServiceImplTest {
         when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
         when(lessonRepository.findByIdAndModule_Id(lessonId, moduleId)).thenReturn(Optional.of(lesson));
 
-        ApiResponse<LessonResponse> response = lessonService.getLesson(courseId, moduleId, lessonId);
+        ApiResponse<LessonResponse> response = lessonService.getLesson(courseId, moduleId, lessonId, "Bearer token");
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         assertThat(response.getMessage()).isEqualTo("Lesson fetched successfully");
@@ -249,7 +254,7 @@ class LessonServiceImplTest {
         when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
         when(lessonRepository.findAllByModule_Id(moduleId)).thenReturn(List.of(lesson));
 
-        ApiResponse<List<LessonResponse>> response = lessonService.getLessons(courseId, moduleId);
+        ApiResponse<List<LessonResponse>> response = lessonService.getLessons(courseId, moduleId, "Bearer token");
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         assertThat(response.getMessage()).isEqualTo("Lessons fetched successfully");

@@ -15,7 +15,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Resolves the authenticated user's identity and roles exclusively from the Keycloak JWT.
+ * Resolves the authenticated user's identity and roles exclusively from the JWT.
  * Identifiers such as createdBy / markedBy must always be derived here, never from request payloads.
  */
 @Component

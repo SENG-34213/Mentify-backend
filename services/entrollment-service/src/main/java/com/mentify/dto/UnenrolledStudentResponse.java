@@ -10,7 +10,7 @@ import java.util.UUID;
 @Builder
 public class UnenrolledStudentResponse {
     private UUID id;
-    private String keycloakUserId;
+    private String authUserId;
     private String email;
     private String firstName;
     private String lastName;
@@ -23,7 +23,7 @@ public class UnenrolledStudentResponse {
         UserLookupResponse.StudentProfileResponse profile = user.getStudentProfile();
         return UnenrolledStudentResponse.builder()
                 .id(user.getId())
-                .keycloakUserId(user.getKeycloakUserId())
+                .authUserId(user.getAuthUserId())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())

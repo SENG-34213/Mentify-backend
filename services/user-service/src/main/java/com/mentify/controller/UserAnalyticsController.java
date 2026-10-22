@@ -1,6 +1,7 @@
 package com.mentify.controller;
 
 import com.mentify.dto.UserRegistrationOverviewResponse;
+import com.mentify.dto.UserAnalyticsOverviewResponse;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.UserAnalyticsService;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/internal/users/analytics")
+@RequestMapping({"/api/internal/users/analytics", "/api/v1/internal/analytics"})
 @RequiredArgsConstructor
 public class UserAnalyticsController {
 
@@ -26,6 +27,16 @@ public class UserAnalyticsController {
                 HttpStatus.OK.value(),
                 "User registration overview fetched successfully",
                 response
+        ));
+    }
+
+    @GetMapping("/users/overview")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<UserAnalyticsOverviewResponse>> getAnalyticsOverview() {
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(),
+                "User analytics overview fetched successfully",
+                userAnalyticsService.getAnalyticsOverview()
         ));
     }
 }

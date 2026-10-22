@@ -2,7 +2,10 @@ package com.mentify.attendance.service.impl;
 
 import com.mentify.attendance.client.CourseServiceClient;
 import com.mentify.attendance.client.EnrollmentServiceClient;
+import com.mentify.attendance.client.UserServiceClient;
 import com.mentify.attendance.client.dto.CourseLookupResponse;
+import com.mentify.attendance.client.dto.StudentLookupRequest;
+import com.mentify.attendance.client.dto.StudentLookupResponse;
 import com.mentify.attendance.dto.request.AttendanceRecordMarkRequest;
 import com.mentify.attendance.dto.request.CreateAttendanceSessionRequest;
 import com.mentify.attendance.dto.request.MarkAttendanceRequest;
@@ -34,6 +37,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +50,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final CourseServiceClient courseServiceClient;
     private final EnrollmentServiceClient enrollmentServiceClient;
+    private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
     private final CalendarProjectionService calendarProjectionService;
 
@@ -82,7 +90,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         records = attendanceRecordRepository.saveAll(records);
         calendarProjectionService.projectIfEligible(session, authorizationHeader);
 
-        return response(HttpStatus.CREATED, "Attendance session created successfully", mapToResponse(session, records));
+        return response(HttpStatus.CREATED, "Attendance session created successfully", mapToResponse(session, records, authorizationHeader));
     }
 
     @Override
@@ -93,7 +101,10 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         List<AttendanceSessionResponse> sessions = attendanceSessionRepository
                 .findByCourseIdAndIsActiveTrueOrderByAttendanceDateDescStartTimeDesc(courseId)
                 .stream()
-                .map(session -> mapToResponse(session, null))
+                .map(session -> mapToResponse(
+                        session,
+                        attendanceRecordRepository.findBySession_IdAndIsActiveTrue(session.getId()),
+                        authorizationHeader))
                 .toList();
 
         return response(HttpStatus.OK, "Attendance sessions fetched successfully", sessions);
@@ -106,7 +117,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         assertTeacherCanManageCourse(course);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session fetched successfully", mapToResponse(session, records));
+        return response(HttpStatus.OK, "Attendance session fetched successfully", mapToResponse(session, records, authorizationHeader));
     }
 
     @Override
@@ -145,7 +156,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         }
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance marked successfully", mapToResponse(session, records));
+        return response(HttpStatus.OK, "Attendance marked successfully", mapToResponse(session, records, authorizationHeader));
     }
 
     @Override
@@ -167,7 +178,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session completed successfully", mapToResponse(session, records));
+        return response(HttpStatus.OK, "Attendance session completed successfully", mapToResponse(session, records, authorizationHeader));
     }
 
     @Override
@@ -186,7 +197,26 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session cancelled successfully", mapToResponse(session, records));
+        return response(HttpStatus.OK, "Attendance session cancelled successfully", mapToResponse(session, records, authorizationHeader));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<Void> deleteSession(UUID sessionId, String authorizationHeader) {
+        AttendanceSession session = getSessionOrThrow(sessionId);
+        CourseLookupResponse course = getCourseOrThrow(session.getCourseId(), authorizationHeader);
+        assertTeacherCanManageCourse(course);
+
+        if (session.getStatus() == AttendanceSessionStatus.COMPLETED) {
+            throw new ResourceAlreadyExistsException("Completed attendance sessions cannot be deleted");
+        }
+
+        session.setActive(false);
+        session.setStatus(AttendanceSessionStatus.CANCELLED);
+        attendanceSessionRepository.save(session);
+        calendarProjectionService.cancel(session, authorizationHeader);
+
+        return response(HttpStatus.OK, "Attendance session deleted successfully", null);
     }
 
     private AttendanceSession getSessionOrThrow(UUID sessionId) {
@@ -236,7 +266,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         }
     }
 
-    private AttendanceSessionResponse mapToResponse(AttendanceSession session, List<AttendanceRecord> records) {
+    private AttendanceSessionResponse mapToResponse(AttendanceSession session, List<AttendanceRecord> records,
+                                                    String authorizationHeader) {
         return AttendanceSessionResponse.builder()
                 .id(session.getId())
                 .courseId(session.getCourseId())
@@ -249,20 +280,60 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 .createdBy(session.getCreatedBy())
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
-                .records(records == null ? null : records.stream().map(this::mapRecord).toList())
+                .records(records == null ? null : mapRecords(records, authorizationHeader))
                 .build();
     }
 
-    private AttendanceRecordResponse mapRecord(AttendanceRecord record) {
-        return AttendanceRecordResponse.builder()
+    private List<AttendanceRecordResponse> mapRecords(List<AttendanceRecord> records, String authorizationHeader) {
+        Map<UUID, String> studentNames = new HashMap<>();
+        List<UUID> studentIds = records.stream()
+                .map(AttendanceRecord::getStudentId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        for (int start = 0; start < studentIds.size(); start += 500) {
+            List<UUID> batch = studentIds.subList(start, Math.min(start + 500, studentIds.size()));
+            ApiResponse<List<StudentLookupResponse>> lookup = userServiceClient.lookupStudents(
+                    new StudentLookupRequest(batch), authorizationHeader);
+            if (lookup != null && lookup.getData() != null) {
+                lookup.getData().forEach(student ->
+                        putStudentName(studentNames, student));
+            }
+        }
+
+        return records.stream().map(record -> AttendanceRecordResponse.builder()
                 .id(record.getId())
                 .studentId(record.getStudentId())
+                .studentName(studentNames.get(record.getStudentId()))
                 .status(record.getStatus())
                 .remarks(record.getRemarks())
                 .markedBy(record.getMarkedBy())
                 .markedAt(record.getMarkedAt())
                 .updatedAt(record.getUpdatedAt())
-                .build();
+                .build()).toList();
+    }
+
+    private String fullName(StudentLookupResponse student) {
+        String name = Stream.of(student.getFirstName(), student.getLastName())
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .collect(Collectors.joining(" "));
+        return name.isBlank() ? null : name;
+    }
+
+    private void putStudentName(Map<UUID, String> studentNames, StudentLookupResponse student) {
+        String name = fullName(student);
+        if (student.getStudentId() != null) {
+            studentNames.put(student.getStudentId(), name);
+        }
+        if (student.getAuthUserId() != null && !student.getAuthUserId().isBlank()) {
+            try {
+                studentNames.put(UUID.fromString(student.getAuthUserId()), name);
+            } catch (IllegalArgumentException ignored) {
+                // The local profile can use a non-UUID auth identifier.
+            }
+        }
     }
 
     private <T> ApiResponse<T> response(HttpStatus status, String message, T data) {

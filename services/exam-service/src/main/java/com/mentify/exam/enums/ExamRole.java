@@ -1,6 +1,6 @@
 package com.mentify.exam.enums;
 
-/** Keycloak realm roles supported by the Exam Service (V1). */
+/** JWT roles supported by the Exam Service (V1). */
 public enum ExamRole {
     SUPER_ADMIN,
     ADMIN,

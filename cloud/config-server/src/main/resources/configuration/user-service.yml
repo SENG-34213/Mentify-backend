@@ -17,10 +17,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
 
   datasource:
-    url: jdbc:postgresql://${USER_DB_HOST:localhost}:${USER_DB_PORT:5434}/${USER_DB_NAME:user_db}
+    url: jdbc:postgresql://${USER_DB_HOST:localhost}:${USER_DB_PORT:5432}/${USER_DB_NAME:user_db}
     username: ${USER_DB_USERNAME:postgres}
     password: ${USER_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver
@@ -45,6 +46,21 @@ spring:
         order_updates: true
 
 mentify:
+  auth:
+    internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
+    service-url: ${AUTH_SERVICE_URL:http://localhost:8085}
+  super-admin-bootstrap:
+    enabled: ${MENTIFY_SUPER_ADMIN_BOOTSTRAP_ENABLED:false}
+    email: ${MENTIFY_SUPER_ADMIN_EMAIL:}
+    password: ${MENTIFY_SUPER_ADMIN_PASSWORD:}
+    first-name: ${MENTIFY_SUPER_ADMIN_FIRST_NAME:System}
+    last-name: ${MENTIFY_SUPER_ADMIN_LAST_NAME:Administrator}
+    phone-number: ${MENTIFY_SUPER_ADMIN_PHONE_NUMBER:}
+    address-line1: ${MENTIFY_SUPER_ADMIN_ADDRESS_LINE1:System address}
+    city: ${MENTIFY_SUPER_ADMIN_CITY:Colombo}
+    district: ${MENTIFY_SUPER_ADMIN_DISTRICT:Colombo}
+    postal-code: ${MENTIFY_SUPER_ADMIN_POSTAL_CODE:}
+    nic: ${MENTIFY_SUPER_ADMIN_NIC:}
   registration:
     email:
       from: ${SMTP_FROM:no-reply@mentify.local}

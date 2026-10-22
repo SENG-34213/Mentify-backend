@@ -111,6 +111,7 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
     private QuizQuestion toQuestion(CreateQuestionRequest request) {
         QuizQuestion question = QuizQuestion.builder()
                 .questionText(request.getQuestionText().trim())
+                .explanation(request.getExplanation())
                 .questionType(request.getQuestionType())
                 .marks(request.getMarks())
                 .questionOrder(request.getQuestionOrder())

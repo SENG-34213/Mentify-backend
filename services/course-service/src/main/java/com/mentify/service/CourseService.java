@@ -22,6 +22,8 @@ public interface CourseService {
 
     ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId);
 
+    ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId, String authorizationHeader);
+
     ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids);
 
     ApiResponse<Object> deleteCourse(UUID courseId);

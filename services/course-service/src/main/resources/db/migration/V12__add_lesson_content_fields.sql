@@ -1,0 +1,3 @@
+ALTER TABLE lessons
+    ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS content_markdown TEXT;

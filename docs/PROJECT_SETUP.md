@@ -78,7 +78,7 @@ notification_db
 Default optional ports:
 
 ```txt
-App PostgreSQL: localhost:5434
+App PostgreSQL: localhost:5432
 pgAdmin:        http://localhost:5050
 ```
 
@@ -122,7 +122,7 @@ If connecting from a desktop database client outside Docker, use:
 
 ```txt
 Host: localhost
-Port: 5434
+Port: 5432
 Database: mentify
 Username: postgres
 Password: change-me

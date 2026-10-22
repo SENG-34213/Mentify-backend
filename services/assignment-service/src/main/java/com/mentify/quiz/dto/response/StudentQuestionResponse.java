@@ -18,6 +18,7 @@ public class StudentQuestionResponse {
 
     private UUID id;
     private String questionText;
+    private String explanation;
     private QuestionType questionType;
     private BigDecimal marks;
     private Integer questionOrder;

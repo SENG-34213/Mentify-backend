@@ -23,12 +23,12 @@ class RegistrationEmailDispatcherTest {
     }
 
     @Test
-    void sendAfterCommit_sendsCredentialEmailWithoutSendingKeycloakActionEmail() {
+    void sendAfterCommit_sendsCredentialEmailWithoutSendingJwtProviderActionEmail() {
         TemporaryCredentialsEmailDeliveryService emailDeliveryService =
                 mock(TemporaryCredentialsEmailDeliveryService.class);
         RegistrationEmailDispatcher dispatcher = new RegistrationEmailDispatcher(emailDeliveryService);
 
-        dispatcher.sendAfterCommit("keycloak-id", "user@example.com", "User", "Secret123!");
+        dispatcher.sendAfterCommit("auth-id", "user@example.com", "User", "Secret123!");
 
         verify(emailDeliveryService).send("user@example.com", "User", "Secret123!");
     }
@@ -40,7 +40,7 @@ class RegistrationEmailDispatcherTest {
         RegistrationEmailDispatcher dispatcher = new RegistrationEmailDispatcher(emailDeliveryService);
         TransactionSynchronizationManager.initSynchronization();
 
-        dispatcher.sendAfterCommit("keycloak-id", "user@example.com", "User", "Secret123!");
+        dispatcher.sendAfterCommit("auth-id", "user@example.com", "User", "Secret123!");
 
         verifyNoInteractions(emailDeliveryService);
         List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
@@ -58,7 +58,7 @@ class RegistrationEmailDispatcherTest {
         RegistrationEmailDispatcher dispatcher = new RegistrationEmailDispatcher(emailDeliveryService);
 
         assertThatThrownBy(() -> dispatcher.sendAfterCommit(
-                "keycloak-id", "user@example.com", "User", "Secret123!"))
+                "auth-id", "user@example.com", "User", "Secret123!"))
                 .isInstanceOf(RegistrationEmailDeliveryException.class)
                 .hasMessage("Registration credentials email could not be delivered")
                 .hasMessageNotContaining("Secret123!")

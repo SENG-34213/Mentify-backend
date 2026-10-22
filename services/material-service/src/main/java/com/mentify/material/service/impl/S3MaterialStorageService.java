@@ -3,6 +3,7 @@ package com.mentify.material.service.impl;
 import com.mentify.material.config.S3Properties;
 import com.mentify.material.dto.ValidatedMaterialFile;
 import com.mentify.material.dto.response.S3DownloadResult;
+import com.mentify.material.dto.response.S3FileResult;
 import com.mentify.material.dto.response.S3UploadResult;
 import com.mentify.material.exception.MaterialStorageException;
 import com.mentify.material.service.MaterialStorageService;
@@ -15,6 +16,9 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
@@ -45,7 +49,12 @@ public class S3MaterialStorageService implements MaterialStorageService {
 
     @Override
     public S3UploadResult upload(MultipartFile file, ValidatedMaterialFile validatedFile) {
-        String storageKey = generateStorageKey(validatedFile.extension());
+        return upload(file, validatedFile, "materials");
+    }
+
+    @Override
+    public S3UploadResult upload(MultipartFile file, ValidatedMaterialFile validatedFile, String keyPrefix) {
+        String storageKey = generateStorageKey(keyPrefix, validatedFile.extension());
         try {
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(requireBucket())
@@ -59,6 +68,30 @@ public class S3MaterialStorageService implements MaterialStorageService {
         } catch (IOException | SdkException ex) {
             log.warn("Material S3 upload failed for keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
             throw new MaterialStorageException("Material file upload failed", ex);
+        }
+    }
+
+    @Override
+    public S3FileResult download(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            throw new MaterialStorageException("Profile image is unavailable");
+        }
+        try {
+            HeadObjectResponse head = s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(requireBucket())
+                    .key(storageKey)
+                    .build());
+            ResponseBytes<GetObjectResponse> object = s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                    .bucket(requireBucket())
+                    .key(storageKey)
+                    .build());
+            return new S3FileResult(object.asByteArray(), head.contentType(), head.contentLength());
+        } catch (S3Exception ex) {
+            log.warn("Material S3 object read failed for keyHash={} status={}", keyHash(storageKey), ex.statusCode());
+            throw new MaterialStorageException("Profile image is unavailable", ex);
+        } catch (SdkException ex) {
+            log.warn("Material S3 object read failed for keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
+            throw new MaterialStorageException("Profile image is unavailable", ex);
         }
     }
 
@@ -163,8 +196,14 @@ public class S3MaterialStorageService implements MaterialStorageService {
         }
     }
 
-    private String generateStorageKey(String extension) {
-        return KEY_PREFIX + "/" + UUID.randomUUID() + "." + extension.toLowerCase(Locale.ROOT);
+    private String generateStorageKey(String keyPrefix, String extension) {
+        String normalizedPrefix = keyPrefix == null || keyPrefix.isBlank()
+                ? KEY_PREFIX
+                : keyPrefix.replaceAll("^/+|/+$", "");
+        String effectivePrefix = KEY_PREFIX.equals(normalizedPrefix)
+                ? KEY_PREFIX
+                : KEY_PREFIX + "/" + normalizedPrefix;
+        return effectivePrefix + "/" + UUID.randomUUID() + "." + extension.toLowerCase(Locale.ROOT);
     }
 
     private String requireBucket() {

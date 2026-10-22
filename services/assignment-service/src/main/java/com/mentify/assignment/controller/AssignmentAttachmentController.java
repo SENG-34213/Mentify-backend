@@ -46,7 +46,7 @@ public class AssignmentAttachmentController {
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AssignmentAttachmentResponse>> uploadAttachment(
             @PathVariable UUID assignmentId,
-            @RequestParam MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             @RequestHeader("Authorization") String authorizationHeader
     ) {
         ApiResponse<AssignmentAttachmentResponse> response =

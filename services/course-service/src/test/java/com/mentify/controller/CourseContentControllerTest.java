@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.lang.reflect.Method;
 import java.util.UUID;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,6 +74,8 @@ class CourseContentControllerTest {
                 .title("Algebra")
                 .courseId(courseId)
                 .sequenceOrder(1)
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(30))
                 .isVisible(true)
                 .build();
 
@@ -87,6 +90,8 @@ class CourseContentControllerTest {
         ModuleCreateRequest request = ModuleCreateRequest.builder()
                 .title("Algebra")
                 .sequenceOrder(1)
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(30))
                 .build();
 
         mockMvc.perform(post("/api/v1/course/{courseId}/modules", courseId)
@@ -145,6 +150,8 @@ class CourseContentControllerTest {
                 .title("Updated Algebra")
                 .courseId(courseId)
                 .sequenceOrder(2)
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(30))
                 .isVisible(true)
                 .build();
 
@@ -159,6 +166,8 @@ class CourseContentControllerTest {
         ModuleCreateRequest request = ModuleCreateRequest.builder()
                 .title("Updated Algebra")
                 .sequenceOrder(2)
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(30))
                 .build();
 
         mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId)
@@ -178,6 +187,8 @@ class CourseContentControllerTest {
         ModuleCreateRequest request = ModuleCreateRequest.builder()
                 .title(" ")
                 .sequenceOrder(1)
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(30))
                 .build();
 
         mockMvc.perform(put("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId)
@@ -486,18 +497,18 @@ class CourseContentControllerTest {
                 .courseId(courseId)
                 .build();
 
-        when(moduleService.getModules(courseId)).thenReturn(ApiResponse.<java.util.List<ModuleResponse>>builder()
+        when(moduleService.getModules(courseId, AUTH_HEADER)).thenReturn(ApiResponse.<java.util.List<ModuleResponse>>builder()
                 .status(HttpStatus.OK)
                 .message("Modules fetched successfully")
                 .data(java.util.List.of(moduleResponse))
                 .build());
 
-        mockMvc.perform(get("/api/v1/course/{courseId}/modules", courseId))
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules", courseId).header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Modules fetched successfully"))
                 .andExpect(jsonPath("$.data[0].title").value("Algebra"));
 
-        verify(moduleService).getModules(courseId);
+        verify(moduleService).getModules(courseId, AUTH_HEADER);
     }
 
     @Test
@@ -505,17 +516,17 @@ class CourseContentControllerTest {
         UUID courseId = UUID.randomUUID();
         UUID moduleId = UUID.randomUUID();
 
-        when(moduleService.getModule(courseId, moduleId)).thenReturn(ApiResponse.<ModuleResponse>builder()
+        when(moduleService.getModule(courseId, moduleId, AUTH_HEADER)).thenReturn(ApiResponse.<ModuleResponse>builder()
                 .status(HttpStatus.OK)
                 .message("Module fetched successfully")
                 .data(ModuleResponse.builder().id(moduleId).title("Algebra").courseId(courseId).build())
                 .build());
 
-        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId))
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}", courseId, moduleId).header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Module fetched successfully"));
 
-        verify(moduleService).getModule(courseId, moduleId);
+        verify(moduleService).getModule(courseId, moduleId, AUTH_HEADER);
     }
 
     @Test
@@ -523,17 +534,17 @@ class CourseContentControllerTest {
         UUID courseId = UUID.randomUUID();
         UUID moduleId = UUID.randomUUID();
 
-        when(lessonService.getLessons(courseId, moduleId)).thenReturn(ApiResponse.<java.util.List<LessonResponse>>builder()
+        when(lessonService.getLessons(courseId, moduleId, AUTH_HEADER)).thenReturn(ApiResponse.<java.util.List<LessonResponse>>builder()
                 .status(HttpStatus.OK)
                 .message("Lessons fetched successfully")
                 .data(java.util.List.of(LessonResponse.builder().id(UUID.randomUUID()).title("L1").moduleId(moduleId).build()))
                 .build());
 
-        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/lessons", courseId, moduleId))
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/lessons", courseId, moduleId).header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lessons fetched successfully"));
 
-        verify(lessonService).getLessons(courseId, moduleId);
+        verify(lessonService).getLessons(courseId, moduleId, AUTH_HEADER);
     }
 
     @Test
@@ -542,17 +553,17 @@ class CourseContentControllerTest {
         UUID moduleId = UUID.randomUUID();
         UUID lessonId = UUID.randomUUID();
 
-        when(lessonService.getLesson(courseId, moduleId, lessonId)).thenReturn(ApiResponse.<LessonResponse>builder()
+        when(lessonService.getLesson(courseId, moduleId, lessonId, AUTH_HEADER)).thenReturn(ApiResponse.<LessonResponse>builder()
                 .status(HttpStatus.OK)
                 .message("Lesson fetched successfully")
                 .data(LessonResponse.builder().id(lessonId).title("L1").moduleId(moduleId).build())
                 .build());
 
-        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId))
+        mockMvc.perform(get("/api/v1/course/{courseId}/modules/{moduleId}/lessons/{lessonId}", courseId, moduleId, lessonId).header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lesson fetched successfully"));
 
-        verify(lessonService).getLesson(courseId, moduleId, lessonId);
+        verify(lessonService).getLesson(courseId, moduleId, lessonId, AUTH_HEADER);
     }
 
     @Test
@@ -822,34 +833,34 @@ class CourseContentControllerTest {
 
         @Test
         void getModules_hasTeacherPreAuthorize() throws NoSuchMethodException {
-                Method method = CourseContentController.class.getDeclaredMethod("getModules", UUID.class);
+                Method method = CourseContentController.class.getDeclaredMethod("getModules", UUID.class, String.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_READ_ROLES);
         }
 
         @Test
         void getModule_hasTeacherPreAuthorize() throws NoSuchMethodException {
-                Method method = CourseContentController.class.getDeclaredMethod("getModule", UUID.class, UUID.class);
+                Method method = CourseContentController.class.getDeclaredMethod("getModule", UUID.class, UUID.class, String.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_READ_ROLES);
         }
 
         @Test
         void getLessons_hasTeacherPreAuthorize() throws NoSuchMethodException {
-                Method method = CourseContentController.class.getDeclaredMethod("getLessons", UUID.class, UUID.class);
+                Method method = CourseContentController.class.getDeclaredMethod("getLessons", UUID.class, UUID.class, String.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_READ_ROLES);
         }
 
         @Test
         void getLesson_hasTeacherPreAuthorize() throws NoSuchMethodException {
-                Method method = CourseContentController.class.getDeclaredMethod("getLesson", UUID.class, UUID.class, UUID.class);
+                Method method = CourseContentController.class.getDeclaredMethod("getLesson", UUID.class, UUID.class, UUID.class, String.class);
                 PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
                 assertThat(preAuthorize).isNotNull();
-                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_ROLES);
+                assertThat(preAuthorize.value()).isEqualTo(COURSE_CONTENT_READ_ROLES);
         }
 
         @Test

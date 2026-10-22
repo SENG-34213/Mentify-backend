@@ -13,6 +13,7 @@ create_database_if_missing() {
 }
 
 create_database_if_missing "${USER_DB_NAME:-user_db}"
+create_database_if_missing "${AUTH_DB_NAME:-auth_db}"
 create_database_if_missing "${COURSE_DB_NAME:-course_db}"
 create_database_if_missing "${ENTROLLMENT_DB_NAME:-entrollment_db}"
 create_database_if_missing "${ASSIGNMENT_DB_NAME:-assignment_db}"
@@ -24,3 +25,4 @@ create_database_if_missing "${PAYMENT_DB_NAME:-payment_db}"
 create_database_if_missing "${MATERIAL_DB_NAME:-material_db}"
 create_database_if_missing "${CALENDER_DB_NAME:-calender_db}"
 create_database_if_missing "${NOTIFICATION_DB_NAME:-notification_db}"
+create_database_if_missing "${ANALYTICS_DB_NAME:-analytics_db}"

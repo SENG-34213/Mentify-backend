@@ -1,8 +1,8 @@
 package com.mentify.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
-import com.mentify.common.security.KeycloakRoleConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
+import com.mentify.common.security.JwtRoleConverter;
 import com.mentify.common.security.SecurityConfig;
 import com.mentify.dto.AddressDto;
 import com.mentify.dto.AdminRegisterUserRequest;
@@ -45,7 +45,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
                 "mentify.security.enabled=true"
         }
 )
-@Import({SecurityConfig.class, KeycloakJwtAuthenticationConverter.class, KeycloakRoleConverter.class})
+@Import({SecurityConfig.class, JwtAuthenticationConverter.class, JwtRoleConverter.class})
 class AdminUserControllerTest {
 
     @Autowired
@@ -373,7 +373,7 @@ class AdminUserControllerTest {
     private UserRegistrationResponse registrationResponse(Role role) {
         return new UserRegistrationResponse(
                 UUID.randomUUID(),
-                "keycloak-user-id",
+                "auth-user-id",
                 "student@gmail.com",
                 "Kamal",
                 "Perera",

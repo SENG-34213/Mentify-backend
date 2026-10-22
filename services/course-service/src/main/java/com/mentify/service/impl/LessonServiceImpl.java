@@ -27,6 +27,7 @@ public class LessonServiceImpl implements LessonService {
     private final LessonRepository lessonRepository;
     private final LearningMaterialRepository learningMaterialRepository;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
+    private final CourseContentAccessGuard courseContentAccessGuard;
 
     @Override
     @Transactional
@@ -41,7 +42,9 @@ public class LessonServiceImpl implements LessonService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : null)
                 .durationMinutes(request.getDurationMinutes())
                 .contentMarkdown(normalizeContent(request.getContentMarkdown()))
+                .contentType(request.getContentType())
                 .isVisible(request.getIsVisible() != null ? request.getIsVisible() : true)
+                .teachingCompleted(Boolean.TRUE.equals(request.getTeachingCompleted()))
                 .releaseDate(request.getReleaseDate())
                 .module(module)
                 .build();
@@ -76,7 +79,11 @@ public class LessonServiceImpl implements LessonService {
         lesson.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
         lesson.setDurationMinutes(request.getDurationMinutes());
         lesson.setContentMarkdown(normalizeContent(request.getContentMarkdown()));
+        lesson.setContentType(request.getContentType());
         lesson.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
+        if (request.getTeachingCompleted() != null) {
+            lesson.setTeachingCompleted(request.getTeachingCompleted());
+        }
         lesson.setReleaseDate(request.getReleaseDate());
 
         Lesson savedLesson = lessonRepository.save(lesson);
@@ -91,11 +98,12 @@ public class LessonServiceImpl implements LessonService {
 
     @Override
     @Transactional
-    public ApiResponse<LessonResponse> getLesson(UUID courseId, UUID moduleId, UUID lessonId) {
+    public ApiResponse<LessonResponse> getLesson(
+            UUID courseId, UUID moduleId, UUID lessonId, String authorizationHeader) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
-        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        courseContentAccessGuard.assertCanReadCourseContent(module.getCourse(), authorizationHeader);
 
         Lesson lesson = lessonRepository.findByIdAndModule_Id(lessonId, moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson", "id", lessonId));
@@ -110,11 +118,11 @@ public class LessonServiceImpl implements LessonService {
 
     @Override
     @Transactional
-    public ApiResponse<List<LessonResponse>> getLessons(UUID courseId, UUID moduleId) {
+    public ApiResponse<List<LessonResponse>> getLessons(UUID courseId, UUID moduleId, String authorizationHeader) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
 
-        teacherCourseAccessGuard.assertTeacherOwnsCourse(module.getCourse());
+        courseContentAccessGuard.assertCanReadCourseContent(module.getCourse(), authorizationHeader);
 
         List<LessonResponse> lessons = lessonRepository.findAllByModule_Id(moduleId)
                 .stream()
@@ -160,6 +168,7 @@ public class LessonServiceImpl implements LessonService {
                 .description(lesson.getDescription())
                 .durationMinutes(lesson.getDurationMinutes())
                 .contentMarkdown(lesson.getContentMarkdown())
+                .contentType(lesson.getContentType())
                 .materials(learningMaterialRepository.findAllByLesson_Id(lesson.getId()).stream()
                         .map(material -> LearningMaterialResponse.builder()
                                 .id(material.getId())
@@ -180,6 +189,7 @@ public class LessonServiceImpl implements LessonService {
                                 .build())
                         .toList())
                 .isVisible(lesson.isVisible())
+                .teachingCompleted(lesson.isTeachingCompleted())
                 .releaseDate(lesson.getReleaseDate())
                 .moduleId(lesson.getModule().getId())
                 .createdBy(lesson.getCreatedBy())

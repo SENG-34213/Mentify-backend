@@ -24,16 +24,16 @@ public class UserRegistrationFactory {
     private final TeacherCodeGenerator teacherCodeGenerator;
     private final AdminCodeGenerator adminCodeGenerator;
 
-    public User create(AdminRegisterUserRequest request, String keycloakUserId) {
-        User user = buildUser(request, keycloakUserId);
+    public User create(AdminRegisterUserRequest request, String authUserId) {
+        User user = buildUser(request, authUserId);
         attachRoleProfile(user, request);
         attachAddress(user, request.getAddress());
         return user;
     }
 
-    public User createAdmin(SuperAdminRegisterAdminRequest request, String keycloakUserId) {
+    public User createAdmin(SuperAdminRegisterAdminRequest request, String authUserId) {
         User user = User.builder()
-                .keycloakUserId(keycloakUserId)
+                .authUserId(authUserId)
                 .email(request.getEmail())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -50,9 +50,9 @@ public class UserRegistrationFactory {
         return user;
     }
 
-    private User buildUser(AdminRegisterUserRequest request, String keycloakUserId) {
+    private User buildUser(AdminRegisterUserRequest request, String authUserId) {
         return User.builder()
-                .keycloakUserId(keycloakUserId)
+                .authUserId(authUserId)
                 .email(request.getEmail())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -113,11 +113,11 @@ public class UserRegistrationFactory {
             return new ArrayList<>();
         }
 
-        return specializations.stream()
+        return new ArrayList<>(specializations.stream()
                 .filter(specialization -> specialization != null && !specialization.isBlank())
                 .map(String::trim)
                 .distinct()
-                .toList();
+                .toList());
     }
 
     private void attachAdminProfile(User user, SuperAdminRegisterAdminRequest request) {

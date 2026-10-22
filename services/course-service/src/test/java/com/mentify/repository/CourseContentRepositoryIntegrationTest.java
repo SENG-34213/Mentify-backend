@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@ActiveProfiles("test")
 class CourseContentRepositoryIntegrationTest {
 
     @Autowired
@@ -45,7 +47,8 @@ class CourseContentRepositoryIntegrationTest {
                 .title("Algebra")
                 .description("Algebra foundations")
                 .sequenceOrder(1)
-                .dateDuration(30)
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2026, 1, 30))
                 .isVisible(true)
                 .course(savedCourse)
                 .build();

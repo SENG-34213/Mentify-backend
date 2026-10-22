@@ -15,8 +15,10 @@ import com.mentify.exam.repository.ExamResultRepository;
 import com.mentify.exam.security.CurrentUserService;
 import com.mentify.exam.service.CourseAccessService;
 import com.mentify.exam.service.MarksEntryService;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,9 @@ public class MarksEntryServiceImpl implements MarksEntryService {
     private final ExamResultRepository examResultRepository;
     private final CourseAccessService courseAccessService;
     private final CurrentUserService currentUserService;
+
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -67,6 +72,20 @@ public class MarksEntryServiceImpl implements MarksEntryService {
                 .map(entry -> apply(existing.get(entry.getStudentId()), entry, exam, markedBy, now))
                 .toList();
         List<ExamResult> saved = examResultRepository.saveAll(updated);
+
+        if (notificationEventPublisher != null) {
+            saved.stream()
+                    .map(ExamResult::getStudentId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .forEach(studentId -> notificationEventPublisher.publishForRecipient(
+                            studentId.toString(),
+                            null,
+                            "EXAM_RESULTS_RECORDED",
+                            "Exam results recorded",
+                            "Your exam results were recorded successfully."
+                    ));
+        }
 
         return MarksEntryResponse.builder()
                 .examId(examId)

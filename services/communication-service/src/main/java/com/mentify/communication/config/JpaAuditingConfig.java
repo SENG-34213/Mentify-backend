@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 /**
- * Imports the shared AuditorAware implementation that reads the Keycloak sub claim.
+ * Imports the shared AuditorAware implementation that reads the JWT provider sub claim.
  */
 @Configuration
 @Import(com.mentify.config.JpaAuditingConfig.class)

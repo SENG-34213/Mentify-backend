@@ -1,6 +1,6 @@
 package com.mentify.communication.websocket.security;
 
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
 import com.mentify.communication.service.GroupMemberService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,7 @@ class WebSocketAuthInterceptorTest {
     private JwtDecoder jwtDecoder;
 
     @Mock
-    private KeycloakJwtAuthenticationConverter jwtAuthenticationConverter;
+    private JwtAuthenticationConverter jwtAuthenticationConverter;
 
     @Mock
     private GroupMemberService groupMemberService;

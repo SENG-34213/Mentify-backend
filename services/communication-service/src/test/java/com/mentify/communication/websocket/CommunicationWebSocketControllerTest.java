@@ -4,6 +4,7 @@ import com.mentify.communication.dto.request.SendMessageRequest;
 import com.mentify.communication.dto.response.MessageResponse;
 import com.mentify.communication.enums.MessageType;
 import com.mentify.communication.service.MessageService;
+import com.mentify.communication.service.MessageBroadcastService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,7 +12,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -34,7 +34,7 @@ class CommunicationWebSocketControllerTest {
     private MessageService messageService;
 
     @Mock
-    private SimpMessagingTemplate messagingTemplate;
+    private MessageBroadcastService messageBroadcastService;
 
     @InjectMocks
     private CommunicationWebSocketController controller;
@@ -61,12 +61,7 @@ class CommunicationWebSocketControllerTest {
             SimpMessageHeaderAccessor.create()
         );
 
-        ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<MessageResponse> payloadCaptor = ArgumentCaptor.forClass(MessageResponse.class);
-
-        verify(messagingTemplate).convertAndSend(topicCaptor.capture(), payloadCaptor.capture());
-        assertEquals("/topic/groups/" + groupId, topicCaptor.getValue());
-        assertEquals(response, payloadCaptor.getValue());
+        verify(messageBroadcastService).broadcast(groupId, response);
         verify(messageService).sendMessage(eq(groupId), org.mockito.ArgumentMatchers.any(SendMessageRequest.class), eq(senderId));
     }
 

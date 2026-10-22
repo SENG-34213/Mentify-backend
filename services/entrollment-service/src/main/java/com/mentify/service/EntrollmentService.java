@@ -3,6 +3,7 @@ package com.mentify.service;
 import com.mentify.dto.EntrollmentCreateRequest;
 import com.mentify.dto.EntrollmentResponse;
 import com.mentify.dto.EntrollmentUpdateRequest;
+import com.mentify.dto.EnrollmentAnalyticsOverviewResponse;
 import com.mentify.dto.StudentEntrollmentCreateRequest;
 import com.mentify.dto.UnenrolledStudentResponse;
 import com.mentify.payload.response.ApiResponse;
@@ -31,4 +32,8 @@ public interface EntrollmentService {
     ApiResponse<List<EntrollmentResponse>> getActiveEntrollments();
 
     ApiResponse<List<UnenrolledStudentResponse>> getUnenrolledStudents(String authorizationHeader);
+
+    ApiResponse<EnrollmentAnalyticsOverviewResponse> getAnalyticsOverview();
+
+    ApiResponse<EnrollmentAnalyticsOverviewResponse> getAnalyticsCourseSummary(UUID courseId);
 }

@@ -4,6 +4,9 @@ import com.mentify.dto.GradeRequest;
 import com.mentify.dto.GradeResponse;
 import com.mentify.entity.Grade;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+
 public class GradeMapper {
 
     private GradeMapper() {
@@ -15,6 +18,9 @@ public class GradeMapper {
                 .description(trimToNull(request.getDescription()))
                 .monthlyFee(request.getMonthlyFee())
                 .currencyCode(request.getCurrencyCode() == null ? "LKR" : request.getCurrencyCode().toUpperCase())
+                .subjectDomains(request.getSubjectDomains() == null
+                        ? new LinkedHashSet<>()
+                        : new LinkedHashSet<>(request.getSubjectDomains()))
                 .build();
     }
 
@@ -25,6 +31,9 @@ public class GradeMapper {
                 .description(grade.getDescription())
                 .monthlyFee(grade.getMonthlyFee())
                 .currencyCode(grade.getCurrencyCode())
+                .subjectDomains(grade.getSubjectDomains() == null
+                        ? List.of()
+                        : grade.getSubjectDomains().stream().sorted(String.CASE_INSENSITIVE_ORDER).toList())
                 .active(grade.isActive())
                 .createdBy(grade.getCreatedBy())
                 .lastModifiedBy(grade.getUpdatedBy())

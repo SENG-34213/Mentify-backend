@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @Builder
@@ -33,4 +34,7 @@ public class GradeRequest {
     @Pattern(regexp = "(?i)[A-Z]{3}", message = "Currency code must be a 3-letter code")
     @Builder.Default
     private String currencyCode = "LKR";
+
+    @Size(max = 25, message = "A grade cannot have more than 25 subject domains")
+    private List<@NotBlank(message = "Subject domain cannot be blank") @Size(max = 100, message = "Subject domain must not exceed 100 characters") String> subjectDomains;
 }

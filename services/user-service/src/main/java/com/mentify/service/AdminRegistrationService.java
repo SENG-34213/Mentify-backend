@@ -6,7 +6,7 @@ import com.mentify.entity.User;
 import com.mentify.enums.Role;
 import com.mentify.exception.DuplicateResourceException;
 import com.mentify.repository.UserRepository;
-import com.mentify.service.registration.KeycloakUserProvisionRequest;
+import com.mentify.service.registration.AuthUserProvisionRequest;
 import com.mentify.service.registration.RegistrationEmailDispatcher;
 import com.mentify.service.registration.TemporaryPasswordGenerator;
 import com.mentify.service.registration.UserRegistrationFactory;
@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminRegistrationService {
 
     private final UserRepository userRepository;
-    private final KeycloakUserService keycloakUserService;
+    private final AuthCredentialService authCredentialService;
     private final UserRegistrationFactory userRegistrationFactory;
     private final RegistrationEmailDispatcher registrationEmailDispatcher;
     private final TemporaryPasswordGenerator temporaryPasswordGenerator;
@@ -32,38 +32,37 @@ public class AdminRegistrationService {
             throw new DuplicateResourceException("Email already exists");
         }
 
-        String keycloakUserId = null;
+        String authUserId = null;
         String temporaryPassword = temporaryPasswordGenerator.generate();
 
         try {
-            keycloakUserId = keycloakUserService.createUser(KeycloakUserProvisionRequest.from(request));
-            keycloakUserService.setInitialPassword(keycloakUserId, temporaryPassword);
+            authUserId = authCredentialService.createUser(new AuthUserProvisionRequest(request.getEmail(), request.getFirstName(), request.getLastName()));
+            authCredentialService.setInitialPassword(authUserId, temporaryPassword);
 
-            keycloakUserService.assignRealmRole(keycloakUserId, Role.ADMIN.name());
-
-            User user = userRegistrationFactory.createAdmin(request, keycloakUserId);
+            User user = userRegistrationFactory.createAdmin(request, authUserId);
             user.setEmailVerified(true);
             User savedUser = userRepository.saveAndFlush(user);
+            authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    keycloakUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {
-            compensateKeycloakUserCreation(keycloakUserId, exception);
+            compensateAuthUserCreation(authUserId, exception);
             throw exception;
         }
     }
 
-    private void compensateKeycloakUserCreation(String keycloakUserId, Exception originalException) {
-        if (keycloakUserId == null) {
+    private void compensateAuthUserCreation(String authUserId, Exception originalException) {
+        if (authUserId == null) {
             return;
         }
 
         try {
-            keycloakUserService.deleteUser(keycloakUserId);
+            authCredentialService.deleteUser(authUserId);
         } catch (Exception deleteException) {
             originalException.addSuppressed(deleteException);
-            log.warn("Failed to delete Keycloak user {} during admin registration compensation", keycloakUserId, deleteException);
+            log.warn("Failed to delete auth user {} during admin registration compensation", authUserId, deleteException);
         }
     }
 }

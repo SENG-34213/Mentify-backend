@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -19,7 +20,8 @@ public class ModuleResponse {
     private Integer sequenceOrder;
     private String description;
     private UUID courseId;
-    private Integer dateDuration;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private boolean isVisible;
     private String moduleImage;
     private UUID createdBy;

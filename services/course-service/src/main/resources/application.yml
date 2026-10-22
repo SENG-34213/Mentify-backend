@@ -1,8 +1,18 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   application:
     name: course-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  cloud:
+    loadbalancer:
+      retry:
+        enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${COURSE_MAX_FILE_SIZE:100MB}
+      max-request-size: ${COURSE_MAX_REQUEST_SIZE:110MB}
 
 
 eureka:
@@ -10,6 +20,7 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port:${spring.application.instance_id:${random.value}}}
   client:
+    registry-fetch-interval-seconds: ${EUREKA_REGISTRY_FETCH_INTERVAL_SECONDS:5}
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
     register-with-eureka: true

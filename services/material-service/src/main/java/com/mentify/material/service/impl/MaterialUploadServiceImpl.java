@@ -61,12 +61,14 @@ public class MaterialUploadServiceImpl implements MaterialUploadService {
                     .status(MaterialStatus.UPLOADED)
                     .uploadedBy(uploadedBy)
                     .courseId(authorizedCourseId)
-                    .resourceType(MaterialResourceType.COURSE)
+                    .resourceType(resolvedPurpose == MaterialPurpose.MARKETPLACE_PRODUCT
+                            ? MaterialResourceType.MARKETPLACE_PRODUCT : MaterialResourceType.COURSE)
                     .resourceId(authorizedCourseId)
                     .ownerId(uploadedBy)
-                    .visibility(resolvedPurpose == MaterialPurpose.SUBMISSION_ATTACHMENT
-                            ? MaterialVisibility.OWNER_ONLY
-                            : MaterialVisibility.COURSE_MEMBERS)
+                    .visibility(resolvedPurpose == MaterialPurpose.MARKETPLACE_PRODUCT
+                            ? MaterialVisibility.INTERNAL
+                            : resolvedPurpose == MaterialPurpose.SUBMISSION_ATTACHMENT
+                            ? MaterialVisibility.OWNER_ONLY : MaterialVisibility.COURSE_MEMBERS)
                     .build();
 
             Material saved = materialRepository.saveAndFlush(material);

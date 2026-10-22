@@ -6,10 +6,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/mentify}
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8085}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8085/api/v1/auth/.well-known/jwks.json}
 
   datasource:
-    url: jdbc:postgresql://${ATTENDANCE_DB_HOST:localhost}:${ATTENDANCE_DB_PORT:5434}/${ATTENDANCE_DB_NAME:attendance_db}
+    url: jdbc:postgresql://${ATTENDANCE_DB_HOST:localhost}:${ATTENDANCE_DB_PORT:5432}/${ATTENDANCE_DB_NAME:attendance_db}
     username: ${ATTENDANCE_DB_USERNAME:postgres}
     password: ${ATTENDANCE_DB_PASSWORD:change-me}
     driver-class-name: org.postgresql.Driver
@@ -32,6 +33,12 @@ spring:
           batch_size: 20
         order_inserts: true
         order_updates: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
 
 mentify:
   security:

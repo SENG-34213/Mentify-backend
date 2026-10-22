@@ -9,7 +9,7 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UserLookupResponse {
     private UUID id;
-    private String keycloakUserId;
+    private String authUserId;
     private String email;
     private String firstName;
     private String lastName;

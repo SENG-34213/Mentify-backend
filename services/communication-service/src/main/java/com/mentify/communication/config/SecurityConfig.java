@@ -4,13 +4,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 /**
- * Imports Mentify's shared Keycloak resource-server configuration.
+ * Imports Mentify's shared JWT provider resource-server configuration.
  */
 @Configuration
 @Import({
         com.mentify.common.security.SecurityConfig.class,
-        com.mentify.common.security.KeycloakJwtAuthenticationConverter.class,
-        com.mentify.common.security.KeycloakRoleConverter.class
+        com.mentify.common.security.JwtAuthenticationConverter.class,
+        com.mentify.common.security.JwtRoleConverter.class
 })
 public class SecurityConfig {
 }

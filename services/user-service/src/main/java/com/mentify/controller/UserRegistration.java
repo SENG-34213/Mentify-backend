@@ -10,6 +10,9 @@ import com.mentify.dto.ChangePasswordRequest;
 import com.mentify.dto.UpdateTeacherProfileRequest;
 import com.mentify.dto.UserRegistrationResponse;
 import com.mentify.dto.StudentDirectoryProfileResponse;
+import com.mentify.dto.TeacherGuidanceNoteRequest;
+import com.mentify.dto.TeacherGuidanceNoteResponse;
+import com.mentify.entity.User;
 import com.mentify.enums.Role;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.UserRepository;
@@ -33,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.UUID;
 import java.util.List;
@@ -45,6 +49,25 @@ public class UserRegistration {
     private final UserRegistrationService userRegistrationService;
     private final AdminRegistrationService adminRegistrationService;
     private final UserRepository userRepository;
+    private final ObjectProvider<com.mentify.service.TeacherGuidanceNoteService> teacherGuidanceNoteService;
+
+    @PostMapping("/students/{studentId}/guidance-notes")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<TeacherGuidanceNoteResponse>> createGuidanceNote(
+            @PathVariable UUID studentId, @Valid @RequestBody TeacherGuidanceNoteRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        TeacherGuidanceNoteResponse response = teacherGuidanceNoteService.getObject().create(studentId, jwt.getSubject(), request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                HttpStatus.CREATED.value(), "Guidance note created successfully", response));
+    }
+
+    @GetMapping("/students/{studentId}/guidance-notes")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiResponse<List<TeacherGuidanceNoteResponse>>> getGuidanceNotes(
+            @PathVariable UUID studentId, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Guidance notes fetched successfully",
+                teacherGuidanceNoteService.getObject().list(studentId, jwt.getSubject())));
+    }
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
@@ -168,14 +191,74 @@ public class UserRegistration {
 
     @GetMapping("/teachers/{teacherId}/exists")
     public ResponseEntity<Boolean> teacherExists(@PathVariable String teacherId) {
-        boolean exists = userRepository.existsByKeycloakUserIdAndRole(teacherId, Role.TEACHER);
+        boolean exists = existsByIdentity(teacherId, Role.TEACHER);
         return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/teachers/{teacherId}/lookup")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<com.mentify.dto.UserResponse>> teacherLookup(@PathVariable String teacherId) {
+        User teacher;
+        try {
+            teacher = userRepository.findByIdAndRole(UUID.fromString(teacherId), Role.TEACHER)
+                    .orElseGet(() -> userRepository.findByAuthUserId(teacherId)
+                            .filter(user -> user.getRole() == Role.TEACHER)
+                            .orElse(null));
+        } catch (IllegalArgumentException exception) {
+            teacher = userRepository.findByAuthUserId(teacherId)
+                    .filter(user -> user.getRole() == Role.TEACHER)
+                    .orElse(null);
+        }
+
+        if (teacher == null) {
+            // A course/message may contain a stale or non-teacher identity.
+            // Return a normal 404 response directly instead of throwing a
+            // ResponseStatusException, which Spring logs as a warning even
+            // though this is an expected lookup miss.
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Teacher fetched successfully",
+                com.mentify.dto.UserResponse.builder()
+                        .id(teacher.getId()).email(teacher.getEmail())
+                        .firstName(teacher.getFirstName()).lastName(teacher.getLastName())
+                        .fullName((teacher.getFirstName() + " " + teacher.getLastName()).trim())
+                        .teacherCode(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getTeacherCode())
+                        .title(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getAcademicTitle())
+                        .department(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getDepartment())
+                        .role(teacher.getRole()).accountStatus(teacher.getAccountStatus())
+                        .emailVerified(teacher.isEmailVerified()).createdAt(teacher.getCreatedAt()).build()));
+    }
+
+    @GetMapping("/teachers/{teacherId}/canonical-id")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<UUID> teacherCanonicalId(@PathVariable String teacherId) {
+        User user;
+        try {
+            user = userRepository.findById(UUID.fromString(teacherId))
+                    .orElseGet(() -> userRepository.findByAuthUserId(teacherId).orElse(null));
+        } catch (IllegalArgumentException exception) {
+            user = userRepository.findByAuthUserId(teacherId).orElse(null);
+        }
+
+        if (user == null || user.getRole() != Role.TEACHER) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(user.getId());
     }
 
     @GetMapping("/students/{studentId}/exists")
     public ResponseEntity<Boolean> studentExists(@PathVariable String studentId) {
-        boolean exists = userRepository.existsByKeycloakUserIdAndRole(studentId, Role.STUDENT);
+        boolean exists = existsByIdentity(studentId, Role.STUDENT);
         return ResponseEntity.ok(exists);
+    }
+
+    private boolean existsByIdentity(String identity, Role role) {
+        try {
+            return userRepository.existsByIdAndRole(java.util.UUID.fromString(identity), role)
+                    || userRepository.existsByAuthUserIdAndRole(identity, role);
+        } catch (IllegalArgumentException exception) {
+            return userRepository.existsByAuthUserIdAndRole(identity, role);
+        }
     }
 
     @GetMapping("/students/lookup")

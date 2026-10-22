@@ -63,13 +63,15 @@ class GatewaySecurityConfigTest {
                 .expectStatus().isOk();
     }
 
-    @Test
-    void givenNoToken_whenCallingGatewayForgotPasswordEndpoint_thenReturnsOk() {
-        // Arrange
-        var request = webTestClient.post().uri("/api/v1/auth/forgot-password");
-
-        // Act and Assert
-        request.exchange()
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/forgot-password/verify",
+            "/api/v1/auth/forgot-password/reset"
+    })
+    void givenNoToken_whenCallingGatewayPasswordResetEndpoint_thenReturnsOk(String path) {
+        webTestClient.post().uri(path)
+                .exchange()
                 .expectStatus().isOk();
     }
 
@@ -162,6 +164,16 @@ class GatewaySecurityConfigTest {
 
         @PostMapping("/api/v1/auth/forgot-password")
         Map<String, String> forgotPassword() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/v1/auth/forgot-password/verify")
+        Map<String, String> verifyForgotPassword() {
+            return Map.of("status", "success");
+        }
+
+        @PostMapping("/api/v1/auth/forgot-password/reset")
+        Map<String, String> resetForgotPassword() {
             return Map.of("status", "success");
         }
 

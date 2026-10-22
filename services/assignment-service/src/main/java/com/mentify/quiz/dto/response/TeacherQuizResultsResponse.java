@@ -24,5 +24,17 @@ public class TeacherQuizResultsResponse {
         BigDecimal percentage;
         boolean passed;
         LocalDateTime submittedAt;
+        List<TeacherQuizAnswerResponse> answers;
+    }
+
+    @Value
+    @Builder
+    public static class TeacherQuizAnswerResponse {
+        UUID questionId;
+        String questionText;
+        String selectedAnswer;
+        String correctAnswer;
+        boolean correct;
+        BigDecimal awardedMarks;
     }
 }

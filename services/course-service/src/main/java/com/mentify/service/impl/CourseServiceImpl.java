@@ -4,6 +4,7 @@ import com.mentify.client.UserServiceClient;
 import com.mentify.client.AssignmentDashboardClient;
 import com.mentify.client.CalendarDashboardClient;
 import com.mentify.client.ExamDashboardClient;
+import com.mentify.client.QuizGradebookClient;
 import com.mentify.client.EntrollmentServiceClient;
 import com.mentify.client.dto.AssignmentDashboardResponse;
 import com.mentify.client.dto.CalendarDashboardResponse;
@@ -21,6 +22,9 @@ import com.mentify.mapper.CourseMapper;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.repository.CourseRepository;
 import com.mentify.repository.GradeRepository;
+import com.mentify.repository.CourseCountProjection;
+import com.mentify.repository.ModuleRepository;
+import com.mentify.repository.LessonRepository;
 import com.mentify.service.CourseService;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -44,36 +48,45 @@ public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
     private final GradeRepository gradeRepository;
+    private final ModuleRepository moduleRepository;
+    private final LessonRepository lessonRepository;
     private final UserServiceClient userServiceClient;
     private final TeacherCourseAccessGuard teacherCourseAccessGuard;
     private final EntrollmentServiceClient entrollmentServiceClient;
     private final AssignmentDashboardClient assignmentDashboardClient;
     private final ExamDashboardClient examDashboardClient;
+    private final QuizGradebookClient quizGradebookClient;
     private final CalendarDashboardClient calendarDashboardClient;
 
     public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
                              UserServiceClient userServiceClient,
                              TeacherCourseAccessGuard teacherCourseAccessGuard) {
-        this(courseRepository, gradeRepository, userServiceClient, teacherCourseAccessGuard,
-                null, null, null, null);
+        this(courseRepository, gradeRepository, null, null, userServiceClient, teacherCourseAccessGuard,
+                null, null, null, null, null);
     }
 
     @Autowired
     public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
+                             ModuleRepository moduleRepository,
+                             LessonRepository lessonRepository,
                              UserServiceClient userServiceClient,
                              TeacherCourseAccessGuard teacherCourseAccessGuard,
                              EntrollmentServiceClient entrollmentServiceClient,
                              AssignmentDashboardClient assignmentDashboardClient,
                              ExamDashboardClient examDashboardClient,
-                             CalendarDashboardClient calendarDashboardClient) {
+                             CalendarDashboardClient calendarDashboardClient,
+                             QuizGradebookClient quizGradebookClient) {
         this.courseRepository = courseRepository;
         this.gradeRepository = gradeRepository;
+        this.moduleRepository = moduleRepository;
+        this.lessonRepository = lessonRepository;
         this.userServiceClient = userServiceClient;
         this.teacherCourseAccessGuard = teacherCourseAccessGuard;
         this.entrollmentServiceClient = entrollmentServiceClient;
         this.assignmentDashboardClient = assignmentDashboardClient;
         this.examDashboardClient = examDashboardClient;
         this.calendarDashboardClient = calendarDashboardClient;
+        this.quizGradebookClient = quizGradebookClient;
     }
 
     @Override
@@ -209,10 +222,12 @@ public class CourseServiceImpl implements CourseService {
         }
 
         validateGradeExists(request.getGradeId());
-        teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
-        validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
+        UUID assignedTeacherId = resolveCanonicalTeacherId(request.getAssignedTeacherId(), authorizationHeader);
+        teacherCourseAccessGuard.assertTeacherCanAssign(assignedTeacherId);
+        validateTeacherExists(assignedTeacherId, authorizationHeader);
 
         Course course = CourseMapper.toCourseEntity(request);
+        course.setAssignedTeacherId(assignedTeacherId);
         if (course.isPublished()) {
             course.setPublishedDate(LocalDate.now());
         } else {
@@ -240,9 +255,11 @@ public class CourseServiceImpl implements CourseService {
         Course existingCourse = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
 
+        UUID assignedTeacherId = resolveCanonicalTeacherId(request.getAssignedTeacherId(), authorizationHeader);
+
         if (teacherCourseAccessGuard.isTeacherAuthenticated()) {
             teacherCourseAccessGuard.assertTeacherOwnsCourse(existingCourse);
-            teacherCourseAccessGuard.assertTeacherCanAssign(request.getAssignedTeacherId());
+            teacherCourseAccessGuard.assertTeacherCanAssign(assignedTeacherId);
         }
 
         if (courseRepository.existsByCourseNameAndGradeIdAndIdNot(request.getCourseName(), request.getGradeId(), courseId)) {
@@ -251,14 +268,23 @@ public class CourseServiceImpl implements CourseService {
         }
 
         validateGradeExists(request.getGradeId());
-        validateTeacherExists(request.getAssignedTeacherId(), authorizationHeader);
+        validateTeacherExists(assignedTeacherId, authorizationHeader);
 
         existingCourse.setCourseName(request.getCourseName().trim());
+        existingCourse.setCourseCode(trimToNull(request.getCourseCode()));
         existingCourse.setCourseDescription(request.getCourseDescription().trim());
         existingCourse.setCourseThumbnail(request.getCourseThumbnail());
         existingCourse.setGradeId(request.getGradeId());
-        existingCourse.setAssignedTeacherId(request.getAssignedTeacherId());
+        existingCourse.setAssignedTeacherId(assignedTeacherId);
         existingCourse.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
+        existingCourse.setLevel(trimToNull(request.getLevel()));
+        existingCourse.setSemester(trimToNull(request.getSemester()));
+        existingCourse.setAcademicYear(trimToNull(request.getAcademicYear()));
+        existingCourse.setMaxCapacity(request.getMaxCapacity());
+        existingCourse.setCredits(request.getCredits());
+        existingCourse.setSchedule(trimToNull(request.getSchedule()));
+        existingCourse.setGradingWeights(request.getGradingWeights() == null ? new java.util.HashMap<>() : new java.util.HashMap<>(request.getGradingWeights()));
+        existingCourse.setTeachingAssistantIds(request.getTeachingAssistantIds() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(request.getTeachingAssistantIds()));
         existingCourse.setOnline(request.getIsOnline() != null ? request.getIsOnline() : true);
 
         existingCourse.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
@@ -292,6 +318,11 @@ public class CourseServiceImpl implements CourseService {
         if (teacherId == null || !userServiceClient.isTeacherExists(teacherId.toString(), authorizationHeader)) {
             throw new ResourceNotFoundException("Teacher", "id", teacherId);
         }
+    }
+
+    private UUID resolveCanonicalTeacherId(UUID teacherId, String authorizationHeader) {
+        UUID canonicalId = userServiceClient.getTeacherCanonicalId(teacherId.toString(), authorizationHeader);
+        return canonicalId == null ? teacherId : canonicalId;
     }
 
     private void validateGradeExists(UUID gradeId) {
@@ -340,11 +371,20 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId) {
-        List<CourseResponse> courses = courseRepository
-                .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId)
-                .stream()
-                .map(this::toCourseResponse)
-                .collect(Collectors.toList());
+        return getCoursesForTeacher(teacherId, null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId, String authorizationHeader) {
+        List<Course> teacherCourses = courseRepository
+                .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId);
+        // Keep the course-list request local and fast. Calling assignment,
+        // enrollment, exam, and quiz services synchronously here made the
+        // teacher portal wait for every downstream service before it could
+        // render even the basic course list. Those screens load their own
+        // detailed data after the course list is available.
+        List<CourseResponse> courses = toCourseResponses(teacherCourses, null);
 
         return ApiResponse.<List<CourseResponse>>builder()
                 .message("Teacher courses fetched successfully")
@@ -352,6 +392,73 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.OK.value())
                 .status(HttpStatus.OK)
                 .build();
+    }
+
+    private List<CourseResponse> toCourseResponses(List<Course> source, String authorizationHeader) {
+        if (source.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> courseIds = source.stream().map(Course::getId).collect(Collectors.toSet());
+        java.util.Map<UUID, Long> moduleCounts = moduleRepository == null ? java.util.Map.of()
+                : moduleRepository.countByCourseIds(courseIds).stream()
+                .collect(Collectors.toMap(CourseCountProjection::getCourseId, CourseCountProjection::getCount));
+        java.util.Map<UUID, Long> lessonCounts = lessonRepository == null ? java.util.Map.of()
+                : lessonRepository.countByCourseIds(courseIds).stream()
+                .collect(Collectors.toMap(CourseCountProjection::getCourseId, CourseCountProjection::getCount));
+
+        return source.stream().map(course -> {
+            CourseResponse response = toCourseResponse(course);
+            response.setModuleCount(moduleCounts.getOrDefault(course.getId(), 0L));
+            response.setLessonCount(lessonCounts.getOrDefault(course.getId(), 0L));
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && assignmentDashboardClient != null) {
+                response.setAssignmentCount(countAssignments(course.getId(), authorizationHeader));
+            }
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && entrollmentServiceClient != null) {
+                try {
+                    response.setNumberOfStudents(enrolledStudents(course.getId(), authorizationHeader).size());
+                } catch (RuntimeException exception) {
+                    log.warn("Unable to resolve live student count for course [{}]", course.getId(), exception);
+                }
+            }
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && examDashboardClient != null) {
+                response.setExamCount(countExams(course.getId(), authorizationHeader));
+            }
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && quizGradebookClient != null) {
+                response.setQuizCount(countQuizzes(course.getId(), authorizationHeader));
+            }
+            return response;
+        }).toList();
+    }
+
+    private long countAssignments(UUID courseId, String authorizationHeader) {
+        try {
+            List<AssignmentDashboardResponse> response = assignments(courseId, authorizationHeader);
+            return response == null ? 0L : response.size();
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve assignment count for course [{}]", courseId, exception);
+            return 0L;
+        }
+    }
+
+    private long countExams(UUID courseId, String authorizationHeader) {
+        try {
+            return exams(courseId, authorizationHeader).size();
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve exam count for course [{}]", courseId, exception);
+            return 0L;
+        }
+    }
+
+    private long countQuizzes(UUID courseId, String authorizationHeader) {
+        try {
+            ApiResponse<List<com.mentify.client.dto.QuizGradebookResponse>> response = quizGradebookClient
+                    .getQuizzes(courseId, authorizationHeader);
+            return response == null || response.getData() == null ? 0L : response.getData().size();
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve quiz count for course [{}]", courseId, exception);
+            return 0L;
+        }
     }
 
     @Override
@@ -393,5 +500,13 @@ public class CourseServiceImpl implements CourseService {
     private CourseResponse toCourseResponse(Course course) {
         Grade grade = gradeRepository.findById(course.getGradeId()).orElse(null);
         return CourseMapper.toCourseResponse(course, grade);
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

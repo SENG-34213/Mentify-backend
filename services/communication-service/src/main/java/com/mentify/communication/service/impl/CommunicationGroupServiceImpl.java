@@ -4,6 +4,7 @@ import com.mentify.communication.client.CourseServiceClient;
 import com.mentify.communication.client.EntrollmentServiceClient;
 import com.mentify.communication.client.dto.CourseLookupResponse;
 import com.mentify.communication.dto.request.CreateCommunicationGroupRequest;
+import com.mentify.communication.dto.request.UpdateCommunicationGroupRequest;
 import com.mentify.communication.dto.response.CommunicationGroupResponse;
 import com.mentify.communication.dto.response.GroupMemberResponse;
 import com.mentify.communication.entity.CommunicationGroup;
@@ -85,18 +86,20 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
 
         log.info("Communication group [{}] created for course [{}]", savedGroup.getId(), savedGroup.getCourseId());
 
-        return CommunicationGroupMapper.toGroupResponse(savedGroup);
+        return CommunicationGroupMapper.toGroupResponse(savedGroup, course.getCourseName());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CommunicationGroupResponse> getCurrentUserGroups() {
         UUID currentUserId = authenticatedUserService.getCurrentUserId();
+        Set<String> roles = authenticatedUserService.getCurrentUserRoles();
+        boolean canManageGroups = isAdmin(roles) || isTeacher(roles);
 
         return groupMemberRepository.findByUserIdAndIsActiveTrue(currentUserId).stream()
                 .map(GroupMember::getGroup)
-                .filter(group -> GroupStatus.ACTIVE.equals(group.getStatus()))
-                .map(CommunicationGroupMapper::toGroupResponse)
+                .filter(group -> canManageGroups || GroupStatus.ACTIVE.equals(group.getStatus()))
+                .map(this::toGroupResponseWithCourseName)
                 .toList();
     }
 
@@ -108,7 +111,24 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
 
         groupMemberService.validateActiveMembership(group.getId(), currentUserId);
 
-        return CommunicationGroupMapper.toGroupResponse(group);
+        return toGroupResponseWithCourseName(group);
+    }
+
+    @Override
+    @Transactional
+    public CommunicationGroupResponse updateGroup(UUID groupId, UpdateCommunicationGroupRequest request) {
+        CommunicationGroup group = findActiveGroup(groupId);
+        validateCanManageGroup(groupId);
+
+        group.setName(request.getName().trim());
+        group.setDescription(request.getDescription() == null || request.getDescription().isBlank()
+                ? null : request.getDescription().trim());
+        if (request.getStudentMessagingEnabled() != null) {
+            group.setStudentMessagingEnabled(request.getStudentMessagingEnabled());
+        }
+        group.setUpdatedBy(authenticatedUserService.getCurrentUserId());
+
+        return toGroupResponseWithCourseName(communicationGroupRepository.save(group));
     }
 
     @Override
@@ -147,7 +167,7 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
         group.setStatus(GroupStatus.ARCHIVED);
         CommunicationGroup savedGroup = communicationGroupRepository.save(group);
 
-        return CommunicationGroupMapper.toGroupResponse(savedGroup);
+        return toGroupResponseWithCourseName(savedGroup);
     }
 
     @Override
@@ -159,7 +179,25 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
         group.setStatus(GroupStatus.ACTIVE);
         CommunicationGroup savedGroup = communicationGroupRepository.save(group);
 
-        return CommunicationGroupMapper.toGroupResponse(savedGroup);
+        return toGroupResponseWithCourseName(savedGroup);
+    }
+
+    private CommunicationGroupResponse toGroupResponseWithCourseName(CommunicationGroup group) {
+        String authorizationHeader = authenticatedUserService.getAuthorizationHeader();
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            return CommunicationGroupMapper.toGroupResponse(group);
+        }
+
+        try {
+            ApiResponse<CourseLookupResponse> courseResponse = courseServiceClient
+                    .lookupCourseById(group.getCourseId(), authorizationHeader);
+            CourseLookupResponse course = courseResponse != null ? courseResponse.getData() : null;
+            return CommunicationGroupMapper.toGroupResponse(group, course != null ? course.getCourseName() : null);
+        } catch (RuntimeException exception) {
+            log.warn("Unable to resolve course name for communication group [{}] and course [{}]",
+                    group.getId(), group.getCourseId(), exception);
+            return CommunicationGroupMapper.toGroupResponse(group);
+        }
     }
 
     private void validateCanCreateGroup(Set<String> roles) {
@@ -268,6 +306,18 @@ public class CommunicationGroupServiceImpl implements CommunicationGroupService 
         GroupMember member = groupMemberService.validateActiveMembership(groupId, currentUserId);
         if (!GroupMemberRole.TEACHER.equals(member.getRole())) {
             throw new UnauthorizedGroupAccessException(unauthorizedMessage);
+        }
+    }
+
+    private void validateCanManageGroup(UUID groupId) {
+        UUID currentUserId = authenticatedUserService.getCurrentUserId();
+        Set<String> roles = authenticatedUserService.getCurrentUserRoles();
+        if (isAdmin(roles)) return;
+
+        GroupMember member = groupMemberService.validateActiveMembership(groupId, currentUserId);
+        if (!isTeacher(roles) || !GroupMemberRole.TEACHER.equals(member.getRole())) {
+            throw new UnauthorizedGroupAccessException(
+                    "Only admins and authorized teachers can update communication groups");
         }
     }
 

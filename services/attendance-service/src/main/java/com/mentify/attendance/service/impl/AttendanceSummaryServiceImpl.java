@@ -3,6 +3,7 @@ package com.mentify.attendance.service.impl;
 import com.mentify.attendance.client.CourseServiceClient;
 import com.mentify.attendance.client.dto.CourseLookupResponse;
 import com.mentify.attendance.dto.response.AttendanceSummaryResponse;
+import com.mentify.attendance.dto.response.AttendanceAnalyticsSummaryResponse;
 import com.mentify.attendance.entity.AttendanceRecord;
 import com.mentify.attendance.enums.AttendanceSessionStatus;
 import com.mentify.attendance.enums.AttendanceStatus;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +46,33 @@ public class AttendanceSummaryServiceImpl implements AttendanceSummaryService {
         assertTeacherCanManageCourse(course);
         AttendanceSummaryResponse summary = buildSummary(studentId, courseId);
         return response(HttpStatus.OK, "Student attendance summary fetched successfully", summary);
+    }
+
+    @Override
+    public ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsOverview() {
+        return analyticsResponse(null, attendanceRecordRepository
+                .findBySession_StatusAndIsActiveTrue(AttendanceSessionStatus.COMPLETED));
+    }
+
+    @Override
+    public ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsCourseSummary(UUID courseId) {
+        return analyticsResponse(courseId, attendanceRecordRepository
+                .findBySession_CourseIdAndSession_StatusAndIsActiveTrue(
+                        courseId, AttendanceSessionStatus.COMPLETED));
+    }
+
+    private ApiResponse<AttendanceAnalyticsSummaryResponse> analyticsResponse(
+            UUID courseId, List<AttendanceRecord> records) {
+        long attended = records.stream()
+                .filter(record -> record.getStatus() == AttendanceStatus.PRESENT
+                        || record.getStatus() == AttendanceStatus.LATE)
+                .count();
+        BigDecimal average = records.isEmpty()
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(attended * 100.0 / records.size())
+                .setScale(2, RoundingMode.HALF_UP);
+        return ApiResponse.success(200, "Attendance analytics fetched successfully",
+                new AttendanceAnalyticsSummaryResponse(courseId, average));
     }
 
     private AttendanceSummaryResponse buildSummary(UUID studentId, UUID courseId) {

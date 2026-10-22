@@ -1,6 +1,6 @@
 package com.mentify.ai.websocket.security;
 
-import com.mentify.common.security.KeycloakJwtAuthenticationConverter;
+import com.mentify.common.security.JwtAuthenticationConverter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,7 +42,7 @@ class AiWebSocketAuthInterceptorTest {
     private JwtDecoder jwtDecoder;
 
     @Mock
-    private KeycloakJwtAuthenticationConverter jwtAuthenticationConverter;
+    private JwtAuthenticationConverter jwtAuthenticationConverter;
 
     private final MessageChannel channel = mock(MessageChannel.class);
 

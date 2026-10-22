@@ -31,7 +31,12 @@ public class LessonCreateRequest {
     @Size(max = 500000, message = "Lesson content must not exceed 500000 characters")
     private String contentMarkdown;
 
+    @Size(max = 30, message = "Content type must not exceed 30 characters")
+    private String contentType;
+
     private Boolean isVisible;
+
+    private Boolean teachingCompleted;
 
     private LocalDate releaseDate;
 }

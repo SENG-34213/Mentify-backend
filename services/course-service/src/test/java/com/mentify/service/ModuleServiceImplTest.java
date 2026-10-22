@@ -12,6 +12,7 @@ import com.mentify.repository.LearningMaterialRepository;
 import com.mentify.repository.LessonRepository;
 import com.mentify.repository.ModuleRepository;
 import com.mentify.service.impl.ModuleServiceImpl;
+import com.mentify.service.impl.CourseContentAccessGuard;
 import com.mentify.service.impl.TeacherCourseAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,9 @@ class ModuleServiceImplTest {
     @Mock
     private TeacherCourseAccessGuard teacherCourseAccessGuard;
 
+    @Mock
+    private CourseContentAccessGuard courseContentAccessGuard;
+
     private ModuleServiceImpl moduleService;
 
     @BeforeEach
@@ -59,7 +63,8 @@ class ModuleServiceImplTest {
                 moduleRepository,
                 lessonRepository,
                 learningMaterialRepository,
-                teacherCourseAccessGuard
+                teacherCourseAccessGuard,
+                courseContentAccessGuard
         );
     }
 
@@ -217,12 +222,12 @@ class ModuleServiceImplTest {
 
         when(moduleRepository.findByIdAndCourse_Id(moduleId, courseId)).thenReturn(Optional.of(module));
 
-        ApiResponse<ModuleResponse> response = moduleService.getModule(courseId, moduleId);
+        ApiResponse<ModuleResponse> response = moduleService.getModule(courseId, moduleId, "Bearer token");
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         assertThat(response.getMessage()).isEqualTo("Module fetched successfully");
         assertThat(response.getData().getId()).isEqualTo(moduleId);
-        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
+        verify(courseContentAccessGuard).assertCanReadCourseContent(course, "Bearer token");
     }
 
     @Test
@@ -235,12 +240,12 @@ class ModuleServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
         when(moduleRepository.findAllByCourse_Id(courseId)).thenReturn(List.of(module));
 
-        ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId);
+        ApiResponse<List<ModuleResponse>> response = moduleService.getModules(courseId, "Bearer token");
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         assertThat(response.getMessage()).isEqualTo("Modules fetched successfully");
         assertThat(response.getData()).hasSize(1);
-        verify(teacherCourseAccessGuard).assertTeacherOwnsCourse(course);
+        verify(courseContentAccessGuard).assertCanReadCourseContent(course, "Bearer token");
     }
 
     private Course baseCourse(UUID courseId) {

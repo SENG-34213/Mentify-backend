@@ -8,10 +8,10 @@ import com.mentify.exam.dto.response.ExamSummaryResponse;
 import com.mentify.exam.service.ExamResultSheetService;
 import com.mentify.exam.service.ExamSummaryService;
 import com.mentify.exam.service.MarksEntryService;
+import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.exam.dto.request.UpdateExamRequest;
 import com.mentify.exam.dto.response.ExamResponse;
 import com.mentify.exam.service.ExamService;
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -155,7 +155,6 @@ public class ExamController {
     }
 
     @PutMapping("/{examId}/results")
-    @NotifyOnSuccess(type = "EXAM_RESULTS_RECORDED", title = "Exam results recorded", message = "Marks for your exam were recorded successfully.")
     public ResponseEntity<ApiResponse<MarksEntryResponse>> enterMarks(
             @PathVariable UUID examId,
             @Valid @RequestBody BatchMarksEntryRequest request,
