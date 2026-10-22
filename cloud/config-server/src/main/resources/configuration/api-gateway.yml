@@ -85,6 +85,11 @@ spring:
           uri: lb://course-service
           predicates:
             - Path=/api/v1/course/**
+
+        - id: marketplace-catalog
+          uri: lb://course-service
+          predicates:
+            - Path=/api/v1/marketplace/**
         - id: teacher-dashboard-course-service
           uri: lb://course-service
           predicates:

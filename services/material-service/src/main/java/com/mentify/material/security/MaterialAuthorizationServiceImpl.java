@@ -30,6 +30,9 @@ public class MaterialAuthorizationServiceImpl implements MaterialAuthorizationSe
     public UUID requireUploadCourseAccess(UUID courseId, MaterialPurpose purpose, String authorizationHeader) {
         AuthenticatedMaterialUser user = currentUserService.getCurrentUser();
         if (courseId == null) {
+            if (user.isAdmin() && purpose == MaterialPurpose.MARKETPLACE_PRODUCT) {
+                return null;
+            }
             throw new MaterialValidationException("Course id is required for material upload");
         }
 

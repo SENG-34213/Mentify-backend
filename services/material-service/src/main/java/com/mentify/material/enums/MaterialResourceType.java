@@ -8,5 +8,6 @@ public enum MaterialResourceType {
     SUBMISSION,
     EXAM,
     AI_KNOWLEDGE,
+    MARKETPLACE_PRODUCT,
     OTHER
 }

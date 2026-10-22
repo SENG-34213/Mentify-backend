@@ -19,6 +19,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -103,6 +104,16 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex,
+            WebRequest request
+    ) {
+        log.warn("Upload rejected because it exceeded the configured limit for {}", request.getDescription(false));
+        return buildResponse(HttpStatus.PAYLOAD_TOO_LARGE,
+                "This file is too large. Please upload a file smaller than 100 MB.");
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

@@ -65,6 +65,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/forgot-password/reset",
                                 "/api/v1/auth/.well-known/jwks.json",
                                 "/api/v1/internal/users/**",
+                                "/api/v1/marketplace/materials",
+                                "/api/v1/marketplace/materials/**",
                                 "/api/assignments/quizzes/ai/generate",
                                 "/api/v1/payments/stripe/webhook",
                                 "/ws",

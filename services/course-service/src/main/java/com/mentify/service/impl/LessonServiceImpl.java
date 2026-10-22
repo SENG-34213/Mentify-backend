@@ -44,6 +44,7 @@ public class LessonServiceImpl implements LessonService {
                 .contentMarkdown(normalizeContent(request.getContentMarkdown()))
                 .contentType(request.getContentType())
                 .isVisible(request.getIsVisible() != null ? request.getIsVisible() : true)
+                .teachingCompleted(Boolean.TRUE.equals(request.getTeachingCompleted()))
                 .releaseDate(request.getReleaseDate())
                 .module(module)
                 .build();
@@ -80,6 +81,9 @@ public class LessonServiceImpl implements LessonService {
         lesson.setContentMarkdown(normalizeContent(request.getContentMarkdown()));
         lesson.setContentType(request.getContentType());
         lesson.setVisible(request.getIsVisible() != null ? request.getIsVisible() : true);
+        if (request.getTeachingCompleted() != null) {
+            lesson.setTeachingCompleted(request.getTeachingCompleted());
+        }
         lesson.setReleaseDate(request.getReleaseDate());
 
         Lesson savedLesson = lessonRepository.save(lesson);
@@ -185,6 +189,7 @@ public class LessonServiceImpl implements LessonService {
                                 .build())
                         .toList())
                 .isVisible(lesson.isVisible())
+                .teachingCompleted(lesson.isTeachingCompleted())
                 .releaseDate(lesson.getReleaseDate())
                 .moduleId(lesson.getModule().getId())
                 .createdBy(lesson.getCreatedBy())
