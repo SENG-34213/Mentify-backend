@@ -78,6 +78,8 @@
               path: services/calender-service
             - service: notification-service
               path: services/notification-service
+            - service: analytics-service
+              path: services/analytics-service
 
       steps:
         - name: Checkout code
@@ -130,6 +132,8 @@
               path: services/calender-service
             - service: notification-service
               path: services/notification-service
+            - service: analytics-service
+              path: services/analytics-service
 
       steps:
         - name: Checkout code
@@ -188,6 +192,8 @@
               path: services/calender-service
             - service: notification-service
               path: services/notification-service
+            - service: analytics-service
+              path: services/analytics-service
 
       steps:
         - name: Checkout code
@@ -282,6 +288,9 @@
             - service: calender-service
               path: services/calender-service
               server_port: "8092"
+            - service: analytics-service
+              path: services/analytics-service
+              server_port: "8095"
 
       services:
         postgres-user:
