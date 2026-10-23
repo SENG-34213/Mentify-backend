@@ -1,0 +1,27 @@
+$kind: http-request
+name: 'Login - Super Admin'
+order: 1000
+url: '{{auth_service_url}}/api/v1/auth/login'
+method: POST
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "identifier": "{{super_admin_email}}",
+      "password": "{{super_admin_password}}",
+      "rememberMe": true
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      const response = pm.response.json();
+      if (response && response.data && response.data.accessToken) {
+          pm.environment.set("access_token", response.data.accessToken);
+          console.log("✅ Access token saved to environment variable 'access_token'");
+      } else {
+          console.log("⚠️ Could not find accessToken in response. Check response structure.");
+      }

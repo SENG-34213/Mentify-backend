@@ -32,7 +32,9 @@ public class CalendarExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
-        return build(HttpStatus.FORBIDDEN, "Access denied");
+        String message = ex.getMessage();
+        return build(HttpStatus.FORBIDDEN,
+                message == null || message.isBlank() ? "Access denied" : message);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

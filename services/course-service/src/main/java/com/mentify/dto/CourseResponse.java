@@ -39,7 +39,7 @@ public class CourseResponse {
     private boolean isPublished;
     private CourseStatus courseStatus;
     private LocalDate publishedDate;
-    private int numberOfStudents;
+    private Integer numberOfStudents;
     private Long moduleCount;
     private Long lessonCount;
     private Long assignmentCount;

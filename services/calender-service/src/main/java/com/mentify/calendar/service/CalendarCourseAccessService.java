@@ -41,7 +41,7 @@ public class CalendarCourseAccessService {
         }
         if (!currentUser.hasRole("TEACHER")
                 || course.getAssignedTeacherId() == null
-                || !course.getAssignedTeacherId().equals(currentUser.getCurrentUserId())) {
+                || !currentUser.getIdentityIds().contains(course.getAssignedTeacherId())) {
             throw new AccessDeniedException("Teacher is not assigned to this course");
         }
     }

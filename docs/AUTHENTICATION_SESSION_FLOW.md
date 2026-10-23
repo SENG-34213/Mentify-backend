@@ -16,8 +16,8 @@ Successful responses use the common `ApiResponse` shape:
     "accessToken": "<jwt>",
     "refreshToken": "<refresh-token>",
     "tokenType": "Bearer",
-    "expiresIn": 300,
-    "refreshExpiresIn": 1800,
+    "expiresIn": 86400,
+    "refreshExpiresIn": 86400,
     "scope": "openid email profile",
     "issuedAt": "2026-06-26T00:00:00Z",
     "user": {}
@@ -57,8 +57,8 @@ Successful response:
     "accessToken": "<new-jwt>",
     "refreshToken": "<new-refresh-token-if-rotated>",
     "tokenType": "Bearer",
-    "expiresIn": 300,
-    "refreshExpiresIn": 1800,
+    "expiresIn": 86400,
+    "refreshExpiresIn": 86400,
     "scope": "openid email profile",
     "issuedAt": "2026-06-26T00:00:00Z"
   }

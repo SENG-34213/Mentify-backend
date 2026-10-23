@@ -44,7 +44,7 @@ Manual APIs always persist `sourceType=CUSTOM` with no `sourceId`. Existing sour
 - `STUDENT` cannot create, update, or cancel. Students can retrieve global events, matching role events, private events they own, and course events only when Enrollment Service confirms membership.
 - Private events are visible only to their creator and administrators.
 - Unauthorized event reads use the not-found response to avoid leaking event existence.
-- Creation identity is taken from the JWT subject (with the established `local_user_id` fallback); client identity fields are not trusted.
+- Creation identity is taken from the JWT `local_user_id` when present, otherwise the JWT subject; client identity fields are not trusted. Course assignment checks recognize either UUID claim so legacy course records remain manageable.
 
 Update preserves the event ID, creator, creation timestamp, and source linkage. Cancellation changes status to `CANCELLED` and retains the row. Cancelled events cannot be updated or cancelled again. Invalid updates are validated before mutation.
 

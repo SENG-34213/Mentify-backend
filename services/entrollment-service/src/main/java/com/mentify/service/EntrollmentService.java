@@ -25,6 +25,8 @@ public interface EntrollmentService {
 
     ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId);
 
+    ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId, String authorizationHeader);
+
     ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(UUID courseId, String authorizationHeader);
 
     ApiResponse<List<EntrollmentResponse>> getActiveEntrollmentsByCourse(UUID courseId, String authorizationHeader);

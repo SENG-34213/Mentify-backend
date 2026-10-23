@@ -23,6 +23,8 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     List<AttendanceRecord> findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
             UUID studentId, UUID courseId, AttendanceSessionStatus sessionStatus);
 
+    List<AttendanceRecord> findByStudentIdAndSession_CourseIdAndIsActiveTrue(UUID studentId, UUID courseId);
+
     List<AttendanceRecord> findBySession_StatusAndIsActiveTrue(AttendanceSessionStatus sessionStatus);
 
     List<AttendanceRecord> findBySession_CourseIdAndSession_StatusAndIsActiveTrue(

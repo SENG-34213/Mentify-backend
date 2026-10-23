@@ -121,8 +121,14 @@ public class AttendanceSummaryServiceImpl implements AttendanceSummaryService {
 
     private AttendanceSummaryResponse buildSummary(UUID studentId, UUID courseId) {
         List<AttendanceRecord> records = attendanceRecordRepository
-                .findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
-                        studentId, courseId, AttendanceSessionStatus.COMPLETED);
+                .findByStudentIdAndSession_CourseIdAndIsActiveTrue(studentId, courseId)
+                .stream()
+                // A marked attendance is meaningful as soon as it is saved; waiting for the
+                // teacher to close the session made PRESENT/ABSENT records appear as zeroes.
+                // Cancelled sessions and unmarked roster rows are not attendance attempts.
+                .filter(record -> record.getSession().getStatus() != AttendanceSessionStatus.CANCELLED)
+                .filter(record -> record.getStatus() != AttendanceStatus.NOT_MARKED)
+                .toList();
 
         long completedSessions = records.size();
         long presentCount = records.stream().filter(r -> r.getStatus() == AttendanceStatus.PRESENT).count();

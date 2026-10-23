@@ -6,12 +6,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface EntrollmentRepository extends JpaRepository<Entrollment, UUID> {
 
     List<Entrollment> findAllByStudentIdAndIsActiveTrue(UUID studentId);
+
+    List<Entrollment> findAllByStudentIdInAndIsActiveTrue(Collection<UUID> studentIds);
 
     List<Entrollment> findAllByIsActiveTrueOrderByCreatedAtDesc();
 

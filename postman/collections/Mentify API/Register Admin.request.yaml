@@ -1,0 +1,30 @@
+$kind: http-request
+name: 'Register Admin'
+order: 2000
+url: '{{base_url}}/api/v1/admin/users/admins/register'
+method: POST
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{access_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "email": "admin@mentify.test",
+      "firstName": "John",
+      "lastName": "Admin",
+      "phoneNumber": "+94771234567",
+      "adminProfile": {
+        "dateOfBirth": "1990-01-15",
+        "nic": "901234567V"
+      },
+      "address": {
+        "addressLine1": "123 Main Street",
+        "addressLine2": "Apt 4B",
+        "city": "Colombo",
+        "district": "Colombo",
+        "postalCode": "00100"
+      }
+    }

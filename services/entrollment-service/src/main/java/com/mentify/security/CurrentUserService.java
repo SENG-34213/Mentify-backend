@@ -15,9 +15,12 @@ public class CurrentUserService {
 
     public UUID getCurrentUserId() {
         Jwt jwt = getCurrentJwt();
-        String resolvedId = jwt.getSubject();
+        // Course records store the canonical user-service UUID. The JWT subject
+        // can be a separate identity-provider UUID, so prefer local_user_id to
+        // keep teacher ownership checks consistent with course-service.
+        String resolvedId = jwt.getClaimAsString(LOCAL_USER_ID_CLAIM);
         if (resolvedId == null || resolvedId.isBlank()) {
-            resolvedId = jwt.getClaimAsString(LOCAL_USER_ID_CLAIM);
+            resolvedId = jwt.getSubject();
         }
 
         if (resolvedId == null || resolvedId.isBlank()) {
