@@ -60,8 +60,7 @@ class AttendanceSummaryServiceImplTest {
         UUID studentId = UUID.randomUUID();
 
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
-        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
-                studentId, courseId, AttendanceSessionStatus.COMPLETED))
+        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndIsActiveTrue(studentId, courseId))
                 .thenReturn(List.of(
                         recordWithStatus(AttendanceStatus.PRESENT),
                         recordWithStatus(AttendanceStatus.PRESENT),
@@ -86,8 +85,7 @@ class AttendanceSummaryServiceImplTest {
         UUID studentId = UUID.randomUUID();
 
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
-        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
-                studentId, courseId, AttendanceSessionStatus.COMPLETED))
+        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndIsActiveTrue(studentId, courseId))
                 .thenReturn(List.of());
 
         ApiResponse<AttendanceSummaryResponse> response = attendanceSummaryService.getMyAttendanceSummary(courseId, AUTH_HEADER);
