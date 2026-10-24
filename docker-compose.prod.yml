@@ -81,7 +81,7 @@ services:
     <<: *app
     environment:
       SERVICE_JAR: config-server.jar
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: prod,native
       EUREKA_URL: http://service-registry:8761/eureka/
       EUREKA_INSTANCE_IP: config-server
     depends_on:

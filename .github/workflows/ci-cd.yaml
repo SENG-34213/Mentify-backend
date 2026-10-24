@@ -250,12 +250,11 @@
       needs: unit-tests
 
       if: |
-        github.ref == 'refs/heads/development' ||
         github.ref == 'refs/heads/main' ||
         github.event_name == 'pull_request'
 
       strategy:
-        fail-fast: false
+        fail-fast: true
         matrix:
           include:
             - service: user-service
