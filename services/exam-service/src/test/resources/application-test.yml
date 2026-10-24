@@ -14,7 +14,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/mentify
+          issuer-uri: http://localhost:8085
 
 eureka:
   client:

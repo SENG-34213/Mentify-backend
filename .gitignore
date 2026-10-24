@@ -1,6 +1,9 @@
 .env
 *.env
 !.env.example
+.env.prod
+!.env.prod.example
+.deploy.env
 
 .idea/
 target/

@@ -403,35 +403,6 @@
             --health-interval 10s
             --health-timeout 5s
             --health-retries 5
-        postgres-keycloak:
-          image: ${{ vars.POSTGRES_IMAGE }}
-          env:
-            POSTGRES_DB: ${{ vars.KEYCLOAK_DB_NAME }}
-            POSTGRES_USER: ${{ vars.KEYCLOAK_DB_USERNAME }}
-            POSTGRES_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
-          ports:
-            - ${{ vars.HOST_PORT_KEYCLOAK_DB }}:5432
-          options: >-
-            --health-cmd pg_isready
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5
-
-        keycloak:
-          image: ${{ vars.KEYCLOAK_IMAGE }}
-          env:
-            KEYCLOAK_ADMIN: admin
-            KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.CI_KEYCLOAK_ADMIN_PASSWORD }}
-            KC_DB: postgres
-            KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/${{ vars.KEYCLOAK_DB_NAME }}
-            KC_DB_USERNAME: ${{ vars.KEYCLOAK_DB_USERNAME }}
-            KC_DB_PASSWORD: ${{ secrets.CI_KEYCLOAK_DB_PASSWORD }}
-            KC_HOSTNAME_STRICT: "false"
-            KC_HTTP_ENABLED: "true"
-            KC_HEALTH_ENABLED: "true"
-          ports:
-            - ${{ vars.HOST_PORT_KEYCLOAK }}:8080
-
       steps:
         - name: Checkout code
           uses: actions/checkout@v4
@@ -496,13 +467,6 @@
             CALENDER_TEST_JPA_DIALECT: org.hibernate.dialect.PostgreSQLDialect
 
             SPRING_JPA_HIBERNATE_DDL_AUTO: ${{ env.SPRING_JPA_HIBERNATE_DDL_AUTO }}
-
-            KEYCLOAK_AUTH_SERVER_URL: ${{ vars.KEYCLOAK_AUTH_SERVER_URL }}
-            KEYCLOAK_REALM: ${{ vars.KEYCLOAK_REALM }}
-            KEYCLOAK_ISSUER_URI: ${{ vars.KEYCLOAK_ISSUER_URI }}
-            KEYCLOAK_FRONTEND_CLIENT_ID: ${{ vars.KEYCLOAK_FRONTEND_CLIENT_ID }}
-            KEYCLOAK_BACKEND_CLIENT_ID: ${{ vars.KEYCLOAK_BACKEND_CLIENT_ID }}
-            KEYCLOAK_BACKEND_CLIENT_SECRET: ${{ secrets.CI_KEYCLOAK_BACKEND_SECRET }}
 
             SPRING_CONFIG_IMPORT: ${{ env.SPRING_CONFIG_IMPORT }}
             SPRING_CLOUD_CONFIG_ENABLED: ${{ env.SPRING_CLOUD_CONFIG_ENABLED }}
@@ -581,3 +545,137 @@
             fi
             
             echo "All required CI checks passed."
+
+    docker-build-and-push:
+      name: "Build and Push Docker Image"
+      runs-on: ubuntu-latest
+      timeout-minutes: 30
+      needs: ci-summary
+      if: |
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        needs.ci-summary.result == 'success'
+
+      env:
+        IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE || 'holins/mentify-backend' }}
+
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        - name: Validate Docker Hub image name
+          run: |
+            if [[ -z "$IMAGE_NAME" ]]; then
+              echo "Repository variable DOCKERHUB_IMAGE is required."
+              exit 1
+            fi
+
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Log in to Docker Hub
+          uses: docker/login-action@v3
+          with:
+            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+        - name: Build and push image
+          uses: docker/build-push-action@v6
+          with:
+            context: .
+            file: docker/Dockerfile
+            push: true
+            tags: |
+              ${{ env.IMAGE_NAME }}:${{ github.sha }}
+              ${{ env.IMAGE_NAME }}:latest
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+
+    deploy-to-ec2:
+      name: "Deploy Docker Image to EC2"
+      runs-on: ubuntu-latest
+      timeout-minutes: 15
+      needs: docker-build-and-push
+      if: |
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        needs.docker-build-and-push.result == 'success'
+
+      env:
+        IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE || 'holins/mentify-backend' }}
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+        DEPLOY_DIR: /opt/mentify
+
+      steps:
+        - name: Checkout deployment files
+          uses: actions/checkout@v4
+
+        - name: Prepare SSH access
+          env:
+            EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          run: |
+            install -m 700 -d ~/.ssh
+            printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/mentify-ec2.pem
+            chmod 600 ~/.ssh/mentify-ec2.pem
+            ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+        - name: Prepare image deployment metadata
+          run: |
+            {
+              echo "DOCKERHUB_IMAGE=$IMAGE_NAME"
+              echo "IMAGE_TAG=${GITHUB_SHA}"
+            } > .deploy.env
+
+        - name: Copy deployment files to EC2
+          run: |
+            SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
+
+            ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" \
+              "mkdir -p '$DEPLOY_DIR/docker/postgres/init'"
+
+            scp -i ~/.ssh/mentify-ec2.pem \
+              docker-compose.prod.yml \
+              Caddyfile \
+              .deploy.env \
+              "$SSH_TARGET:$DEPLOY_DIR/"
+
+            scp -i ~/.ssh/mentify-ec2.pem \
+              docker/postgres/init/01-create-service-databases.sh \
+              "$SSH_TARGET:$DEPLOY_DIR/docker/postgres/init/"
+
+        - name: Pull and restart services on EC2
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+            DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          run: |
+            SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
+
+            printf '%s' "$DOCKERHUB_TOKEN" | \
+              ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" \
+              "docker login --username '$DOCKERHUB_USERNAME' --password-stdin"
+
+            ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" <<'REMOTE_COMMANDS'
+            set -eu
+            cd /opt/mentify
+
+            docker compose \
+              --env-file .env.prod \
+              --env-file .deploy.env \
+              -f docker-compose.prod.yml \
+              pull
+
+            docker compose \
+              --env-file .env.prod \
+              --env-file .deploy.env \
+              -f docker-compose.prod.yml \
+              up -d --remove-orphans
+
+            docker image prune -f
+            REMOTE_COMMANDS
+
+        - name: Verify deployment health
+          run: |
+            SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
+            ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" \
+              "curl --fail --retry 12 --retry-delay 5 http://127.0.0.1/actuator/health"

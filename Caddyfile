@@ -1,0 +1,9 @@
+:80 {
+    encode gzip
+
+    request_body {
+        max_size 110MB
+    }
+
+    reverse_proxy api-gateway:8080
+}
