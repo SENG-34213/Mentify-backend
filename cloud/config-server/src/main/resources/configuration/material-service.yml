@@ -54,6 +54,7 @@ material:
       region: ${AWS_REGION:${AWS_DEFAULT_REGION:ap-south-1}}
       download-url-expiration: ${MATERIAL_DOWNLOAD_URL_EXPIRATION:PT5M}
       profile: ${AWS_PROFILE:mentify-dev}
+      endpoint: ${MATERIAL_S3_ENDPOINT:}
   validation:
     max-upload-size: ${MATERIAL_MAX_UPLOAD_SIZE:100MB}
     file-types:

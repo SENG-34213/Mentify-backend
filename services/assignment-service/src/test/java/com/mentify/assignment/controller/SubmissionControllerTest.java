@@ -5,6 +5,7 @@ import com.mentify.assignment.dto.request.CreateSubmissionRequest;
 import com.mentify.assignment.dto.request.UpdateSubmissionRequest;
 import com.mentify.assignment.dto.response.SubmissionResponse;
 import com.mentify.assignment.enums.SubmissionStatus;
+import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.service.SubmissionService;
 import com.mentify.payload.response.ApiResponse;
 import org.junit.jupiter.api.Test;
@@ -189,5 +190,35 @@ class SubmissionControllerTest {
                 .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
 
         verify(submissionService).submitAssignment(eq(submissionId), eq(AUTH_HEADER));
+    }
+
+    @Test
+    void submitAssignment_whenLateSubmissionIsDisabled_returnsConflict() throws Exception {
+        UUID submissionId = UUID.randomUUID();
+        when(submissionService.submitAssignment(eq(submissionId), eq(AUTH_HEADER)))
+                .thenThrow(new SubmissionConflictException("Late submission is not allowed for this assignment"));
+
+        mockMvc.perform(post("/api/v1/submissions/{submissionId}/submit", submissionId)
+                        .header("Authorization", AUTH_HEADER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.statusCode").value(409))
+                .andExpect(jsonPath("$.message").value("Late submission is not allowed for this assignment"));
+    }
+
+    @Test
+    void createSubmission_whenAttemptLimitIsReached_returnsConflict() throws Exception {
+        UUID assignmentId = UUID.randomUUID();
+        when(submissionService.createSubmission(eq(assignmentId), any(CreateSubmissionRequest.class), eq(AUTH_HEADER)))
+                .thenThrow(new SubmissionConflictException("Maximum submission attempts reached"));
+
+        mockMvc.perform(post("/api/v1/assignments/{assignmentId}/submissions", assignmentId)
+                        .header("Authorization", AUTH_HEADER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CreateSubmissionRequest.builder()
+                                .content("One too many")
+                                .build())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.statusCode").value(409))
+                .andExpect(jsonPath("$.message").value("Maximum submission attempts reached"));
     }
 }

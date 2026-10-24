@@ -17,7 +17,8 @@ class S3ConfigTest {
                     "material.storage.s3.bucket=material-service-test-bucket",
                     "material.storage.s3.region=ap-south-1",
                     "material.storage.s3.download-url-expiration=PT3M",
-                    "material.storage.s3.profile=mentify-dev"
+                    "material.storage.s3.profile=mentify-dev",
+                    "material.storage.s3.endpoint=http://localhost:9000"
             );
 
     @Test
@@ -30,6 +31,7 @@ class S3ConfigTest {
             assertThat(context.getBean(S3Properties.class).region()).isEqualTo("ap-south-1");
             assertThat(context.getBean(S3Properties.class).downloadUrlExpiration()).isEqualTo(Duration.ofMinutes(3));
             assertThat(context.getBean(S3Properties.class).profile()).isEqualTo("mentify-dev");
+            assertThat(context.getBean(S3Properties.class).endpoint()).isEqualTo("http://localhost:9000");
         });
     }
 }

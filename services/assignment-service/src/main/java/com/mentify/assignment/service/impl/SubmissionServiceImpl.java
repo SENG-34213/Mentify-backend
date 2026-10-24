@@ -6,6 +6,7 @@ import com.mentify.assignment.dto.response.SubmissionResponse;
 import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.entity.Submission;
 import com.mentify.assignment.enums.SubmissionStatus;
+import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.SubmissionService;
@@ -62,7 +63,7 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         long existingAttempts = submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, currentUserId);
         if (assignment.getAllowedAttempts() != null && existingAttempts >= assignment.getAllowedAttempts()) {
-            throw new RuntimeException("Maximum submission attempts reached");
+            throw new SubmissionConflictException("Maximum submission attempts reached");
         }
 
         Submission submission = Submission.builder()
@@ -106,7 +107,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         }
 
         if (LocalDateTime.now().isAfter(assignment.getDueDate()) && !Boolean.TRUE.equals(assignment.getAllowLateSubmission())) {
-            throw new RuntimeException("Late submission is not allowed for this assignment");
+            throw new SubmissionConflictException("Late submission is not allowed for this assignment");
         }
 
         if (submission.getStatus() != SubmissionStatus.DRAFT) {

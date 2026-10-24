@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @Slf4j
 @RestControllerAdvice
@@ -48,6 +49,11 @@ public class MaterialExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Data integrity violation in material-service: {}", ex.getClass().getSimpleName());
         return build(HttpStatus.CONFLICT, "The request conflicts with existing material data");
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMissingRequestPart(MissingServletRequestPartException ex) {
+        return build(HttpStatus.BAD_REQUEST, "Required multipart file or field is missing");
     }
 
     @ExceptionHandler(Exception.class)
