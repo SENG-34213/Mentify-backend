@@ -19,6 +19,16 @@ public class RefundPaymentResponse {
 
     private PaymentStatus status;
 
+    private String courseName;
+
+    private String courseCode;
+
+    private java.math.BigDecimal amount;
+
+    private String currency;
+
+    private String refundReason;
+
     private String stripeRefundId;
 
     private LocalDateTime refundedAt;

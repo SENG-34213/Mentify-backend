@@ -1,0 +1,3 @@
+$kind: collection
+name: 'Mentify API'
+description: 'Mentify backend API collection. Use the Mentify Local environment. Login as Super Admin first to get the access_token, then use it for protected endpoints.'

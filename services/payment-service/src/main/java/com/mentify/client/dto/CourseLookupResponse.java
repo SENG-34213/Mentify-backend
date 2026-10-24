@@ -20,6 +20,8 @@ public class CourseLookupResponse {
 
     private String courseName;
 
+    private String courseCode;
+
     private BigDecimal gradeMonthlyFee;
 
     /** @deprecated Course pricing is now owned by the grade. */

@@ -12,6 +12,11 @@ import java.util.List;
 @FeignClient(name = "user-service", path = "/api/v1/users")
 public interface UserServiceClient {
 
+    @GetMapping("/me")
+    ApiResponse<UserLookupResponse> getCurrentUser(
+            @RequestHeader("Authorization") String authorizationHeader
+    );
+
     @GetMapping
     ApiResponse<List<UserLookupResponse>> getUsersByRole(
             @RequestParam("role") String role,

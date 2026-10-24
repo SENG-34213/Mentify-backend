@@ -19,6 +19,10 @@ public class StartCoursePaymentResponse {
 
     private UUID courseId;
 
+    private String courseName;
+
+    private String courseCode;
+
     private BigDecimal amount;
 
     private String currency;

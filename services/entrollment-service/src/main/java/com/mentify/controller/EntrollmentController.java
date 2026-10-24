@@ -95,11 +95,14 @@ public class EntrollmentController {
 
     @GetMapping("/students/{studentId}/courses")
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<ApiResponse<List<UUID>>> getActiveCourseIdsForStudent(@PathVariable UUID studentId) {
+    public ResponseEntity<ApiResponse<List<UUID>>> getActiveCourseIdsForStudent(
+            @PathVariable UUID studentId,
+            @RequestHeader("Authorization") String authorizationHeader) {
         if (!studentId.equals(currentUserService.getCurrentUserId())) {
             throw new org.springframework.security.access.AccessDeniedException("Students may only query their own courses");
         }
-        ApiResponse<List<UUID>> response = entrollmentService.getActiveCourseIdsForStudent(studentId);
+        ApiResponse<List<UUID>> response = entrollmentService
+                .getActiveCourseIdsForStudent(studentId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

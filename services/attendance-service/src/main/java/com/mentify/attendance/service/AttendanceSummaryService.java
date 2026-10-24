@@ -5,6 +5,7 @@ import com.mentify.attendance.dto.response.AttendanceAnalyticsSummaryResponse;
 import com.mentify.payload.response.ApiResponse;
 
 import java.util.UUID;
+import java.time.LocalDate;
 
 public interface AttendanceSummaryService {
 
@@ -15,4 +16,9 @@ public interface AttendanceSummaryService {
     ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsOverview();
 
     ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsCourseSummary(UUID courseId);
+
+    ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsOverview(LocalDate from, LocalDate to);
+
+    ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsCourseSummary(
+            UUID courseId, LocalDate from, LocalDate to, String authorizationHeader);
 }

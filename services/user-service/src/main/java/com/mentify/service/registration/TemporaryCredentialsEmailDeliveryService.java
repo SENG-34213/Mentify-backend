@@ -36,7 +36,7 @@ public class TemporaryCredentialsEmailDeliveryService {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
             helper.setFrom(fromAddress);
             helper.setTo(email);
-            helper.setSubject("Your temporary Mentify sign-in password");
+            helper.setSubject("Your TiT account is ready — secure sign-in details");
             MimeMultipart alternative = new MimeMultipart("alternative");
 
             MimeBodyPart plainTextPart = new MimeBodyPart();
@@ -70,10 +70,10 @@ public class TemporaryCredentialsEmailDeliveryService {
 
     private String plainText(String email, String firstName, String temporaryPassword) {
         return "Hello " + safeName(firstName) + ",\n\n"
-                + "Your Mentify account has been created. Sign in with " + email + " and this temporary password:\n\n"
+                + "Your TiT account has been created. Sign in with " + email + " and this temporary password:\n\n"
                 + temporaryPassword + "\n\n"
-                + "Sign in at " + loginUrl + " with these credentials. You can change the password later using "
-                + "Forgot password on the sign-in page. Keep this message private and delete it after changing "
+                + "Sign in at " + loginUrl + " with these credentials. You will be asked to change this password "
+                + "after signing in. Keep this message private, never forward it, and delete it after changing "
                 + "your password.\n";
     }
 
@@ -82,17 +82,24 @@ public class TemporaryCredentialsEmailDeliveryService {
         return """
                 <!doctype html>
                 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-                <body style="margin:0;padding:24px;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
-                  <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px">
-                    <tr><td style="padding:28px 32px 12px;font-size:13px;font-weight:bold;letter-spacing:1px;color:#4f46e5">MENTIFY</td></tr>
-                    <tr><td style="padding:8px 32px 0;font-size:24px;line-height:1.3;font-weight:bold">Your account is ready</td></tr>
-                    <tr><td style="padding:16px 32px 8px;font-size:16px;line-height:1.6">Hello %s, your Mentify account is ready.</td></tr>
-                    <tr><td style="padding:8px 32px;font-size:14px;line-height:1.6">Sign-in email: <strong>%s</strong></td></tr>
-                    <tr><td style="padding:8px 32px 0;font-size:14px;line-height:1.6">Temporary password:</td></tr>
-                    <tr><td style="padding:8px 32px 20px"><div style="padding:16px;background:#f7f8fc;border:1px solid #e8eaf2;border-radius:8px;font-family:monospace;font-size:18px;letter-spacing:1px;word-break:break-all">%s</div></td></tr>
-                    <tr><td style="padding:0 32px 16px;font-size:14px;line-height:1.6;color:#4b5565">Sign in to Mentify with these credentials. You can change your password later using Forgot password on the sign-in page.</td></tr>
-                    <tr><td style="padding:0 32px 24px"><a href="%s" style="display:inline-block;padding:12px 20px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold">Open Mentify</a></td></tr>
-                    <tr><td style="padding:0 32px 28px;font-size:13px;line-height:1.6;color:#6b7280">Keep this password private and delete this email after changing your password.</td></tr>
+                <body style="margin:0;padding:32px 16px;background:#eef2ff;font-family:Arial,Helvetica,sans-serif;color:#172033">
+                  <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0">
+                    <tr><td align="center">
+                      <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #e4e7f2;border-radius:20px;overflow:hidden;box-shadow:0 12px 32px rgba(31,41,55,.08)">
+                        <tr><td style="padding:26px 36px;background:#312e81;color:#ffffff;font-size:20px;font-weight:800;letter-spacing:.5px">TiT <span style="font-size:12px;font-weight:600;letter-spacing:1.5px;color:#c7d2fe">LEARNING PLATFORM</span></td></tr>
+                        <tr><td style="padding:38px 36px 10px;font-size:12px;line-height:18px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4f46e5">Welcome to TiT</td></tr>
+                        <tr><td style="padding:0 36px;font-size:30px;line-height:38px;font-weight:800;letter-spacing:-.7px;color:#172033">Your account is ready</td></tr>
+                        <tr><td style="padding:14px 36px 24px;font-size:16px;line-height:26px;color:#566176">Hello %s,<br><br>Your TiT workspace is ready. Use the secure sign-in details below to access your account.</td></tr>
+                        <tr><td style="padding:0 36px 8px;font-size:13px;line-height:20px;font-weight:700;color:#667085">SIGN-IN EMAIL</td></tr>
+                        <tr><td style="padding:0 36px 24px;font-size:16px;line-height:24px;font-weight:700;color:#172033">%s</td></tr>
+                        <tr><td style="padding:0 36px 8px;font-size:13px;line-height:20px;font-weight:700;color:#667085">Temporary password:</td></tr>
+                        <tr><td style="padding:0 36px 26px"><div style="padding:18px 20px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;font-family:Consolas,Monaco,monospace;font-size:22px;line-height:28px;font-weight:800;letter-spacing:2px;color:#312e81;word-break:break-all">%s</div></td></tr>
+                        <tr><td style="padding:0 36px 26px"><a href="%s" style="display:inline-block;padding:14px 24px;background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;line-height:20px;font-weight:800">Sign in to TiT</a></td></tr>
+                        <tr><td style="padding:20px 36px;background:#fffbeb;border-top:1px solid #fde68a;border-bottom:1px solid #fde68a;font-size:14px;line-height:22px;color:#713f12"><strong>Important security notice:</strong> This is a temporary password. Change it immediately after your first sign-in. Never share it, forward this email, or save it in an unsecured location.</td></tr>
+                        <tr><td style="padding:24px 36px 32px;font-size:13px;line-height:21px;color:#667085">If you did not expect this account, please contact your administrator. For your protection, delete this email after changing your password.</td></tr>
+                      </table>
+                      <p style="margin:18px 0 0;font-size:12px;line-height:18px;color:#7c8699">This is an automated message from TiT. Please do not reply.</p>
+                    </td></tr>
                   </table>
                 </body></html>
                 """.formatted(HtmlUtils.htmlEscape(safeName(firstName)), HtmlUtils.htmlEscape(email),

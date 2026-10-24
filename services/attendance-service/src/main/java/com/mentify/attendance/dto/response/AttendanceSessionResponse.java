@@ -20,6 +20,8 @@ import java.util.UUID;
 public class AttendanceSessionResponse {
     private UUID id;
     private UUID courseId;
+    private String courseName;
+    private String courseCode;
     private String title;
     private LocalDate attendanceDate;
     private LocalTime startTime;
@@ -27,6 +29,7 @@ public class AttendanceSessionResponse {
     private AttendanceMode mode;
     private AttendanceSessionStatus status;
     private UUID createdBy;
+    private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<AttendanceRecordResponse> records;

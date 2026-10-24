@@ -31,6 +31,7 @@ class CalendarExamProjectionServiceImplTest {
 
     @Mock CalendarEventRepository repository;
     @Mock CalendarEventMapper mapper;
+    @Mock CalendarVenueAvailabilityService venueAvailability;
     @InjectMocks CalendarExamProjectionServiceImpl service;
 
     private final UUID examId = UUID.randomUUID();

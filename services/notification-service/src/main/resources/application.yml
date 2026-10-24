@@ -59,7 +59,7 @@ mentify:
       topic: ${NOTIFICATION_KAFKA_TOPIC:mentify.notification-events}
       group-id: ${NOTIFICATION_KAFKA_GROUP_ID:notification-service}
     email:
-      from: ${SMTP_FROM:${SMTP_USERNAME:mohanathasholins17@gmail.com}}
+      from: ${SMTP_FROM:titeducation86@gmail.com}
       retry-delay-millis: ${NOTIFICATION_EMAIL_RETRY_DELAY_MILLIS:30000}
       max-attempts: ${NOTIFICATION_EMAIL_MAX_ATTEMPTS:5}
       retry-enabled: ${NOTIFICATION_EMAIL_RETRY_ENABLED:true}

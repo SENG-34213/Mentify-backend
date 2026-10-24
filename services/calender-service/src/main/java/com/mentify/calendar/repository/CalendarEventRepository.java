@@ -23,6 +23,18 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
 
     @Query("""
             select event from CalendarEvent event
+            where event.status = :status
+              and event.location is not null
+              and lower(trim(event.location)) = :normalizedLocation
+            order by event.startDateTime asc, event.id asc
+            """)
+    List<CalendarEvent> findVenueBookings(
+            @Param("normalizedLocation") String normalizedLocation,
+            @Param("status") CalendarEventStatus status
+    );
+
+    @Query("""
+            select event from CalendarEvent event
             where event.startDateTime <= :rangeEnd
               and coalesce(event.endDateTime, event.startDateTime) >= :rangeStart
               and (:courseId is null or event.courseId = :courseId)
@@ -50,7 +62,7 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
               and coalesce(event.endDateTime, event.startDateTime) > :rangeStart
               and (:courseId is null or event.courseId = :courseId)
               and (:eventType is null or event.eventType = :eventType)
-              and event.status = :status
+              and (:status is null or event.status = :status)
               and (event.visibility = com.mentify.calendar.enums.CalendarVisibility.GLOBAL
                    or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.PRIVATE
                        and event.createdBy = :userId)
@@ -77,7 +89,7 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
               and coalesce(event.endDateTime, event.startDateTime) > :rangeStart
               and (:courseId is null or event.courseId = :courseId)
               and (:eventType is null or event.eventType = :eventType)
-              and event.status = :status
+              and (:status is null or event.status = :status)
             order by event.startDateTime asc, event.id asc
             """)
     List<CalendarEvent> findAdministrativeOverlapping(
@@ -93,7 +105,7 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
             where event.startDateTime >= :from
               and (:courseId is null or event.courseId = :courseId)
               and (:eventType is null or event.eventType = :eventType)
-              and event.status = :status
+              and (:status is null or event.status = :status)
               and (event.visibility = com.mentify.calendar.enums.CalendarVisibility.GLOBAL
                    or (event.visibility = com.mentify.calendar.enums.CalendarVisibility.PRIVATE
                        and event.createdBy = :userId)
@@ -118,7 +130,7 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
             where event.startDateTime >= :from
               and (:courseId is null or event.courseId = :courseId)
               and (:eventType is null or event.eventType = :eventType)
-              and event.status = :status
+              and (:status is null or event.status = :status)
             order by event.startDateTime asc, event.id asc
             """)
     List<CalendarEvent> findAdministrativeUpcoming(

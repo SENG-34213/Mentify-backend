@@ -17,6 +17,7 @@ public class ExamMapper {
                 .courseId(request.getCourseId())
                 .title(request.getTitle().trim())
                 .description(request.getDescription())
+                .venue(request.getVenue())
                 .examDate(request.getExamDate())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
@@ -31,6 +32,7 @@ public class ExamMapper {
     public void applyUpdate(Exam exam, UpdateExamRequest request) {
         exam.setTitle(request.getTitle().trim());
         exam.setDescription(request.getDescription());
+        exam.setVenue(request.getVenue());
         exam.setExamDate(request.getExamDate());
         exam.setStartTime(request.getStartTime());
         exam.setEndTime(request.getEndTime());
@@ -45,6 +47,7 @@ public class ExamMapper {
                 .courseId(exam.getCourseId())
                 .title(exam.getTitle())
                 .description(exam.getDescription())
+                .venue(exam.getVenue())
                 .examDate(exam.getExamDate())
                 .startTime(exam.getStartTime())
                 .endTime(exam.getEndTime())

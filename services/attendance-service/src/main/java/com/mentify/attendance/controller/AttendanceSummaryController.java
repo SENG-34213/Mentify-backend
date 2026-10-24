@@ -33,7 +33,7 @@ public class AttendanceSummaryController {
     }
 
     @GetMapping("/students/{studentId}/courses/{courseId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     public ResponseEntity<ApiResponse<AttendanceSummaryResponse>> getStudentAttendanceSummary(
             @PathVariable UUID studentId,
             @PathVariable UUID courseId,

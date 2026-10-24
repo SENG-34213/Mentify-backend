@@ -196,7 +196,7 @@ class CourseControllerTest {
         CourseResponse firstCourse = CourseResponse.builder().id(firstId).courseName("Math").build();
         CourseResponse secondCourse = CourseResponse.builder().id(secondId).courseName("Science").build();
 
-        when(courseService.getCoursesByIds(Set.of(firstId, secondId))).thenReturn(
+        when(courseService.getCoursesByIds(Set.of(firstId, secondId), AUTH_HEADER)).thenReturn(
                 ApiResponse.<List<CourseResponse>>builder()
                         .status(HttpStatus.OK)
                         .message("Courses fetched successfully")
@@ -209,13 +209,14 @@ class CourseControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/course/bulk")
+                        .header("Authorization", AUTH_HEADER)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Courses fetched successfully"))
                 .andExpect(jsonPath("$.data.length()").value(2));
 
-        verify(courseService).getCoursesByIds(Set.of(firstId, secondId));
+        verify(courseService).getCoursesByIds(Set.of(firstId, secondId), AUTH_HEADER);
     }
 
     @Test

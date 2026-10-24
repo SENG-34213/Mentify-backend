@@ -6,6 +6,7 @@ import com.mentify.attendance.client.UserServiceClient;
 import com.mentify.attendance.client.dto.CourseLookupResponse;
 import com.mentify.attendance.client.dto.StudentLookupRequest;
 import com.mentify.attendance.client.dto.StudentLookupResponse;
+import com.mentify.attendance.client.dto.TeacherLookupResponse;
 import com.mentify.attendance.dto.request.AttendanceRecordMarkRequest;
 import com.mentify.attendance.dto.request.CreateAttendanceSessionRequest;
 import com.mentify.attendance.dto.request.MarkAttendanceRequest;
@@ -90,7 +91,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         records = attendanceRecordRepository.saveAll(records);
         calendarProjectionService.projectIfEligible(session, authorizationHeader);
 
-        return response(HttpStatus.CREATED, "Attendance session created successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.CREATED, "Attendance session created successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -104,7 +106,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 .map(session -> mapToResponse(
                         session,
                         attendanceRecordRepository.findBySession_IdAndIsActiveTrue(session.getId()),
-                        authorizationHeader))
+                        authorizationHeader,
+                        course))
                 .toList();
 
         return response(HttpStatus.OK, "Attendance sessions fetched successfully", sessions);
@@ -117,7 +120,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         assertTeacherCanManageCourse(course);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session fetched successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance session fetched successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -156,7 +160,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         }
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance marked successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance marked successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -178,7 +183,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session completed successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance session completed successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -197,7 +203,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session cancelled successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance session cancelled successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -267,10 +274,12 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     }
 
     private AttendanceSessionResponse mapToResponse(AttendanceSession session, List<AttendanceRecord> records,
-                                                    String authorizationHeader) {
+                                                    String authorizationHeader, CourseLookupResponse course) {
         return AttendanceSessionResponse.builder()
                 .id(session.getId())
                 .courseId(session.getCourseId())
+                .courseName(course.getCourseName())
+                .courseCode(course.getCourseCode())
                 .title(session.getTitle())
                 .attendanceDate(session.getAttendanceDate())
                 .startTime(session.getStartTime())
@@ -278,10 +287,34 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 .mode(session.getMode())
                 .status(session.getStatus())
                 .createdBy(session.getCreatedBy())
+                .createdByName(resolveTeacherName(session.getCreatedBy(), authorizationHeader))
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
                 .records(records == null ? null : mapRecords(records, authorizationHeader))
                 .build();
+    }
+
+    private String resolveTeacherName(UUID teacherId, String authorizationHeader) {
+        if (teacherId == null) {
+            return null;
+        }
+        try {
+            ApiResponse<TeacherLookupResponse> lookup = userServiceClient.lookupTeacher(
+                    teacherId.toString(), authorizationHeader);
+            if (lookup == null || lookup.getData() == null) {
+                return null;
+            }
+            TeacherLookupResponse teacher = lookup.getData();
+            if (teacher.getFullName() != null && !teacher.getFullName().isBlank()) {
+                return teacher.getFullName().trim();
+            }
+            return Stream.of(teacher.getFirstName(), teacher.getLastName())
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(String::trim)
+                    .collect(Collectors.joining(" "));
+        } catch (FeignException ignored) {
+            return null;
+        }
     }
 
     private List<AttendanceRecordResponse> mapRecords(List<AttendanceRecord> records, String authorizationHeader) {

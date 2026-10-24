@@ -35,7 +35,7 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         service.send("student@example.com", "Test User", "Secure!Temp123");
 
         verify(mailSender).send(mimeMessage);
-        assertThat(mimeMessage.getSubject()).isEqualTo("Your temporary Mentify sign-in password");
+        assertThat(mimeMessage.getSubject()).isEqualTo("Your TiT account is ready — secure sign-in details");
         assertThat(mimeMessage.getAllRecipients()).isNotEmpty();
         assertThat(mimeMessage.getContent()).isInstanceOf(Multipart.class);
         List<String> leafMimeTypes = new ArrayList<>();
@@ -47,8 +47,9 @@ class TemporaryCredentialsEmailDeliveryServiceTest {
         assertThat(content).contains("student@example.com");
         assertThat(content).contains("https://app.mentify.example/login");
         assertThat(content).contains("Temporary password:");
-        assertThat(content).contains("Sign in to Mentify with these credentials");
-        assertThat(content).contains("Forgot password on the sign-in page");
+        assertThat(content).contains("Your TiT workspace is ready");
+        assertThat(content).contains("Important security notice:");
+        assertThat(content).contains("Change it immediately after your first sign-in");
     }
 
     @Test

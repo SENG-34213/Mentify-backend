@@ -57,15 +57,18 @@ public class CourseController {
 
     @GetMapping("/{courseId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(@PathVariable UUID courseId) {
-        ApiResponse<CourseResponse> response = courseService.getCourseById(courseId);
+    public ResponseEntity<ApiResponse<CourseResponse>> getCourseById(
+            @PathVariable UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        ApiResponse<CourseResponse> response = courseService.getCourseById(courseId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<CourseResponse>>> getAllCourses() {
-        ApiResponse<List<CourseResponse>> response = courseService.getAllCourses();
+    public ResponseEntity<ApiResponse<List<CourseResponse>>> getAllCourses(
+            @RequestHeader("Authorization") String authorizationHeader) {
+        ApiResponse<List<CourseResponse>> response = courseService.getAllCourses(authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 
@@ -79,9 +82,10 @@ public class CourseController {
     @PostMapping("/bulk")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<CourseResponse>>> getCoursesByIds(
-            @Valid @RequestBody CourseBulkLookupRequest request
+            @Valid @RequestBody CourseBulkLookupRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
-        ApiResponse<List<CourseResponse>> response = courseService.getCoursesByIds(request.getIds());
+        ApiResponse<List<CourseResponse>> response = courseService.getCoursesByIds(request.getIds(), authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

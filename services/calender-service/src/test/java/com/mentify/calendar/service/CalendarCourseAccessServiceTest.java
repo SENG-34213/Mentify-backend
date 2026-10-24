@@ -40,7 +40,7 @@ class CalendarCourseAccessServiceTest {
                 .thenReturn(ApiResponse.success(200, "ok", course));
         when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
         when(currentUser.hasRole("TEACHER")).thenReturn(true);
-        when(currentUser.getCurrentUserId()).thenReturn(teacherId);
+        when(currentUser.getIdentityIds()).thenReturn(java.util.Set.of(teacherId));
 
         service.assertCanManage(courseId, "Bearer token");
     }
@@ -55,7 +55,7 @@ class CalendarCourseAccessServiceTest {
                 .thenReturn(ApiResponse.success(200, "ok", course));
         when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
         when(currentUser.hasRole("TEACHER")).thenReturn(true);
-        when(currentUser.getCurrentUserId()).thenReturn(UUID.randomUUID());
+        when(currentUser.getIdentityIds()).thenReturn(java.util.Set.of(UUID.randomUUID()));
 
         assertThatThrownBy(() -> service.assertCanManage(courseId, "Bearer token"))
                 .isInstanceOf(AccessDeniedException.class);

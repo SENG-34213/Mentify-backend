@@ -10,6 +10,11 @@ import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.repository.QuizAttemptRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
+import com.mentify.quiz.client.CourseServiceClient;
+import com.mentify.quiz.client.dto.CourseLookupResponse;
+import com.mentify.payload.response.ApiResponse;
+import com.mentify.exception.ResourceNotFoundException;
+import feign.FeignException;
 import com.mentify.quiz.service.QuizAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +31,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.math.RoundingMode;
 import java.util.stream.Collectors;
+import org.springframework.security.access.AccessDeniedException;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +45,7 @@ public class QuizAnalyticsServiceImpl implements QuizAnalyticsService {
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final CurrentUserService currentUserService;
+    private final CourseServiceClient courseServiceClient;
 
     @Override
     @Transactional(readOnly = true)
@@ -69,11 +76,31 @@ public class QuizAnalyticsServiceImpl implements QuizAnalyticsService {
         return summarize(courseId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public QuizAnalyticsSummaryResponse getOverview(LocalDate from, LocalDate to) {
+        return summarize(null, normalizeDateRange(from, to));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuizAnalyticsSummaryResponse getCourseSummary(
+            UUID courseId, LocalDate from, LocalDate to, String authorizationHeader) {
+        CourseLookupResponse course = getCourseOrThrow(courseId, authorizationHeader);
+        assertTeacherCanAccess(course);
+        return summarize(courseId, normalizeDateRange(from, to));
+    }
+
     private QuizAnalyticsSummaryResponse summarize(UUID courseId) {
+        return summarize(courseId, new DateRange(null, null));
+    }
+
+    private QuizAnalyticsSummaryResponse summarize(UUID courseId, DateRange range) {
         List<Quiz> quizzes = quizRepository.findAll().stream()
                 .filter(Quiz::isActive)
                 .filter(quiz -> quiz.getStatus() == QuizStatus.CLOSED)
                 .filter(quiz -> courseId == null || courseId.equals(quiz.getCourseId()))
+                .filter(quiz -> range.includes(quiz.getStartTime()))
                 .toList();
         List<UUID> quizIds = quizzes.stream().map(Quiz::getId).toList();
         List<QuizAttempt> attempts = quizAttemptRepository.findAll().stream()
@@ -91,6 +118,44 @@ public class QuizAnalyticsServiceImpl implements QuizAnalyticsService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(percentages.size()), 2, RoundingMode.HALF_UP);
         return new QuizAnalyticsSummaryResponse(courseId, completionRate, average, missingRate);
+    }
+
+    private CourseLookupResponse getCourseOrThrow(UUID courseId, String authorizationHeader) {
+        try {
+            ApiResponse<CourseLookupResponse> response = courseServiceClient.getCourseById(courseId, authorizationHeader);
+            if (response == null || response.getData() == null) {
+                throw new ResourceNotFoundException("Course not found with id: " + courseId);
+            }
+            return response.getData();
+        } catch (FeignException.NotFound ex) {
+            throw new ResourceNotFoundException("Course not found with id: " + courseId);
+        }
+    }
+
+    private void assertTeacherCanAccess(CourseLookupResponse course) {
+        if (currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
+        if (!currentUserService.hasAnyRole("TEACHER")
+                || !currentUserService.getCurrentUserId().equals(course.getAssignedTeacherId())) {
+            throw new AccessDeniedException("Teacher can only access assigned course analytics");
+        }
+    }
+
+    private DateRange normalizeDateRange(LocalDate from, LocalDate to) {
+        if (from == null && to == null) return new DateRange(null, null);
+        LocalDate normalizedFrom = from == null ? to : from;
+        LocalDate normalizedTo = to == null ? from : to;
+        if (normalizedFrom.isAfter(normalizedTo)) {
+            throw new IllegalArgumentException("Quiz date 'from' must not be after 'to'");
+        }
+        return new DateRange(normalizedFrom, normalizedTo);
+    }
+
+    private record DateRange(LocalDate from, LocalDate to) {
+        private boolean includes(LocalDateTime value) {
+            if (from == null && to == null) return true;
+            LocalDate date = value == null ? null : value.toLocalDate();
+            return date != null && !date.isBefore(from) && !date.isAfter(to);
+        }
     }
 
     private BigDecimal percentage(long numerator, long denominator) {

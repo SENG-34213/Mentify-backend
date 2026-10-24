@@ -11,12 +11,14 @@ import com.mentify.calendar.exception.CalendarDomainException;
 import com.mentify.calendar.mapper.CalendarEventMapper;
 import com.mentify.calendar.repository.CalendarEventRepository;
 import com.mentify.calendar.service.CalendarExamProjectionService;
+import com.mentify.calendar.service.CalendarVenueAvailabilityService;
 import com.mentify.exception.ResourceNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -28,9 +30,10 @@ public class CalendarExamProjectionServiceImpl implements CalendarExamProjection
 
     private final CalendarEventRepository repository;
     private final CalendarEventMapper mapper;
+    private final CalendarVenueAvailabilityService venueAvailability;
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public synchronized CalendarEventResponse upsert(@Valid ExamCalendarProjectionRequest request) {
         if (request.getEndDateTime().isBefore(request.getStartDateTime())
                 || request.getEndDateTime().equals(request.getStartDateTime())) {
@@ -58,7 +61,8 @@ public class CalendarExamProjectionServiceImpl implements CalendarExamProjection
         event.setVisibility(CalendarVisibility.COURSE);
         event.setTargetRole(null);
         event.setStatus(CalendarEventStatus.SCHEDULED);
-        event.setLocation(null);
+        event.setLocation(request.getVenue());
+        venueAvailability.assertAvailable(event, event.getId());
         CalendarEvent saved = repository.save(event);
         log.info("Exam calendar projection {} for exam {}", created ? "created" : "refreshed", request.getExamId());
         return mapper.toResponse(saved, false, false);
@@ -84,6 +88,7 @@ public class CalendarExamProjectionServiceImpl implements CalendarExamProjection
                 && request.getCourseId().equals(event.getCourseId())
                 && request.getTitle().trim().equals(event.getTitle())
                 && java.util.Objects.equals(request.getDescription(), event.getDescription())
+                && java.util.Objects.equals(request.getVenue(), event.getLocation())
                 && request.getStartDateTime().equals(event.getStartDateTime())
                 && request.getEndDateTime().equals(event.getEndDateTime())
                 && request.getCreatedBy().equals(event.getCreatedBy())

@@ -84,14 +84,17 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
                     .toList();
             List<TeacherGradebookItemResponse> allItems = new ArrayList<>();
             allItems.addAll(assignmentItems); allItems.addAll(quizItems); allItems.addAll(examItems);
-            BigDecimal total = allItems.stream().map(TeacherGradebookItemResponse::getScore)
+            List<TeacherGradebookItemResponse> returnedItems = allItems.stream()
+                    .filter(item -> !"MISSING".equalsIgnoreCase(item.getStatus()))
+                    .toList();
+            BigDecimal total = returnedItems.stream().map(TeacherGradebookItemResponse::getScore)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal possible = allItems.stream().map(TeacherGradebookItemResponse::getMaxScore)
+            BigDecimal possible = returnedItems.stream().map(TeacherGradebookItemResponse::getMaxScore)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal percentage = possible.signum() == 0 ? BigDecimal.ZERO
+            BigDecimal percentage = possible.signum() == 0 ? null
                     : total.multiply(BigDecimal.valueOf(100)).divide(possible, 2, RoundingMode.HALF_UP);
             StudentDirectoryProfileResponse profile = profiles.get(studentId);
-            String letterGrade = gradeFor(percentage);
+            String letterGrade = percentage == null ? null : gradeFor(percentage);
             return TeacherGradebookStudentResponse.builder()
                     .studentId(studentId)
                     .studentNumber(profile == null ? null : profile.getStudentNumber())
@@ -108,17 +111,21 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
                     .grade(letterGrade)
                     .overallPercentage(percentage)
                     .letterGrade(letterGrade)
-                    .status(percentage.compareTo(BigDecimal.valueOf(60)) < 0 ? "AT_RISK" : "ON_TRACK")
+                    .status(percentage == null ? "NO_RESULTS"
+                            : percentage.compareTo(BigDecimal.valueOf(60)) < 0 ? "AT_RISK" : "ON_TRACK")
                     .build();
         }).toList();
-        BigDecimal averagePercentage = students.isEmpty() ? BigDecimal.ZERO
-                : students.stream().map(TeacherGradebookStudentResponse::getOverallPercentage)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(students.size()), 2, RoundingMode.HALF_UP);
-        BigDecimal highestPercentage = students.stream()
+        List<BigDecimal> gradedPercentages = students.stream()
                 .map(TeacherGradebookStudentResponse::getOverallPercentage)
+                .filter(Objects::nonNull)
+                .toList();
+        BigDecimal averagePercentage = gradedPercentages.isEmpty() ? null
+                : gradedPercentages.stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(gradedPercentages.size()), 2, RoundingMode.HALF_UP);
+        BigDecimal highestPercentage = gradedPercentages.stream()
                 .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+                .orElse(null);
         long atRiskCount = students.stream().filter(student -> "AT_RISK".equals(student.getStatus())).count();
 
         TeacherGradebookResponse data = TeacherGradebookResponse.builder()
@@ -150,7 +157,9 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
         if (maxMarks == null || maxMarks.signum() <= 0) return null;
         return item(assignment.getId(), assignment.getTitle(),
                 selected == null ? BigDecimal.ZERO : selected.getMarks(),
-                maxMarks, selected == null ? "MISSING" : selected.getStatus());
+                maxMarks, selected == null ? "MISSING" : selected.getStatus(), selected == null ? null
+                        : selected.getGradedAt() != null ? selected.getGradedAt()
+                        : selected.getUpdatedAt() != null ? selected.getUpdatedAt() : selected.getSubmittedAt());
     }
 
     private TeacherGradebookItemResponse quizItem(QuizGradebookResponse quiz, UUID studentId) {
@@ -159,7 +168,8 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
                 .findFirst().orElse(null);
         if (quiz.getTotalMarks() == null || quiz.getTotalMarks().signum() <= 0) return null;
         return item(quiz.getQuizId(), quiz.getTitle(), result == null ? BigDecimal.ZERO : result.getScore(),
-                quiz.getTotalMarks(), result == null ? "MISSING" : "GRADED");
+                quiz.getTotalMarks(), result == null ? "MISSING" : "GRADED",
+                result == null ? null : result.getSubmittedAt());
     }
 
     private TeacherGradebookItemResponse examItem(
@@ -171,13 +181,14 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
         if (max == null || max.signum() <= 0) return null;
         return item(exam.getId(), exam.getTitle(),
                 result == null ? BigDecimal.ZERO : result.getMarksObtained(), max,
-                result == null ? "MISSING" : result.getGrade());
+                result == null ? "MISSING" : result.getGrade(), result == null ? null : result.getUpdatedAt());
     }
 
-    private TeacherGradebookItemResponse item(UUID id, String title, BigDecimal score, BigDecimal max, String status) {
+    private TeacherGradebookItemResponse item(UUID id, String title, BigDecimal score, BigDecimal max, String status,
+                                              LocalDateTime updatedAt) {
         return TeacherGradebookItemResponse.builder().assessmentId(id).title(title).score(score).maxScore(max)
                 .percentage(score.multiply(BigDecimal.valueOf(100)).divide(max, 2, RoundingMode.HALF_UP))
-                .status(status).marksObtained(score).maxMarks(max).build();
+                .status(status).marksObtained(score).maxMarks(max).updatedAt(updatedAt).build();
     }
 
     private String gradeFor(BigDecimal percentage) {
@@ -221,7 +232,7 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
     private List<ExamDashboardResponse> exams(UUID courseId, String auth) {
         ApiResponse<List<ExamDashboardResponse>> response = examDashboardClient.getExams(courseId, auth);
         return response == null || response.getData() == null ? List.of() : response.getData().stream()
-                .filter(exam -> "COMPLETED".equals(exam.getStatus()))
+                .filter(exam -> "MARKING".equals(exam.getStatus()) || "COMPLETED".equals(exam.getStatus()))
                 .toList();
     }
 

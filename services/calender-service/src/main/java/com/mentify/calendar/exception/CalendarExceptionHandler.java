@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -32,7 +33,9 @@ public class CalendarExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
-        return build(HttpStatus.FORBIDDEN, "Access denied");
+        String message = ex.getMessage();
+        return build(HttpStatus.FORBIDDEN,
+                message == null || message.isBlank() ? "Access denied" : message);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -76,6 +79,12 @@ public class CalendarExceptionHandler {
     ResponseEntity<ApiResponse<Object>> handleConflict(DataIntegrityViolationException ex) {
         log.warn("Calendar data integrity violation: {}", ex.getClass().getSimpleName());
         return build(HttpStatus.CONFLICT, "The request conflicts with existing data");
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    ResponseEntity<ApiResponse<Object>> handleConcurrentCalendarWrite(ConcurrencyFailureException ex) {
+        return build(HttpStatus.CONFLICT,
+                "The calendar changed while you were saving. Refresh and try another available time.");
     }
 
     @ExceptionHandler(FeignException.class)

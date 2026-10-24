@@ -167,7 +167,27 @@ public class EntrollmentServiceImpl implements EntrollmentService {
 
     @Override
     public ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId) {
-        List<UUID> courseIds = entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId).stream()
+        return activeCourseIdsResponse(entrollmentRepository.findAllByStudentIdAndIsActiveTrue(studentId));
+    }
+
+    @Override
+    public ApiResponse<List<UUID>> getActiveCourseIdsForStudent(UUID studentId, String authorizationHeader) {
+        // Existing rows can contain either the JWT subject (legacy/auth ID) or
+        // the local user-service UUID (used by teacher-created enrollments).
+        // Query both identities so a student sees every course attached to them.
+        ApiResponse<UserLookupResponse> lookup = userServiceClient.getCurrentUser(authorizationHeader);
+        if (lookup == null || lookup.getData() == null || lookup.getData().getId() == null) {
+            throw new IllegalStateException("Unable to resolve the current student's local user ID");
+        }
+        Set<UUID> studentIds = new HashSet<>();
+        studentIds.add(studentId);
+        studentIds.add(lookup.getData().getId());
+        return activeCourseIdsResponse(entrollmentRepository
+                .findAllByStudentIdInAndIsActiveTrue(studentIds));
+    }
+
+    private ApiResponse<List<UUID>> activeCourseIdsResponse(List<Entrollment> enrollments) {
+        List<UUID> courseIds = enrollments.stream()
                 .flatMap(enrollment -> enrollment.getCourseIds().stream())
                 .distinct()
                 .toList();

@@ -23,7 +23,7 @@ public class AttendanceSessionController {
     private final AttendanceSessionService attendanceSessionService;
 
     @PostMapping("/sessions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     @NotifyOnSuccess(type = "ATTENDANCE_SESSION_CREATED", title = "Attendance session created", message = "Your attendance session was created successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> createSession(
             @Valid @RequestBody CreateAttendanceSessionRequest request,
@@ -34,7 +34,7 @@ public class AttendanceSessionController {
     }
 
     @GetMapping("/courses/{courseId}/sessions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     public ResponseEntity<ApiResponse<List<AttendanceSessionResponse>>> listSessionsForCourse(
             @PathVariable UUID courseId,
             @RequestHeader("Authorization") String authorizationHeader
@@ -45,7 +45,7 @@ public class AttendanceSessionController {
     }
 
     @GetMapping("/sessions/{sessionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> getSession(
             @PathVariable UUID sessionId,
             @RequestHeader("Authorization") String authorizationHeader
@@ -55,7 +55,7 @@ public class AttendanceSessionController {
     }
 
     @PutMapping("/sessions/{sessionId}/records")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     @NotifyOnSuccess(type = "ATTENDANCE_RECORDED", title = "Attendance recorded", message = "Attendance records were saved successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> markAttendance(
             @PathVariable UUID sessionId,
@@ -68,7 +68,7 @@ public class AttendanceSessionController {
     }
 
     @PostMapping("/sessions/{sessionId}/complete")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     @NotifyOnSuccess(type = "ATTENDANCE_SESSION_COMPLETED", title = "Attendance session completed", message = "Your attendance session was completed successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> completeSession(
             @PathVariable UUID sessionId,
@@ -79,7 +79,7 @@ public class AttendanceSessionController {
     }
 
     @PostMapping("/sessions/{sessionId}/cancel")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     @NotifyOnSuccess(type = "ATTENDANCE_SESSION_CANCELLED", title = "Attendance session cancelled", message = "Your attendance session was cancelled successfully.")
     public ResponseEntity<ApiResponse<AttendanceSessionResponse>> cancelSession(
             @PathVariable UUID sessionId,
@@ -90,7 +90,7 @@ public class AttendanceSessionController {
     }
 
     @DeleteMapping("/sessions/{sessionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
     @NotifyOnSuccess(type = "ATTENDANCE_SESSION_DELETED", title = "Attendance session deleted", message = "Your attendance session was deleted successfully.")
     public ResponseEntity<ApiResponse<Void>> deleteSession(
             @PathVariable UUID sessionId,

@@ -17,14 +17,17 @@ public interface CourseService {
     ApiResponse<CourseResponse> updateCourse(UUID courseId, CourseRequest request, String authorizationHeader);
 
     ApiResponse<CourseResponse> getCourseById(UUID courseId);
+    ApiResponse<CourseResponse> getCourseById(UUID courseId, String authorizationHeader);
 
     ApiResponse<List<CourseResponse>> getAllCourses();
+    ApiResponse<List<CourseResponse>> getAllCourses(String authorizationHeader);
 
     ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId);
 
     ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId, String authorizationHeader);
 
     ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids);
+    ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids, String authorizationHeader);
 
     ApiResponse<Object> deleteCourse(UUID courseId);
 }

@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -66,6 +67,15 @@ public class CalendarEventController {
             @RequestHeader("Authorization") String authorizationHeader) {
         return respond(HttpStatus.OK, "Calendar event cancelled successfully",
                 calendarEventService.cancel(eventId, authorizationHeader));
+    }
+
+    @DeleteMapping("/{eventId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'TEACHER')")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID eventId,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        calendarEventService.delete(eventId, authorizationHeader);
+        return respond(HttpStatus.OK, "Calendar event deleted successfully", null);
     }
 
     private <T> ResponseEntity<ApiResponse<T>> respond(HttpStatus status, String message, T data) {

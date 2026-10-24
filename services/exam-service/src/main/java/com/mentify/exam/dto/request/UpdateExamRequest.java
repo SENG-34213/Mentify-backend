@@ -23,6 +23,9 @@ public class UpdateExamRequest {
     @Size(max = 2000, message = "description must not exceed 2000 characters")
     private String description;
 
+    @Size(max = 300, message = "venue must not exceed 300 characters")
+    private String venue;
+
     @NotNull(message = "examDate is required")
     private LocalDate examDate;
 

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.UUID;
 
-@FeignClient(name = "course-service", path = "/api/v1/internal/lessons")
+@FeignClient(name = "course-service", contextId = "aiLessonServiceClient", path = "/api/v1/internal/lessons")
 public interface LessonServiceClient {
 
     @GetMapping("/{lessonId}")

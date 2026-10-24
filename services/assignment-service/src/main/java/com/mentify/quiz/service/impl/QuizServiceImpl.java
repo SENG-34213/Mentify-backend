@@ -26,10 +26,12 @@ import com.mentify.quiz.security.CurrentUserService;
 import com.mentify.quiz.service.CourseQuizAuthorizationService;
 import com.mentify.quiz.service.QuizQuestionService;
 import com.mentify.assignment.service.CalendarProjectionService;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.quiz.service.QuizService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,9 @@ public class QuizServiceImpl implements QuizService {
     private final CourseQuizAuthorizationService courseQuizAuthorizationService;
     private final CalendarProjectionService calendarProjectionService;
     private final QuizQuestionService quizQuestionService;
+
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -152,6 +157,7 @@ public class QuizServiceImpl implements QuizService {
 
         Quiz savedQuiz = quizRepository.save(quiz);
         calendarProjectionService.projectQuizIfEligible(savedQuiz, authorizationHeader);
+        publishQuizAudienceNotifications(savedQuiz, authorizationHeader);
         return response(HttpStatus.OK, "Quiz published successfully",
                 QuizMapper.toTeacherQuizResponse(savedQuiz, questions));
     }
@@ -181,6 +187,20 @@ public class QuizServiceImpl implements QuizService {
 
     @Override
     @Transactional
+    public ApiResponse<List<QuizResponse>> getAdminQuizzesByCourse(UUID courseId) {
+        List<QuizResponse> quizzes = quizRepository
+                .findByCourseIdAndIsActiveTrueOrderByStartTimeAsc(courseId)
+                .stream()
+                .map(quiz -> QuizMapper.toTeacherQuizResponse(
+                        quiz,
+                        quizQuestionRepository.findByQuiz_IdAndIsActiveTrueOrderByQuestionOrderAsc(quiz.getId())
+                ))
+                .toList();
+        return response(HttpStatus.OK, "Course quizzes fetched successfully", quizzes);
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<Object> deleteQuiz(UUID quizId, String authorizationHeader) {
         Quiz quiz = getQuizOrThrow(quizId);
         assertCanManageQuiz(quiz);
@@ -188,6 +208,58 @@ public class QuizServiceImpl implements QuizService {
         Quiz savedQuiz = quizRepository.save(quiz);
         calendarProjectionService.cancelQuiz(savedQuiz, authorizationHeader);
         return response(HttpStatus.OK, "Quiz deleted successfully", null);
+    }
+
+    private void publishQuizAudienceNotifications(Quiz quiz, String authorizationHeader) {
+        if (notificationEventPublisher == null) {
+            return;
+        }
+
+        try {
+            CourseLookupResponse course = courseQuizAuthorizationService.getCourseOrThrow(
+                    quiz.getCourseId(), authorizationHeader);
+            ApiResponse<List<UUID>> enrolledStudents = enrollmentServiceClient
+                    .getEnrolledStudentIdsByCourse(quiz.getCourseId(), authorizationHeader);
+            List<UUID> studentIds = enrolledStudents == null || enrolledStudents.getData() == null
+                    ? List.of()
+                    : enrolledStudents.getData();
+
+            studentIds.stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .forEach(studentId -> notificationEventPublisher.publishForRecipient(
+                            studentId.toString(),
+                            null,
+                            "QUIZ_CREATED",
+                            "New quiz available",
+                            "The quiz \"" + quiz.getTitle() + "\" is available in " + course.getCourseName()
+                                    + " (" + course.getCourseCode() + "). Duration: " + quiz.getDurationMinutes()
+                                    + " minutes; maximum attempts: " + quiz.getMaxAttempts() + "; total marks: "
+                                    + quiz.getTotalMarks() + ". Opens: "
+                                    + (quiz.getStartTime() == null ? "immediately" : quiz.getStartTime())
+                                    + "; closes: " + (quiz.getEndTime() == null ? "no closing time set" : quiz.getEndTime())
+                                    + ". Open the quiz page to review its instructions."
+                    ));
+
+            if (currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")
+                    && course.getAssignedTeacherId() != null) {
+                notificationEventPublisher.publishForRecipient(
+                        course.getAssignedTeacherId().toString(),
+                        null,
+                        "QUIZ_CREATED",
+                        "New quiz created",
+                        "An administrator created the quiz \"" + quiz.getTitle() + "\" for "
+                                + course.getCourseName() + " (" + course.getCourseCode() + "). Duration: "
+                                + quiz.getDurationMinutes() + " minutes; maximum attempts: "
+                                + quiz.getMaxAttempts() + "; total marks: " + quiz.getTotalMarks()
+                                + ". Opens: " + (quiz.getStartTime() == null ? "immediately" : quiz.getStartTime())
+                                + "; closes: " + (quiz.getEndTime() == null ? "no closing time set" : quiz.getEndTime()) + "."
+                );
+            }
+        } catch (RuntimeException exception) {
+            log.warn("Quiz [{}] was published, but audience notifications could not be sent",
+                    quiz.getId(), exception);
+        }
     }
 
     @Override

@@ -10,4 +10,5 @@ public interface CalendarEventService {
     CalendarEventResponse get(UUID eventId, String authorizationHeader);
     CalendarEventResponse update(UUID eventId, CalendarEventRequest request, String authorizationHeader);
     CalendarEventResponse cancel(UUID eventId, String authorizationHeader);
+    void delete(UUID eventId, String authorizationHeader);
 }

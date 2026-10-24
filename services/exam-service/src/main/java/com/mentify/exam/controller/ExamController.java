@@ -113,7 +113,6 @@ public class ExamController {
     }
 
     @PostMapping("/{examId}/schedule")
-    @NotifyOnSuccess(type = "EXAM_SCHEDULED", title = "Exam scheduled", message = "Your exam was scheduled successfully.")
     public ResponseEntity<ApiResponse<ExamResponse>> scheduleExam(
             @PathVariable UUID examId,
             @RequestHeader("Authorization") String authorizationHeader) {

@@ -50,7 +50,7 @@ public class MarksEntryServiceImpl implements MarksEntryService {
     public MarksEntryResponse enterMarks(UUID examId, BatchMarksEntryRequest request, String authorizationHeader) {
         Exam exam = examRepository.findById(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("Exam", "id", examId));
-        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        var course = courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
         assertMarkingAllowed(exam.getStatus());
 
         List<MarkEntryRequest> entries = request.getResults();
@@ -75,15 +75,29 @@ public class MarksEntryServiceImpl implements MarksEntryService {
 
         if (notificationEventPublisher != null) {
             saved.stream()
-                    .map(ExamResult::getStudentId)
-                    .filter(java.util.Objects::nonNull)
-                    .distinct()
-                    .forEach(studentId -> notificationEventPublisher.publishForRecipient(
-                            studentId.toString(),
+                    .filter(result -> result.getStudentId() != null)
+                    .forEach(result -> notificationEventPublisher.publishForRecipient(
+                            result.getStudentId().toString(),
                             null,
                             "EXAM_RESULTS_RECORDED",
-                            "Exam results recorded",
-                            "Your exam results were recorded successfully."
+                            "Exam result updated",
+                            "Your result is ready for \"" + exam.getTitle() + "\" in "
+                                    + course.getCourseName()
+                                    + (course.getCourseCode() == null || course.getCourseCode().isBlank()
+                                    ? "" : " (" + course.getCourseCode() + ")")
+                                    + ". Exam date: " + exam.getExamDate() + "; time: " + exam.getStartTime()
+                                    + "–" + exam.getEndTime() + "; venue: "
+                                    + (exam.getVenue() == null || exam.getVenue().isBlank()
+                                    ? "not specified" : exam.getVenue())
+                                    + ". Marks: " + (result.getMarksObtained() == null
+                                    ? "not awarded" : result.getMarksObtained() + " / " + exam.getTotalMarks())
+                                    + "; grade: " + (result.getGrade() == null ? "not assigned" : result.getGrade())
+                                    + "; result status: " + result.getResultStatus()
+                                    + (result.getAttendanceStatus() == null ? "" : "; attendance: " + result.getAttendanceStatus())
+                                    + (result.getRemarks() == null || result.getRemarks().isBlank()
+                                    ? "" : "; teacher remarks: " + result.getRemarks())
+                                    + ". Updated: " + (result.getMarkedAt() == null ? now : result.getMarkedAt())
+                                    + ". Open Examination Results to review this result."
                     ));
         }
 
@@ -143,11 +157,23 @@ public class MarksEntryServiceImpl implements MarksEntryService {
             result.setMarksObtained(entry.getMarksObtained());
             result.setResultStatus(entry.getMarksObtained().compareTo(exam.getPassMarks()) >= 0
                     ? ResultStatus.PASS : ResultStatus.FAIL);
+            result.setGrade(gradeFor(entry.getMarksObtained(), exam.getTotalMarks()));
         } else {
             result.setMarksObtained(null);
             result.setResultStatus(ResultStatus.NOT_MARKED);
+            result.setGrade(null);
         }
         return result;
+    }
+
+    private String gradeFor(BigDecimal marks, BigDecimal totalMarks) {
+        BigDecimal percentage = marks.multiply(BigDecimal.valueOf(100)).divide(totalMarks, 2,
+                java.math.RoundingMode.HALF_UP);
+        if (percentage.compareTo(BigDecimal.valueOf(90)) >= 0) return "A";
+        if (percentage.compareTo(BigDecimal.valueOf(80)) >= 0) return "B";
+        if (percentage.compareTo(BigDecimal.valueOf(70)) >= 0) return "C";
+        if (percentage.compareTo(BigDecimal.valueOf(60)) >= 0) return "D";
+        return "F";
     }
 
     private ExamResultResponse toResponse(ExamResult r) {

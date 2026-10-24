@@ -46,6 +46,14 @@ public class Payment extends BaseEntity {
     @Column(nullable = false, columnDefinition = "uuid")
     private UUID courseId;
 
+    @Size(max = 255)
+    @Column(name = "course_name", length = 255)
+    private String courseName;
+
+    @Size(max = 100)
+    @Column(name = "course_code", length = 100)
+    private String courseCode;
+
     @NotNull
     @DecimalMin(value = "0.00", inclusive = false, message = "Payment amount must be greater than zero")
     @Digits(integer = 10, fraction = 2, message = "Payment amount must have at most 10 integer digits and 2 decimal places")

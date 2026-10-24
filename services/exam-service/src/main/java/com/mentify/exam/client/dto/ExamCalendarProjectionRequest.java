@@ -13,6 +13,7 @@ public class ExamCalendarProjectionRequest {
     UUID courseId;
     String title;
     String description;
+    String venue;
     LocalDateTime startDateTime;
     LocalDateTime endDateTime;
     UUID createdBy;
