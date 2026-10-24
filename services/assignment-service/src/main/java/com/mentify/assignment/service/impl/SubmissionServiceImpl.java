@@ -13,7 +13,9 @@ import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.client.EnrollmentServiceClient;
+import com.mentify.quiz.client.CourseServiceClient;
 import com.mentify.quiz.client.UserServiceClient;
+import com.mentify.quiz.client.dto.CourseLookupResponse;
 import com.mentify.quiz.security.CurrentUserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,9 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
     private final SubmissionResponseMapper submissionResponseMapper;
+
+    @Autowired(required = false)
+    private CourseServiceClient courseServiceClient;
 
     @Autowired(required = false)
     private NotificationEventPublisher notificationEventPublisher;
@@ -113,17 +118,23 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setIsLate(LocalDateTime.now().isAfter(assignment.getDueDate()));
 
         Submission saved = submissionRepository.save(submission);
+        SubmissionResponse submissionDetails = submissionResponseMapper.toResponse(saved, authorizationHeader);
         if (notificationEventPublisher != null && assignment.getTeacherId() != null) {
+            String courseDetails = courseDetails(assignment, authorizationHeader);
             notificationEventPublisher.publishForRecipient(
                     assignment.getTeacherId().toString(),
                     null,
                     "SUBMISSION_SUBMITTED",
-                    "Assignment submitted",
-                    "A student submitted an assignment for your course."
+                    "New assignment submission",
+                    (submissionDetails.getStudentName() == null ? "A student" : submissionDetails.getStudentName())
+                            + " submitted \"" + assignment.getTitle() + "\" for " + courseDetails
+                            + ". Submitted: " + saved.getSubmittedAt() + "; due: " + assignment.getDueDate()
+                            + "; attempt: " + saved.getAttemptNumber() + "; maximum marks: "
+                            + assignment.getMaxMarks() + "; status: " + saved.getStatus()
+                            + (Boolean.TRUE.equals(saved.getIsLate()) ? "; received late" : "; received on time")
             );
         }
-        return response(HttpStatus.OK, "Assignment submitted successfully",
-                submissionResponseMapper.toResponse(saved, authorizationHeader));
+        return response(HttpStatus.OK, "Assignment submitted successfully", submissionDetails);
     }
 
     @Override
@@ -160,6 +171,23 @@ public class SubmissionServiceImpl implements SubmissionService {
     private Assignment getAssignmentOrThrow(UUID assignmentId) {
         return assignmentRepository.findByIdAndIsActiveTrue(assignmentId)
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
+    }
+
+    private String courseDetails(Assignment assignment, String authorizationHeader) {
+        try {
+            if (courseServiceClient != null) {
+                ApiResponse<CourseLookupResponse> response = courseServiceClient.getCourseById(
+                        assignment.getCourseId(), authorizationHeader);
+                CourseLookupResponse course = response == null ? null : response.getData();
+                if (course != null && course.getCourseName() != null && !course.getCourseName().isBlank()) {
+                    return course.getCourseName() + (course.getCourseCode() == null
+                            || course.getCourseCode().isBlank() ? "" : " (" + course.getCourseCode() + ")");
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Notifications must not fail an already successful submission.
+        }
+        return "course details unavailable";
     }
 
     private Submission getSubmissionOrThrow(UUID submissionId) {

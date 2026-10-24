@@ -34,7 +34,8 @@ public class NotificationIngestionService {
         }
 
         Instant now = Instant.now();
-        boolean shouldSendEmail = StringUtils.hasText(event.recipientEmail());
+        boolean shouldSendEmail = StringUtils.hasText(event.recipientEmail())
+                && NotificationEmailPolicy.allowsEmail(event.type());
 
         Notification notification = new Notification();
         notification.setId(UUID.randomUUID());

@@ -7,6 +7,7 @@ import com.mentify.calendar.enums.CalendarSourceType;
 import com.mentify.calendar.mapper.CalendarEventMapper;
 import com.mentify.calendar.repository.CalendarEventRepository;
 import com.mentify.calendar.service.impl.CalendarCourseProjectionServiceImpl;
+import com.mentify.calendar.service.CalendarVenueAvailabilityService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,12 +30,14 @@ class CalendarCourseProjectionServiceImplTest {
     private CalendarEventRepository repository;
     @Mock
     private CalendarEventMapper mapper;
+    @Mock
+    private CalendarVenueAvailabilityService venueAvailability;
 
     private CalendarCourseProjectionServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new CalendarCourseProjectionServiceImpl(repository, mapper);
+        service = new CalendarCourseProjectionServiceImpl(repository, mapper, venueAvailability);
     }
 
     @Test

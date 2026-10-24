@@ -43,6 +43,12 @@ public class NotificationEmailDeliveryService {
         if (notification == null || notification.getEmailStatus() != EmailDeliveryStatus.PENDING) {
             return;
         }
+        if (!NotificationEmailPolicy.allowsEmail(notification.getType())) {
+            notification.setEmailStatus(EmailDeliveryStatus.NOT_REQUESTED);
+            notification.setRecipientEmail(null);
+            notification.setNextEmailAttemptAt(null);
+            return;
+        }
 
         try {
             MimeMessage mail = mailSender.createMimeMessage();

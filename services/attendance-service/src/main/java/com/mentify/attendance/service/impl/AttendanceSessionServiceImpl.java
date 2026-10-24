@@ -91,7 +91,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         records = attendanceRecordRepository.saveAll(records);
         calendarProjectionService.projectIfEligible(session, authorizationHeader);
 
-        return response(HttpStatus.CREATED, "Attendance session created successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.CREATED, "Attendance session created successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -105,7 +106,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 .map(session -> mapToResponse(
                         session,
                         attendanceRecordRepository.findBySession_IdAndIsActiveTrue(session.getId()),
-                        authorizationHeader))
+                        authorizationHeader,
+                        course))
                 .toList();
 
         return response(HttpStatus.OK, "Attendance sessions fetched successfully", sessions);
@@ -118,7 +120,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         assertTeacherCanManageCourse(course);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session fetched successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance session fetched successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -157,7 +160,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         }
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance marked successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance marked successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -179,7 +183,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session completed successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance session completed successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -198,7 +203,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         calendarProjectionService.cancel(session, authorizationHeader);
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySession_IdAndIsActiveTrue(sessionId);
-        return response(HttpStatus.OK, "Attendance session cancelled successfully", mapToResponse(session, records, authorizationHeader));
+        return response(HttpStatus.OK, "Attendance session cancelled successfully",
+                mapToResponse(session, records, authorizationHeader, course));
     }
 
     @Override
@@ -268,10 +274,12 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     }
 
     private AttendanceSessionResponse mapToResponse(AttendanceSession session, List<AttendanceRecord> records,
-                                                    String authorizationHeader) {
+                                                    String authorizationHeader, CourseLookupResponse course) {
         return AttendanceSessionResponse.builder()
                 .id(session.getId())
                 .courseId(session.getCourseId())
+                .courseName(course.getCourseName())
+                .courseCode(course.getCourseCode())
                 .title(session.getTitle())
                 .attendanceDate(session.getAttendanceDate())
                 .startTime(session.getStartTime())

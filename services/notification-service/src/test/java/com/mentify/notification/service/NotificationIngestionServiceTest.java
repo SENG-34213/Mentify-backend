@@ -105,7 +105,7 @@ class NotificationIngestionServiceTest {
                 UUID.randomUUID(),
                 "user-123",
                 "user@example.com",
-                "COURSE_CREATED",
+                "EXAM_PUBLISHED",
                 "Course created",
                 "The course was created",
                 "course-service",

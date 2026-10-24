@@ -50,6 +50,7 @@ class NotificationEmailDeliveryServiceTest {
         notification = new Notification();
         notification.setId(UUID.randomUUID());
         notification.setRecipientEmail("student@example.com");
+        notification.setType("EXAM_PUBLISHED");
         notification.setTitle("Exam scheduled");
         notification.setMessage("Your exam was scheduled.");
         notification.setEmailStatus(EmailDeliveryStatus.PENDING);

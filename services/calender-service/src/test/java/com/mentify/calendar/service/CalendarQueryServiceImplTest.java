@@ -76,9 +76,9 @@ class CalendarQueryServiceImplTest {
         CalendarEvent event = CalendarEvent.builder().id(UUID.randomUUID()).build();
         CalendarEventResponse response = CalendarEventResponse.builder().id(event.getId()).build();
         when(repository.findVisibleOverlapping(eq(start), eq(end), eq(null), eq(null),
-                eq(CalendarEventStatus.SCHEDULED), eq(userId), any(), eq(Set.of(courseId))))
+                eq(null), eq(userId), any(), eq(Set.of(courseId))))
                 .thenReturn(List.of(event));
-        when(mapper.toResponse(event, false, false)).thenReturn(response);
+        when(mapper.toResponse(event, false, false, false)).thenReturn(response);
 
         assertThat(service.findEvents(start, end, null, null, null, "Bearer token"))
                 .containsExactly(response);
@@ -92,7 +92,7 @@ class CalendarQueryServiceImplTest {
         CalendarEvent second = CalendarEvent.builder().id(UUID.randomUUID()).build();
         when(repository.findAdministrativeUpcoming(any(), eq(null), eq(null), eq(CalendarEventStatus.SCHEDULED)))
                 .thenReturn(List.of(first, second));
-        when(mapper.toResponse(any(CalendarEvent.class), eq(false), eq(false)))
+        when(mapper.toResponse(any(CalendarEvent.class), eq(true), eq(true), eq(true)))
                 .thenReturn(CalendarEventResponse.builder().build());
 
         assertThat(service.findUpcoming(1, "Bearer token")).hasSize(1);

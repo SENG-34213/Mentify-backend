@@ -698,7 +698,9 @@ class PaymentServiceImplTest {
                 null,
                 "PAYMENT_SUCCEEDED",
                 "Payment successful",
-                "Your course payment was successful."
+                "Your payment for your course was completed successfully. Amount: "
+                        + payment.getAmount() + " " + payment.getCurrency() + "; paid at: " + payment.getPaidAt()
+                        + "; payment status: SUCCESS. Your enrollment can now access this course."
         );
     }
 

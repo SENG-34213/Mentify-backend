@@ -64,7 +64,7 @@ public class ExamServiceImpl implements ExamService {
     @Transactional
     public ExamResponse createExam(CreateExamRequest request, MultipartFile instructionFile,
                                    boolean studentVisible, String authorizationHeader) {
-        courseAccessService.assertCanManage(request.getCourseId(), authorizationHeader);
+        var course = courseAccessService.assertCanManage(request.getCourseId(), authorizationHeader);
         validateMarksAndTimes(request.getTotalMarks(), request.getPassMarks(),
                 request.getStartTime(), request.getEndTime());
         Exam exam = examMapper.toEntity(request, currentUserService.getCurrentUserId());
@@ -72,22 +72,25 @@ public class ExamServiceImpl implements ExamService {
         if (instructionFile != null) {
             examAttachmentService.upload(saved.getId(), instructionFile, studentVisible, authorizationHeader);
         }
-        return examMapper.toResponse(saved);
+        return withCourseDetails(examMapper.toResponse(saved), course.getCourseName(), course.getCourseCode());
     }
 
     @Override
     @Transactional(readOnly = true)
     public ExamResponse getExam(UUID examId, String authorizationHeader) {
         Exam exam = findExam(examId);
-        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
-        return examMapper.toResponse(exam);
+        var course = courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        return withCourseDetails(examMapper.toResponse(exam), course.getCourseName(), course.getCourseCode());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ExamResponse> getExamsByCourse(UUID courseId, String authorizationHeader) {
-        courseAccessService.assertCanManage(courseId, authorizationHeader);
-        return examRepository.findByCourseId(courseId).stream().map(examMapper::toResponse).toList();
+        var course = courseAccessService.assertCanManage(courseId, authorizationHeader);
+        return examRepository.findByCourseId(courseId).stream()
+                .map(examMapper::toResponse)
+                .map(exam -> withCourseDetails(exam, course.getCourseName(), course.getCourseCode()))
+                .toList();
     }
 
     @Override
@@ -101,7 +104,7 @@ public class ExamServiceImpl implements ExamService {
     public ExamResponse updateExam(UUID examId, UpdateExamRequest request, MultipartFile instructionFile,
                                    boolean studentVisible, String authorizationHeader) {
         Exam exam = findExam(examId);
-        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        var course = courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
         if (!EDITABLE.contains(exam.getStatus())) {
             throw new ExamDomainException(HttpStatus.CONFLICT,
                     "Exam in status " + exam.getStatus() + " cannot be modified");
@@ -114,14 +117,14 @@ public class ExamServiceImpl implements ExamService {
             examAttachmentService.upload(saved.getId(), instructionFile, studentVisible, authorizationHeader);
         }
         calendarProjectionService.projectIfEligible(saved, authorizationHeader);
-        return examMapper.toResponse(saved);
+        return withCourseDetails(examMapper.toResponse(saved), course.getCourseName(), course.getCourseCode());
     }
 
     @Override
     @Transactional
     public ExamResponse cancelExam(UUID examId, String authorizationHeader) {
         Exam exam = findExam(examId);
-        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        var course = courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
         if (!CANCELLABLE.contains(exam.getStatus())) {
             throw new ExamDomainException(HttpStatus.CONFLICT,
                     "Exam in status " + exam.getStatus() + " cannot be cancelled");
@@ -129,14 +132,14 @@ public class ExamServiceImpl implements ExamService {
         exam.setStatus(ExamStatus.CANCELLED);
         Exam saved = examRepository.save(exam);
         calendarProjectionService.cancel(saved, authorizationHeader);
-        return examMapper.toResponse(saved);
+        return withCourseDetails(examMapper.toResponse(saved), course.getCourseName(), course.getCourseCode());
     }
 
     @Override
     @Transactional
     public ExamResponse scheduleExam(UUID examId, String authorizationHeader) {
         Exam exam = findExam(examId);
-        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        var course = courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
         if (exam.getStatus() != ExamStatus.DRAFT) {
             throw new ExamDomainException(HttpStatus.CONFLICT,
                     "Exam in status " + exam.getStatus() + " cannot be scheduled");
@@ -145,11 +148,16 @@ public class ExamServiceImpl implements ExamService {
         exam.setStatus(ExamStatus.SCHEDULED);
         Exam saved = examRepository.save(exam);
         calendarProjectionService.projectIfEligible(saved, authorizationHeader);
-        notifyEnrolledStudents(saved, authorizationHeader);
-        return examMapper.toResponse(saved);
+        notifyEnrolledStudents(saved, course.getCourseName(), course.getCourseCode(), authorizationHeader);
+        return withCourseDetails(examMapper.toResponse(saved), course.getCourseName(), course.getCourseCode());
     }
 
-    private void notifyEnrolledStudents(Exam exam, String authorizationHeader) {
+    private void notifyEnrolledStudents(
+            Exam exam,
+            String courseName,
+            String courseCode,
+            String authorizationHeader
+    ) {
         if (notificationEventPublisher == null) {
             return;
         }
@@ -167,11 +175,22 @@ public class ExamServiceImpl implements ExamService {
                             null,
                             "EXAM_PUBLISHED",
                             "New exam published",
-                            "The exam \"" + exam.getTitle() + "\" is now available in your course."));
+                            "The exam \"" + exam.getTitle() + "\" is now scheduled for "
+                                    + courseName + (courseCode == null || courseCode.isBlank()
+                                    ? "" : " (" + courseCode + ")") + ". Date: " + exam.getExamDate()
+                                    + "; time: " + exam.getStartTime() + "–" + exam.getEndTime()
+                                    + "; venue: " + (exam.getVenue() == null
+                                    || exam.getVenue().isBlank() ? "not specified" : exam.getVenue())
+                                    + "; total marks: " + exam.getTotalMarks() + "; pass marks: "
+                                    + exam.getPassMarks() + ". Open the examination page to review the instructions."));
         } catch (RuntimeException failure) {
             // Publishing must not roll back an exam that was already scheduled.
             log.warn("Could not notify enrolled students for exam {}", exam.getId(), failure);
         }
+    }
+
+    private ExamResponse withCourseDetails(ExamResponse response, String courseName, String courseCode) {
+        return response.toBuilder().courseName(courseName).courseCode(courseCode).build();
     }
 
     @Override
@@ -193,7 +212,7 @@ public class ExamServiceImpl implements ExamService {
     @Transactional
     public ExamResponse completeExam(UUID examId, String authorizationHeader) {
         Exam exam = findExam(examId);
-        courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
+        var course = courseAccessService.assertCanManage(exam.getCourseId(), authorizationHeader);
         if (exam.getStatus() != ExamStatus.MARKING) {
             throw new ExamDomainException(HttpStatus.CONFLICT,
                     "Exam in status " + exam.getStatus() + " cannot be completed");
@@ -209,7 +228,8 @@ public class ExamServiceImpl implements ExamService {
                     "Exam cannot be completed: " + unresolved + " student result(s) are unresolved");
         }
         exam.setStatus(ExamStatus.COMPLETED);
-        return examMapper.toResponse(examRepository.save(exam));
+        return withCourseDetails(examMapper.toResponse(examRepository.save(exam)),
+                course.getCourseName(), course.getCourseCode());
     }
 
     private boolean isResolved(ExamResult result, Exam exam) {

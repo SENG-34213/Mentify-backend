@@ -42,7 +42,6 @@ public class ExamSummaryServiceImpl implements ExamSummaryService {
             throw new ExamDomainException(HttpStatus.CONFLICT,
                     "Summary is not available for a cancelled exam");
         }
-
         List<ExamResult> results = examResultRepository.findByExamId(examId);
         long present = results.stream().filter(r -> r.getAttendanceStatus() == AttendanceStatus.PRESENT).count();
         long absent = results.stream().filter(r -> r.getAttendanceStatus() == AttendanceStatus.ABSENT).count();

@@ -232,7 +232,13 @@ public class QuizServiceImpl implements QuizService {
                             null,
                             "QUIZ_CREATED",
                             "New quiz available",
-                            "A new quiz, \"" + quiz.getTitle() + "\", is now available in your course."
+                            "The quiz \"" + quiz.getTitle() + "\" is available in " + course.getCourseName()
+                                    + " (" + course.getCourseCode() + "). Duration: " + quiz.getDurationMinutes()
+                                    + " minutes; maximum attempts: " + quiz.getMaxAttempts() + "; total marks: "
+                                    + quiz.getTotalMarks() + ". Opens: "
+                                    + (quiz.getStartTime() == null ? "immediately" : quiz.getStartTime())
+                                    + "; closes: " + (quiz.getEndTime() == null ? "no closing time set" : quiz.getEndTime())
+                                    + ". Open the quiz page to review its instructions."
                     ));
 
             if (currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")
@@ -242,8 +248,12 @@ public class QuizServiceImpl implements QuizService {
                         null,
                         "QUIZ_CREATED",
                         "New quiz created",
-                        "An administrator created the quiz \"" + quiz.getTitle()
-                                + "\" for your course."
+                        "An administrator created the quiz \"" + quiz.getTitle() + "\" for "
+                                + course.getCourseName() + " (" + course.getCourseCode() + "). Duration: "
+                                + quiz.getDurationMinutes() + " minutes; maximum attempts: "
+                                + quiz.getMaxAttempts() + "; total marks: " + quiz.getTotalMarks()
+                                + ". Opens: " + (quiz.getStartTime() == null ? "immediately" : quiz.getStartTime())
+                                + "; closes: " + (quiz.getEndTime() == null ? "no closing time set" : quiz.getEndTime()) + "."
                 );
             }
         } catch (RuntimeException exception) {

@@ -26,7 +26,8 @@ public class CalendarEventMapper {
                 .visibility(request.getVisibility())
                 .targetRole(request.getTargetRole())
                 .status(CalendarEventStatus.SCHEDULED)
-                .location(request.getLocation())
+                .location(request.getLocation() == null || request.getLocation().isBlank()
+                        ? null : request.getLocation().trim())
                 .build();
     }
 
@@ -40,10 +41,12 @@ public class CalendarEventMapper {
         event.setCourseId(request.getCourseId());
         event.setVisibility(request.getVisibility());
         event.setTargetRole(request.getTargetRole());
-        event.setLocation(request.getLocation());
+        event.setLocation(request.getLocation() == null || request.getLocation().isBlank()
+                ? null : request.getLocation().trim());
     }
 
-    public CalendarEventResponse toResponse(CalendarEvent event, boolean canEdit, boolean canCancel) {
+    public CalendarEventResponse toResponse(
+            CalendarEvent event, boolean canEdit, boolean canCancel, boolean canDelete) {
         return CalendarEventResponse.builder()
                 .id(event.getId()).title(event.getTitle()).description(event.getDescription())
                 .eventType(event.getEventType()).startDateTime(event.getStartDateTime())
@@ -51,6 +54,10 @@ public class CalendarEventMapper {
                 .sourceType(event.getSourceType()).sourceId(event.getSourceId()).createdBy(event.getCreatedBy())
                 .visibility(event.getVisibility()).targetRole(event.getTargetRole()).status(event.getStatus())
                 .location(event.getLocation()).createdAt(event.getCreatedAt()).updatedAt(event.getUpdatedAt())
-                .canEdit(canEdit).canCancel(canCancel).build();
+                .canEdit(canEdit).canCancel(canCancel).canDelete(canDelete).build();
+    }
+
+    public CalendarEventResponse toResponse(CalendarEvent event, boolean canEdit, boolean canCancel) {
+        return toResponse(event, canEdit, canCancel, false);
     }
 }

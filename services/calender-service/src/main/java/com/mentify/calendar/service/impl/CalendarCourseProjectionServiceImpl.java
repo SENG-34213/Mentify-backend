@@ -11,10 +11,12 @@ import com.mentify.calendar.exception.CalendarDomainException;
 import com.mentify.calendar.mapper.CalendarEventMapper;
 import com.mentify.calendar.repository.CalendarEventRepository;
 import com.mentify.calendar.service.CalendarCourseProjectionService;
+import com.mentify.calendar.service.CalendarVenueAvailabilityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
@@ -27,9 +29,10 @@ public class CalendarCourseProjectionServiceImpl implements CalendarCourseProjec
 
     private final CalendarEventRepository repository;
     private final CalendarEventMapper mapper;
+    private final CalendarVenueAvailabilityService venueAvailability;
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public synchronized CalendarEventResponse upsert(CalendarSourceType sourceType,
                                                      CalendarEventType eventType,
                                                      CourseCalendarProjectionRequest request) {
@@ -76,6 +79,7 @@ public class CalendarCourseProjectionServiceImpl implements CalendarCourseProjec
         event.setTargetRole(null);
         event.setStatus(CalendarEventStatus.SCHEDULED);
         event.setLocation(null);
+        venueAvailability.assertAvailable(event, event.getId());
         CalendarEvent saved = repository.save(event);
         log.info("{} calendar projection {} for source {}", sourceType,
                 created ? "created" : "refreshed", request.getSourceId());

@@ -9,6 +9,7 @@ import lombok.Value;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Value
@@ -17,7 +18,11 @@ public class StudentExamResultResponse {
     UUID examId;
     UUID courseId;
     String title;
+    String description;
+    String venue;
     LocalDate examDate;
+    LocalTime startTime;
+    LocalTime endTime;
     ExamType type;
     ExamStatus examStatus;
     BigDecimal totalMarks;
