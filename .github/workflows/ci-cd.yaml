@@ -629,17 +629,24 @@
         - name: Copy deployment files to EC2
           run: |
             SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
+            SSH_OPTIONS=(
+              -i ~/.ssh/mentify-ec2.pem
+              -o BatchMode=yes
+              -o ConnectTimeout=30
+              -o ServerAliveInterval=30
+              -o ServerAliveCountMax=20
+            )
 
-            ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" \
+            ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" \
               "mkdir -p '$DEPLOY_DIR/docker/postgres/init'"
 
-            scp -i ~/.ssh/mentify-ec2.pem \
+            scp "${SSH_OPTIONS[@]}" \
               docker-compose.prod.yml \
               Caddyfile \
               .deploy.env \
               "$SSH_TARGET:$DEPLOY_DIR/"
 
-            scp -i ~/.ssh/mentify-ec2.pem \
+            scp "${SSH_OPTIONS[@]}" \
               docker/postgres/init/01-create-service-databases.sh \
               "$SSH_TARGET:$DEPLOY_DIR/docker/postgres/init/"
 
@@ -649,12 +656,19 @@
             DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           run: |
             SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
+            SSH_OPTIONS=(
+              -i ~/.ssh/mentify-ec2.pem
+              -o BatchMode=yes
+              -o ConnectTimeout=30
+              -o ServerAliveInterval=30
+              -o ServerAliveCountMax=20
+            )
 
             printf '%s' "$DOCKERHUB_TOKEN" | \
-              ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" \
+              ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" \
               "docker login --username '$DOCKERHUB_USERNAME' --password-stdin"
 
-            ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" <<'REMOTE_COMMANDS'
+            ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" <<'REMOTE_COMMANDS'
             set -eu
             cd /opt/mentify
 
@@ -675,6 +689,5 @@
 
         - name: Verify deployment health
           run: |
-            SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
-            ssh -i ~/.ssh/mentify-ec2.pem "$SSH_TARGET" \
-              "curl --fail --retry 12 --retry-delay 5 http://127.0.0.1/actuator/health"
+            curl --fail --retry 20 --retry-delay 5 --connect-timeout 10 \
+              "http://$EC2_HOST/actuator/health"
