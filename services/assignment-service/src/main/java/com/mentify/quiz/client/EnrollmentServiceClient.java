@@ -19,6 +19,12 @@ public interface EnrollmentServiceClient {
             @RequestHeader("Authorization") String authorizationHeader
     );
 
+    @GetMapping("/courses/{courseId}/students")
+    ApiResponse<List<UUID>> getEnrolledStudentIdsByCourse(
+            @PathVariable("courseId") UUID courseId,
+            @RequestHeader("Authorization") String authorizationHeader
+    );
+
     @GetMapping("/students/{studentId}/courses/{courseId}/exists")
     boolean isStudentEnrolledInCourse(
             @PathVariable UUID studentId,

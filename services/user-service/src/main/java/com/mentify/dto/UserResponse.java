@@ -25,6 +25,7 @@ public class UserResponse {
     private String department;
     private String officeLocation;
     private String officeHours;
+    private String avatarUrl;
     private String staffMetadata;
     private Role role;
     private AccountStatus accountStatus;

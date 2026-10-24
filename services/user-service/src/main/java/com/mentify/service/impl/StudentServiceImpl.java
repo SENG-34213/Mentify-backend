@@ -51,7 +51,7 @@ public class StudentServiceImpl implements StudentService {
 
             User user = studentMapper.toUserEntity(request);
             user.setAuthUserId(authUserId);
-            user.setAccountStatus(AccountStatus.INVITED);
+            user.setAccountStatus(AccountStatus.ACTIVE);
             user.setEmailVerified(true);
             StudentProfile profile = studentMapper.toStudentProfileEntity(request);
             Address address = studentMapper.toAddressEntity(request.getAddress());

@@ -54,6 +54,9 @@ public class Exam {
     @Column(length = 2000)
     private String description;
 
+    @Column(length = 300)
+    private String venue;
+
     @Column(name = "exam_date", nullable = false)
     private LocalDate examDate;
 

@@ -20,6 +20,8 @@ public class ExamCalendarProjectionRequest {
     private String title;
     @Size(max = 2000)
     private String description;
+    @Size(max = 255)
+    private String venue;
     @NotNull
     private LocalDateTime startDateTime;
     @NotNull

@@ -1,5 +1,7 @@
 package com.mentify.exam.service.impl;
 
+import com.mentify.common.notification.NotificationEventPublisher;
+import com.mentify.exam.client.EnrollmentServiceClient;
 import com.mentify.exam.dto.request.CreateExamRequest;
 import com.mentify.exam.dto.request.UpdateExamRequest;
 import com.mentify.exam.dto.response.ExamResponse;
@@ -20,6 +22,8 @@ import com.mentify.exam.service.ExamAttachmentService;
 import com.mentify.exam.service.ExamCalendarProjectionService;
 import com.mentify.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ExamServiceImpl implements ExamService {
 
     private static final Set<ExamStatus> EDITABLE = EnumSet.of(ExamStatus.DRAFT, ExamStatus.SCHEDULED);
@@ -45,6 +50,9 @@ public class ExamServiceImpl implements ExamService {
     private final ExamResultService examResultService;
     private final ExamCalendarProjectionService calendarProjectionService;
     private final ExamAttachmentService examAttachmentService;
+    private final EnrollmentServiceClient enrollmentServiceClient;
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -137,7 +145,33 @@ public class ExamServiceImpl implements ExamService {
         exam.setStatus(ExamStatus.SCHEDULED);
         Exam saved = examRepository.save(exam);
         calendarProjectionService.projectIfEligible(saved, authorizationHeader);
+        notifyEnrolledStudents(saved, authorizationHeader);
         return examMapper.toResponse(saved);
+    }
+
+    private void notifyEnrolledStudents(Exam exam, String authorizationHeader) {
+        if (notificationEventPublisher == null) {
+            return;
+        }
+        try {
+            var response = enrollmentServiceClient.getEnrolledStudentIdsByCourse(
+                    exam.getCourseId(), authorizationHeader);
+            if (response == null || response.getData() == null) {
+                return;
+            }
+            response.getData().stream()
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .forEach(studentId -> notificationEventPublisher.publishForRecipient(
+                            studentId.toString(),
+                            null,
+                            "EXAM_PUBLISHED",
+                            "New exam published",
+                            "The exam \"" + exam.getTitle() + "\" is now available in your course."));
+        } catch (RuntimeException failure) {
+            // Publishing must not roll back an exam that was already scheduled.
+            log.warn("Could not notify enrolled students for exam {}", exam.getId(), failure);
+        }
     }
 
     @Override

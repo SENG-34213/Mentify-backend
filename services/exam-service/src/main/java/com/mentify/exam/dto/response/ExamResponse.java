@@ -18,6 +18,7 @@ public class ExamResponse {
     UUID courseId;
     String title;
     String description;
+    String venue;
     LocalDate examDate;
     LocalTime startTime;
     LocalTime endTime;

@@ -6,6 +6,7 @@ import com.mentify.attendance.client.UserServiceClient;
 import com.mentify.attendance.client.dto.CourseLookupResponse;
 import com.mentify.attendance.client.dto.StudentLookupRequest;
 import com.mentify.attendance.client.dto.StudentLookupResponse;
+import com.mentify.attendance.client.dto.TeacherLookupResponse;
 import com.mentify.attendance.dto.request.AttendanceRecordMarkRequest;
 import com.mentify.attendance.dto.request.CreateAttendanceSessionRequest;
 import com.mentify.attendance.dto.request.MarkAttendanceRequest;
@@ -278,10 +279,34 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 .mode(session.getMode())
                 .status(session.getStatus())
                 .createdBy(session.getCreatedBy())
+                .createdByName(resolveTeacherName(session.getCreatedBy(), authorizationHeader))
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
                 .records(records == null ? null : mapRecords(records, authorizationHeader))
                 .build();
+    }
+
+    private String resolveTeacherName(UUID teacherId, String authorizationHeader) {
+        if (teacherId == null) {
+            return null;
+        }
+        try {
+            ApiResponse<TeacherLookupResponse> lookup = userServiceClient.lookupTeacher(
+                    teacherId.toString(), authorizationHeader);
+            if (lookup == null || lookup.getData() == null) {
+                return null;
+            }
+            TeacherLookupResponse teacher = lookup.getData();
+            if (teacher.getFullName() != null && !teacher.getFullName().isBlank()) {
+                return teacher.getFullName().trim();
+            }
+            return Stream.of(teacher.getFirstName(), teacher.getLastName())
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(String::trim)
+                    .collect(Collectors.joining(" "));
+        } catch (FeignException ignored) {
+            return null;
+        }
     }
 
     private List<AttendanceRecordResponse> mapRecords(List<AttendanceRecord> records, String authorizationHeader) {

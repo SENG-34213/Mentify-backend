@@ -27,6 +27,7 @@ public class AttendanceSessionResponse {
     private AttendanceMode mode;
     private AttendanceSessionStatus status;
     private UUID createdBy;
+    private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<AttendanceRecordResponse> records;

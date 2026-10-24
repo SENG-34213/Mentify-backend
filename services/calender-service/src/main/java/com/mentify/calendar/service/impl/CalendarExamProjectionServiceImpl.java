@@ -58,7 +58,7 @@ public class CalendarExamProjectionServiceImpl implements CalendarExamProjection
         event.setVisibility(CalendarVisibility.COURSE);
         event.setTargetRole(null);
         event.setStatus(CalendarEventStatus.SCHEDULED);
-        event.setLocation(null);
+        event.setLocation(request.getVenue());
         CalendarEvent saved = repository.save(event);
         log.info("Exam calendar projection {} for exam {}", created ? "created" : "refreshed", request.getExamId());
         return mapper.toResponse(saved, false, false);
@@ -84,6 +84,7 @@ public class CalendarExamProjectionServiceImpl implements CalendarExamProjection
                 && request.getCourseId().equals(event.getCourseId())
                 && request.getTitle().trim().equals(event.getTitle())
                 && java.util.Objects.equals(request.getDescription(), event.getDescription())
+                && java.util.Objects.equals(request.getVenue(), event.getLocation())
                 && request.getStartDateTime().equals(event.getStartDateTime())
                 && request.getEndDateTime().equals(event.getEndDateTime())
                 && request.getCreatedBy().equals(event.getCreatedBy())

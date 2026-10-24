@@ -21,6 +21,8 @@ public interface QuizService {
 
     ApiResponse<List<QuizResponse>> getTeacherQuizzes();
 
+    ApiResponse<List<QuizResponse>> getAdminQuizzesByCourse(UUID courseId);
+
     ApiResponse<Object> deleteQuiz(UUID quizId, String authorizationHeader);
 
     ApiResponse<List<StudentQuizResponse>> getPublishedQuizzesByCourse(UUID courseId, String authorizationHeader);

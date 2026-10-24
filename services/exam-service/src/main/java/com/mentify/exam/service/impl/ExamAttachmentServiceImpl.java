@@ -211,6 +211,7 @@ public class ExamAttachmentServiceImpl implements ExamAttachmentService {
                 .materialId(attachment.getMaterialId()).originalFilename(attachment.getOriginalFilename())
                 .contentType(attachment.getContentType()).fileSize(attachment.getFileSize())
                 .uploadedBy(attachment.getUploadedBy()).studentVisible(attachment.isStudentVisible())
+                .active(attachment.isActive())
                 .createdAt(attachment.getCreatedAt()).build();
     }
 

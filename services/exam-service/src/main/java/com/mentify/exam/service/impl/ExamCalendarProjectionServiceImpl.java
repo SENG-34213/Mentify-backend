@@ -76,6 +76,7 @@ public class ExamCalendarProjectionServiceImpl implements ExamCalendarProjection
                 .courseId(exam.getCourseId())
                 .title(exam.getTitle())
                 .description(exam.getDescription())
+                .venue(exam.getVenue())
                 .startDateTime(LocalDateTime.of(exam.getExamDate(), exam.getStartTime()))
                 .endDateTime(LocalDateTime.of(exam.getExamDate(), exam.getEndTime()))
                 .createdBy(exam.getCreatedBy())
