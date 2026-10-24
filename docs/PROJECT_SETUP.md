@@ -14,7 +14,7 @@ Maven or the included Maven wrapper
 Git
 ```
 
-The project currently uses Spring Boot, Spring Cloud, PostgreSQL, Keycloak, and Maven multi-module structure.
+The project currently uses Spring Boot, Spring Cloud, PostgreSQL, JWT authentication, and Maven multi-module structure.
 
 ## 2. Clone Repository
 
@@ -35,7 +35,7 @@ Do not commit `.env`.
 
 ## 4. Start Required Local Infrastructure
 
-Default startup runs only Keycloak and the Keycloak database:
+Start the local infrastructure required by the selected services:
 
 ```bash
 docker compose up -d
@@ -44,15 +44,16 @@ docker compose up -d
 Expected containers:
 
 ```txt
-mentify-keycloak-db
-mentify-keycloak
+postgres_container_mentify
+mentify-redis
+mentify-kafka
 ```
 
 Default ports:
 
 ```txt
-Keycloak:          http://localhost:8180
-Keycloak Postgres: localhost:5433
+JWT authentication: auth-service at http://localhost:8085
+App PostgreSQL:     localhost:5432
 ```
 
 ## 5. Optional App Database Tooling
@@ -172,21 +173,18 @@ services/notification-service/src/main/java/com/mentify/notification/Notificatio
 
 ## 7. Authentication Setup
 
-Keycloak setup is documented separately:
-
-```txt
-docs/KEYCLOAK_SETUP.md
-```
+`auth-service` issues Mentify JWT access and refresh tokens. Protected services validate
+the token signature using the configured public key and authorize users using the token role.
 
 `user-service` is configured as the first protected backend service.
 
 Protected services use this issuer URI by default:
 
 ```txt
-http://localhost:8180/realms/mentify
+http://localhost:8085
 ```
 
-Calendar Service uses the same Keycloak JWT resource-server configuration. It does not provide
+Calendar Service uses the same JWT resource-server configuration. It does not provide
 separate login or password-management endpoints. The default local configuration is loaded from
 Config Server using the `calender-service` application name; `application.yml` retains only safe
 bootstrap defaults and the optional Config Server import.
@@ -235,7 +233,7 @@ Testing standards and test registers are maintained here:
 
 ```txt
 docs/testing/README.md
-docs/testing/TEST_REGISTER_KEYCLOAK_AUTH.md
+docs/testing/README.md
 ```
 
 ## 9. Useful Docker Commands
@@ -246,13 +244,13 @@ Check containers:
 docker compose ps -a
 ```
 
-View Keycloak logs:
+View authentication service logs:
 
 ```bash
-docker logs mentify-keycloak --tail 100
+docker logs auth-service --tail 100
 ```
 
-Restart Keycloak cleanly and re-import the realm:
+Restart local infrastructure cleanly:
 
 ```bash
 docker compose down -v
@@ -270,7 +268,7 @@ Do not commit:
 tokens
 real client secrets
 private keys
-production realm exports
+production signing keys
 local database dumps with sensitive data
 ```
 
@@ -278,6 +276,5 @@ Safe to commit:
 
 ```txt
 .env.example
-keycloak/mentify-realm.json with placeholders only
 docs/*.md
 ```

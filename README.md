@@ -2,7 +2,7 @@
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)](https://spring.io/projects/spring-boot)
 [![Microservices](https://img.shields.io/badge/Architecture-Microservices-blue)](https://microservices.io/)
-[![Security](https://img.shields.io/badge/Security-Keycloak-red)](https://www.keycloak.org/)
+[![Security](https://img.shields.io/badge/Security-JWT-red)](https://jwt.io/)
 [![Messaging](https://img.shields.io/badge/Messaging-Kafka-black)](https://kafka.apache.org/)
 
 Mentify is a production-grade, AI-powered Learning Management System (LMS) backend. Built on a modular Spring Boot microservices architecture, it provides a scalable and secure foundation for modern educational platforms, featuring event-driven communication, distributed configuration, and deep integration with LLMs for intelligent learning assistance.
@@ -23,9 +23,9 @@ Mentify follows a **Cloud-Native Microservices** pattern, leveraging the Spring 
                                                                    |
                                                                    v [HTTPS/TLS]
       +-----------------------+                      +-------------+-------------+
-      |  Keycloak (Identity)  |<-------------------->|       Spring Cloud Gateway| (API Gateway)
-      |  - OIDC / OAuth2      | [Auth Verification]  | - Auth, Routing, Rate Limit |
-      |  - JWT Issuance       |                      | - CORS, Central Entry Point |
+      |  Auth Service (JWT)   |<-------------------->|       Spring Cloud Gateway| (API Gateway)
+      |  - Login / JWT Issuance| [Auth Verification]  | - Auth, Routing, Rate Limit |
+      |  - Refresh / Password  |                      | - CORS, Central Entry Point |
       +-----------------------+                      +-------------+-------------+
                                                                    |
             +-----------------------+------------------------------+---------------------------+
@@ -78,7 +78,7 @@ Mentify follows a **Cloud-Native Microservices** pattern, leveraging the Spring 
 *   **Flyway**: Database versioning and migrations.
 
 ### Security & AI
-*   **Keycloak**: Enterprise-grade Identity and Access Management (OIDC/OAuth2).
+*   **Simple JWT authentication**: The `auth-service` issues Mentify access and refresh tokens.
 *   **OpenAI API**: Powering intelligent tutor chat, grounded data analysis, and quiz generation.
 *   **Apache POI / PDFBox**: For document text extraction and content ingestion.
 
@@ -112,10 +112,10 @@ Mentify is composed of several specialized services, each responsible for a spec
 
 Mentify implements a multi-layered security architecture:
 
-1.  **Gateway Security**: `api-gateway` uses Spring Security WebFlux to validate JWT signatures issued by Keycloak. It handles CORS and public/private route filtering.
+1.  **Gateway Security**: `api-gateway` uses Spring Security WebFlux to validate JWT signatures issued by `auth-service`. It handles CORS and public/private route filtering.
 2.  **Service-Level Security**: Every microservice leverages a shared `SecurityConfig` (from `common-lib`) which:
-    *   Decodes Keycloak-specific JWT claims.
-    *   Maps realm/client roles to Spring Security `GrantedAuthority`.
+    *   Decodes Mentify JWT claims.
+    *   Maps token roles to Spring Security `GrantedAuthority`.
     *   Enforces method-level security using `@PreAuthorize("hasRole('TEACHER')")`.
 3.  **Inter-Service Auth**: Internal communication via Feign clients carries the user's JWT token, ensuring that the security context is propagated across service boundaries.
 4.  **Resource Ownership**: Specialized authorization services (e.g., `MaterialAuthorizationServiceImpl`) verify that users only access resources they own or are enrolled in.
@@ -156,13 +156,13 @@ git clone https://github.com/your-org/Mentify-backend.git
 cd Mentify-backend
 cp .env.example .env
 ```
-*Note: Ensure you set valid credentials for Keycloak and OpenAI in the `.env` file.*
+*Note: Ensure you set valid JWT signing keys, SMTP, and AI-provider credentials in the `.env` file.*
 
 ### 2. Infrastructure Startup
 Mentify uses Docker profiles to manage resources efficiently:
 
 ```bash
-# Start Core Infrastructure (Keycloak & Keycloak DB)
+# Start local infrastructure
 docker compose up -d
 
 # Start Application Databases (PostgreSQL for all microservices)
@@ -202,7 +202,7 @@ To ensure proper discovery and configuration, start services in this sequence:
 
 For deeper technical details, refer to the following guides:
 *   📘 [Project Setup & Installation](docs/PROJECT_SETUP.md)
-*   🔐 [Keycloak & Security Configuration](docs/KEYCLOAK_SETUP.md)
+*   🔐 JWT authentication is implemented by `services/auth-service`.
 *   📡 [Kafka & Notification System Guide](docs/NOTIFICATION_SERVICE.md)
 *   🧪 [Testing Standards & Quality Gates](docs/testing/README.md)
 *   🔄 [Authentication & Session Flows](docs/AUTHENTICATION_SESSION_FLOW.md)
