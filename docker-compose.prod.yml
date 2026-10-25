@@ -1,14 +1,15 @@
 name: mentify-prod
 
+x-jwt-environment: &jwt-environment
+  AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:?AUTH_ISSUER_URI must be set}
+  AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI:?AUTH_JWK_SET_URI must be set}
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH_ISSUER_URI}
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${AUTH_JWK_SET_URI}
+
 x-app: &app
   image: ${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must be set}:${IMAGE_TAG:-latest}
   env_file:
     - "${MENTIFY_ENV_FILE:-.env.prod}"
-  environment:
-    AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:?AUTH_ISSUER_URI must be set}
-    AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI:?AUTH_JWK_SET_URI must be set}
-    SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH_ISSUER_URI}
-    SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${AUTH_JWK_SET_URI}
   restart: unless-stopped
   networks:
     - backend
@@ -101,6 +102,7 @@ services:
   auth-service:
     <<: *app
     environment:
+      <<: *jwt-environment
       SERVICE_JAR: auth-service.jar
       SPRING_PROFILES_ACTIVE: prod
       CONFIG_SERVER_URL: http://config-server:8888
@@ -123,6 +125,7 @@ services:
   api-gateway:
     <<: *app
     environment:
+      <<: *jwt-environment
       SERVICE_JAR: api-gateway.jar
       SPRING_PROFILES_ACTIVE: prod
       CONFIG_SERVER_URL: http://config-server:8888
@@ -160,7 +163,15 @@ services:
 
   user-service:
     <<: *app
-    environment: {SERVICE_JAR: user-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: user-service, USER_DB_HOST: postgres, AUTH_SERVICE_URL: "http://auth-service:8085"}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: user-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: user-service
+      USER_DB_HOST: postgres
+      AUTH_SERVICE_URL: "http://auth-service:8085"
     depends_on: &business-depends
       config-server: {condition: service_healthy}
       service-registry: {condition: service_started}
@@ -168,62 +179,151 @@ services:
 
   course-service:
     <<: *app
-    environment: {SERVICE_JAR: course-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: course-service, COURSE_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: course-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: course-service
+      COURSE_DB_HOST: postgres
     depends_on: *business-depends
 
   entrollment-service:
     <<: *app
-    environment: {SERVICE_JAR: entrollment-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: entrollment-service, ENTROLLMENT_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: entrollment-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: entrollment-service
+      ENTROLLMENT_DB_HOST: postgres
     depends_on: *business-depends
 
   assignment-service:
     <<: *app
-    environment: {SERVICE_JAR: assignment-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: assignment-service, ASSIGNMENT_DB_HOST: postgres, CALENDAR_SERVICE_URL: "http://calender-service:8092"}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: assignment-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: assignment-service
+      ASSIGNMENT_DB_HOST: postgres
+      CALENDAR_SERVICE_URL: "http://calender-service:8092"
     depends_on: *business-depends
 
   communication-service:
     <<: *app
-    environment: {SERVICE_JAR: communication-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: communication-service, COMMUNICATION_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: communication-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: communication-service
+      COMMUNICATION_DB_HOST: postgres
     depends_on: *business-depends
 
   attendance-service:
     <<: *app
-    environment: {SERVICE_JAR: attendance-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: attendance-service, ATTENDANCE_DB_HOST: postgres, CALENDAR_SERVICE_URL: "http://calender-service:8092"}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: attendance-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: attendance-service
+      ATTENDANCE_DB_HOST: postgres
+      CALENDAR_SERVICE_URL: "http://calender-service:8092"
     depends_on: *business-depends
 
   exam-service:
     <<: *app
-    environment: {SERVICE_JAR: exam-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: exam-service, EXAM_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: exam-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: exam-service
+      EXAM_DB_HOST: postgres
     depends_on: *business-depends
 
   material-service:
     <<: *app
-    environment: {SERVICE_JAR: material-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: material-service, MATERIAL_DB_HOST: postgres, AWS_PROFILE: ""}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: material-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: material-service
+      MATERIAL_DB_HOST: postgres
+      AWS_PROFILE: ""
     depends_on: *business-depends
 
   calender-service:
     <<: *app
-    environment: {SERVICE_JAR: calender-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: calender-service, CALENDER_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: calender-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: calender-service
+      CALENDER_DB_HOST: postgres
     depends_on: *business-depends
 
   payment-service:
     <<: *app
-    environment: {SERVICE_JAR: payment-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: payment-service, PAYMENT_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: payment-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: payment-service
+      PAYMENT_DB_HOST: postgres
     depends_on: *business-depends
 
   ai-service:
     <<: *app
-    environment: {SERVICE_JAR: ai-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: ai-service, AI_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: ai-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: ai-service
+      AI_DB_HOST: postgres
     depends_on: *business-depends
 
   analytics-service:
     <<: *app
-    environment: {SERVICE_JAR: analytics-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: analytics-service, ANALYTICS_DB_HOST: postgres}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: analytics-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: analytics-service
+      ANALYTICS_DB_HOST: postgres
     depends_on: *business-depends
 
   notification-service:
     <<: *app
-    environment: {SERVICE_JAR: notification-service.jar, SPRING_PROFILES_ACTIVE: prod, CONFIG_SERVER_URL: "http://config-server:8888", EUREKA_URL: "http://service-registry:8761/eureka/", EUREKA_INSTANCE_IP: notification-service, NOTIFICATION_DB_HOST: postgres, KAFKA_BOOTSTRAP_SERVERS: "kafka:29092", NOTIFICATION_KAFKA_ENABLED: "true"}
+    environment:
+      <<: *jwt-environment
+      SERVICE_JAR: notification-service.jar
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: "http://config-server:8888"
+      EUREKA_URL: "http://service-registry:8761/eureka/"
+      EUREKA_INSTANCE_IP: notification-service
+      NOTIFICATION_DB_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      NOTIFICATION_KAFKA_ENABLED: "true"
     depends_on:
       <<: *business-depends
       kafka: {condition: service_healthy}
