@@ -215,7 +215,7 @@
         - name: Run unit tests with JaCoCo
           working-directory: .
           run: |
-            bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} test \
+            bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} test jacoco:report \
               -pl ${{ matrix.path }} -am \
               -Djacoco.skip=false
 

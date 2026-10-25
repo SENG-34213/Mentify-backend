@@ -129,11 +129,10 @@
                         <id>report</id>
                         <phase>verify</phase>
                         <configuration>
-                            <includes>
-                                <include>com/mentify/common/security/*</include>
-                                <include>com/mentify/controller/AuthTestController*</include>
-                                <include>com/mentify/gateway/config/GatewaySecurityConfig*</include>
-                            </includes>
+                            <formats>
+                                <format>HTML</format>
+                                <format>XML</format>
+                            </formats>
                         </configuration>
                         <goals>
                             <goal>report</goal>
