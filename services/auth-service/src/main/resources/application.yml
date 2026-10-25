@@ -45,6 +45,8 @@ mentify:
     allow-ephemeral-keys: ${AUTH_JWT_ALLOW_EPHEMERAL_KEYS:false}
     user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
     internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
+    max-failed-attempts: ${AUTH_MAX_FAILED_ATTEMPTS:5}
+    lock-duration-minutes: ${AUTH_LOCK_DURATION_MINUTES:15}
 eureka:
   client:
     service-url:

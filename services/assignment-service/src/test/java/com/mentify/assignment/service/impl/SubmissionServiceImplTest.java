@@ -4,6 +4,7 @@ import com.mentify.assignment.dto.request.CreateSubmissionRequest;
 import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.entity.Submission;
 import com.mentify.assignment.enums.AssignmentStatus;
+import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.SubmissionService;
@@ -27,6 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class SubmissionServiceImplTest {
@@ -137,8 +140,42 @@ class SubmissionServiceImplTest {
         when(submissionRepository.findByIdAndIsActiveTrue(submission.getId())).thenReturn(Optional.of(submission));
 
         org.junit.jupiter.api.Assertions.assertThrows(
-                RuntimeException.class,
+                SubmissionConflictException.class,
                 () -> submissionService.submitAssignment(submission.getId(), "Bearer token")
         );
+
+        verify(submissionRepository, never()).save(any(Submission.class));
+    }
+
+    @Test
+    void createSubmission_whenMaximumAttemptsReached_rejectsWithoutSaving() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        Assignment assignment = Assignment.builder()
+                .courseId(courseId)
+                .moduleId(UUID.randomUUID())
+                .title("Limited assignment")
+                .startDate(LocalDateTime.now().minusDays(1))
+                .dueDate(LocalDateTime.now().plusDays(1))
+                .maxMarks(100)
+                .allowedAttempts(1)
+                .allowLateSubmission(false)
+                .status(AssignmentStatus.PUBLISHED)
+                .build();
+        assignment.setId(assignmentId);
+
+        when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId)).thenReturn(Optional.of(assignment));
+        when(currentUserService.getCurrentUserId()).thenReturn(studentId);
+        when(userServiceClient.isStudentExists(studentId, "Bearer token")).thenReturn(true);
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, "Bearer token"))
+                .thenReturn(true);
+        when(submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, studentId))
+                .thenReturn(1L);
+
+        org.junit.jupiter.api.Assertions.assertThrows(SubmissionConflictException.class,
+                () -> submissionService.createSubmission(assignmentId, new CreateSubmissionRequest(), "Bearer token"));
+
+        verify(submissionRepository, never()).save(any(Submission.class));
     }
 }

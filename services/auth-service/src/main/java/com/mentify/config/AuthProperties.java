@@ -17,4 +17,6 @@ public class AuthProperties {
     private boolean allowEphemeralKeys = true;
     private String userServiceUrl = "http://localhost:8081";
     private String internalToken = "change-me-internal-auth-token";
+    private int maxFailedAttempts = 5;
+    private long lockDurationMinutes = 15;
 }

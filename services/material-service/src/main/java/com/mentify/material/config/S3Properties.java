@@ -13,13 +13,14 @@ public record S3Properties(
         String profile,
         String accessKey,
         String secretKey,
-        String sessionToken
+        String sessionToken,
+        String endpoint
 ) {
     @ConstructorBinding
     public S3Properties {
     }
 
     public S3Properties(String bucket, String region, Duration downloadUrlExpiration, String profile) {
-        this(bucket, region, downloadUrlExpiration, profile, null, null, null);
+        this(bucket, region, downloadUrlExpiration, profile, null, null, null, null);
     }
 }

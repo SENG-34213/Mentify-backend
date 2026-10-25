@@ -63,6 +63,7 @@ material:
       access-key: ${AWS_ACCESS_KEY_ID:}
       secret-key: ${AWS_SECRET_ACCESS_KEY:}
       session-token: ${AWS_SESSION_TOKEN:}
+      endpoint: ${MATERIAL_S3_ENDPOINT:}
   validation:
     max-upload-size: ${MATERIAL_MAX_UPLOAD_SIZE:100MB}
     file-types:

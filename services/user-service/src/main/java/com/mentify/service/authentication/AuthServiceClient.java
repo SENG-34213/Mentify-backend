@@ -50,9 +50,35 @@ public class AuthServiceClient {
                 .toBodilessEntity();
     }
 
+    public void unlock(UUID userId) {
+        RestClient.builder()
+                .baseUrl(serviceUrl)
+                .build()
+                .post()
+                .uri("/api/v1/auth/internal/users/{userId}/unlock", userId)
+                .header("X-Internal-Token", internalToken)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    public boolean isAccountLocked(UUID userId) {
+        LockStatus response = RestClient.builder()
+                .baseUrl(serviceUrl)
+                .build()
+                .get()
+                .uri("/api/v1/auth/internal/users/{userId}/lock-status", userId)
+                .header("X-Internal-Token", internalToken)
+                .retrieve()
+                .body(LockStatus.class);
+        return response != null && response.accountLocked();
+    }
+
     public record ProvisionUserRequest(UUID userId, String email, String password) {
     }
 
     public record PasswordChangeRequest(String currentPassword, String newPassword) {
+    }
+
+    public record LockStatus(boolean accountLocked) {
     }
 }

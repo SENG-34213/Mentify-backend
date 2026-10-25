@@ -10,6 +10,7 @@ import com.mentify.client.dto.AssignmentDashboardResponse;
 import com.mentify.client.dto.CalendarDashboardResponse;
 import com.mentify.client.dto.ExamDashboardResponse;
 import com.mentify.client.dto.SubmissionDashboardResponse;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.client.dashboard.DashboardDtos;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
@@ -58,6 +59,9 @@ public class CourseServiceImpl implements CourseService {
     private final ExamDashboardClient examDashboardClient;
     private final QuizGradebookClient quizGradebookClient;
     private final CalendarDashboardClient calendarDashboardClient;
+
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
                              UserServiceClient userServiceClient,
@@ -264,6 +268,7 @@ public class CourseServiceImpl implements CourseService {
 
         CourseResponse courseResponse = toCourseResponses(List.of(savedCourse), authorizationHeader).get(0);
         log.info("Course created successfully with ID [{}]", savedCourse.getId());
+        notifyAssignedTeacher(savedCourse, courseResponse);
 
         return ApiResponse.<CourseResponse>builder()
                 .message("Course created successfully")
@@ -271,6 +276,32 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.CREATED.value())
                 .status(HttpStatus.CREATED)
                 .build();
+    }
+
+    private void notifyAssignedTeacher(Course course, CourseResponse courseResponse) {
+        if (notificationEventPublisher == null
+                || course.getAssignedTeacherId() == null
+                || teacherCourseAccessGuard.isTeacherAuthenticated()) {
+            return;
+        }
+
+        String courseName = courseResponse.getCourseName() == null
+                ? course.getCourseName()
+                : courseResponse.getCourseName();
+        String courseCode = courseResponse.getCourseCode() == null
+                ? course.getCourseCode()
+                : courseResponse.getCourseCode();
+        String status = course.isPublished() ? "published" : "saved as a draft";
+
+        notificationEventPublisher.publishForRecipient(
+                course.getAssignedTeacherId().toString(),
+                null,
+                "COURSE_ASSIGNED",
+                "New course assigned to you",
+                "An administrator assigned the course \"" + courseName + "\""
+                        + (courseCode == null || courseCode.isBlank() ? "" : " (" + courseCode + ")")
+                        + " to you. The course was " + status + ". Open your Courses page to review it."
+        );
     }
 
     @Override

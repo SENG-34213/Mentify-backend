@@ -137,7 +137,18 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     }
 
     private boolean canManage(CalendarEvent event, String authorizationHeader) {
-        if (event.getStatus() == CalendarEventStatus.CANCELLED || isProjected(event)) {
+        if (event.getStatus() == CalendarEventStatus.CANCELLED) {
+            return false;
+        }
+        // Administrators have full calendar-management access, including
+        // events projected from another service.
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return true;
+        }
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
+            return false;
+        }
+        if (isProjected(event)) {
             return false;
         }
         try {
@@ -149,6 +160,12 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     }
 
     private boolean canDelete(CalendarEvent event, String authorizationHeader) {
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return true;
+        }
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
+            return false;
+        }
         if (isProjected(event)) return false;
         try {
             assertCanManage(event, event.getId(), authorizationHeader);
@@ -165,6 +182,9 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         if (!currentUser.hasRole("TEACHER")) {
             throw hiddenEvent(eventId);
         }
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
+            throw new AccessDeniedException("Teacher cannot manage administrator-created events");
+        }
         if (currentUser.getIdentityIds().contains(event.getCreatedBy())) {
             return;
         }
@@ -172,7 +192,7 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     }
 
     private void assertManual(CalendarEvent event, UUID eventId) {
-        if (isProjected(event)) {
+        if (isProjected(event) && !currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             throw new CalendarDomainException(HttpStatus.CONFLICT,
                     "Source-projected events cannot be managed through manual event APIs");
         }

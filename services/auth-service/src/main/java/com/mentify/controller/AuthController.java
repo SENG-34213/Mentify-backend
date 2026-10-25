@@ -96,6 +96,29 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/internal/users/{userId}/unlock")
+    public ResponseEntity<Void> unlock(
+            @RequestHeader("X-Internal-Token") String token,
+            @PathVariable UUID userId
+    ) {
+        if (!properties.getInternalToken().equals(token)) {
+            return ResponseEntity.status(403).build();
+        }
+        authenticationService.unlock(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/internal/users/{userId}/lock-status")
+    public ResponseEntity<Map<String, Boolean>> lockStatus(
+            @RequestHeader("X-Internal-Token") String token,
+            @PathVariable UUID userId
+    ) {
+        if (!properties.getInternalToken().equals(token)) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(Map.of("accountLocked", authenticationService.isAccountLocked(userId)));
+    }
+
     public record PasswordChangeRequest(String currentPassword, String newPassword) {}
 
     @DeleteMapping("/internal/users/{userId}")

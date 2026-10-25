@@ -34,7 +34,7 @@ public class ProfileImageController {
     private final CurrentMaterialUserService currentUserService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<ProfileImageUploadResponse>> upload(@RequestParam MultipartFile file) {
         ValidatedMaterialFile validated = fileValidationService.validate(file);
         if (!validated.contentType().startsWith("image/")) {

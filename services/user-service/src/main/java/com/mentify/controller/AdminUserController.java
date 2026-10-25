@@ -110,6 +110,14 @@ public class AdminUserController {
         );
     }
 
+    @PostMapping("/{userId}/unlock")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> unlockUser(@PathVariable UUID userId) {
+        userRegistrationService.unlockAccount(userId);
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK.value(), "User account unlocked successfully", null));
+    }
+
     @DeleteMapping("/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable UUID userId) {
