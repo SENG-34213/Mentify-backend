@@ -34,6 +34,19 @@ Branch coverage: >= 80%
 
 Existing unrelated classes are excluded from this ticket's coverage gate. They should be covered by the tickets that modify or extend them.
 
+## SDS Critical Business Logic Coverage Scope
+
+The SDS identifies two high-impact grading use cases: student quiz auto-grading (SDS section 4.5) and teacher assignment grading (SDS section 4.6). Their implementation classes are explicitly gated in the root Maven build:
+
+```txt
+com.mentify.quiz.service.impl.QuizGradingServiceImpl
+com.mentify.assignment.service.impl.GradingServiceImpl
+```
+
+During `verify`, JaCoCo requires at least 90% branch coverage for each listed class. The gate is per class, so strong coverage in one class cannot offset a weak result in the other. Tests cover score calculation, boundaries, invalid/missing marks, ownership/role checks, feedback, and notification behavior. This scope is deliberately tied to the SDS grading use cases; it does not claim that every possible critical class in the system has been independently approved or covered.
+
+Latest local result on the TEST-042 branch: the complete assignment-service `verify` passed with 95 tests, zero failures/errors/skips; both classes reached 100% line and branch coverage. Case-level IDs, expected results, and actual outcomes are in `docs/testing/SDS_GRADING_TEST_REGISTER.md`. Retain the matching backend Actions run and JaCoCo artifact for CI evidence.
+
 ## Coverage Commands
 
 Generate reports and run coverage checks:
@@ -113,4 +126,5 @@ Before formal submission, export the required PDF deliverables if your course pr
 ```txt
 documents/testing/test-register.pdf
 documents/testing/coverage-sprint8.pdf
+documents/testing/performance-report.pdf
 ```

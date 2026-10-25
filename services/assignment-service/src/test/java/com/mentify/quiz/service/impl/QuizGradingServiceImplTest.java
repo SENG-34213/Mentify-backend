@@ -89,6 +89,77 @@ class QuizGradingServiceImplTest {
         assertThat(result.getPassed()).isTrue();
     }
 
+    @Test
+    void answerSelectingAnOptionOutsideTheQuestionIsIncorrect() {
+        QuizQuestion question = question(new BigDecimal("2.00"));
+        QuestionOption correctOption = option(question, true);
+        question.addOption(correctOption);
+        StudentAnswer answer = answer(question.getId(), UUID.randomUUID());
+
+        SubmitQuizResponse result = gradingService.grade(
+                quiz(new BigDecimal("2.00"), new BigDecimal("1.00")),
+                attempt(),
+                List.of(question),
+                List.of(answer)
+        );
+
+        assertThat(answer.getCorrect()).isFalse();
+        assertThat(answer.getAwardedMarks()).isEqualByComparingTo("0.00");
+        assertThat(result.getPassed()).isFalse();
+    }
+
+    @Test
+    void zeroTotalMarksProducesZeroPercentage() {
+        QuizQuestion question = question(new BigDecimal("1.00"));
+        QuestionOption correctOption = option(question, true);
+        question.addOption(correctOption);
+        StudentAnswer answer = answer(question.getId(), correctOption.getId());
+
+        SubmitQuizResponse result = gradingService.grade(
+                quiz(BigDecimal.ZERO, BigDecimal.ZERO),
+                attempt(),
+                List.of(question),
+                List.of(answer)
+        );
+
+        assertThat(result.getScore()).isEqualByComparingTo("1.00");
+        assertThat(result.getPercentage()).isEqualByComparingTo("0");
+        assertThat(result.getPassed()).isTrue();
+    }
+
+    @Test
+    void nullTotalAndPassMarksProduceZeroPercentageAndFail() {
+        StudentAnswer answer = answer(UUID.randomUUID(), UUID.randomUUID());
+
+        SubmitQuizResponse result = gradingService.grade(
+                quiz(null, null),
+                attempt(),
+                List.of(),
+                List.of(answer)
+        );
+
+        assertThat(result.getScore()).isEqualByComparingTo("0");
+        assertThat(result.getPercentage()).isEqualByComparingTo("0");
+        assertThat(result.getPassed()).isFalse();
+    }
+
+    @Test
+    void answersForQuestionsOutsideTheQuizAreIgnored() {
+        StudentAnswer answer = answer(UUID.randomUUID(), UUID.randomUUID());
+
+        SubmitQuizResponse result = gradingService.grade(
+                quiz(BigDecimal.ONE, BigDecimal.ONE),
+                attempt(),
+                List.of(),
+                List.of(answer)
+        );
+
+        assertThat(answer.getCorrect()).isNull();
+        assertThat(answer.getAwardedMarks()).isNull();
+        assertThat(result.getScore()).isEqualByComparingTo("0");
+        assertThat(result.getPassed()).isFalse();
+    }
+
     private Quiz quiz(BigDecimal totalMarks, BigDecimal passMark) {
         Quiz quiz = Quiz.builder()
                 .courseId(UUID.randomUUID())
