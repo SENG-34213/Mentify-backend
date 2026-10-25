@@ -212,10 +212,10 @@
             path: ${{ matrix.path }}/target
             key: build-${{ matrix.service }}-${{ github.sha }}
 
-        - name: Run unit tests with JaCoCo
+        - name: Run unit tests and coverage checks with JaCoCo
           working-directory: .
           run: |
-            bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} test jacoco:report \
+            bash .github/scripts/maven-with-retry.sh ${{ env.MVN_FLAGS }} verify \
               -pl ${{ matrix.path }} -am \
               -Djacoco.skip=false
 
