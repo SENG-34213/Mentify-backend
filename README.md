@@ -184,14 +184,57 @@ flowchart TB
     platform -. service discovery and configuration .-> domains
     domains -. internal Feign calls .-> domains
 
-    kafka[(Kafka :29092)] --> notification
+    subgraph data[Private data and messaging layer]
+        postgres[(PostgreSQL 14\nservice-owned databases)]
+        redis[(Redis 7.4\ncache · locks · idempotency)]
+        kafka[(Kafka 3.9.1\nevent bus)]
+    end
+
+    auth --> postgres
+    user --> postgres
+    course --> postgres
+    enrollment --> postgres
+    assignment --> postgres
+    communication --> postgres
+    attendance --> postgres
+    exam --> postgres
+    material --> postgres
+    calendar --> postgres
+    payment --> postgres
+    notification --> postgres
+    analytics --> postgres
+    ai --> postgres
+
+    auth -. cache/session state .-> redis
+    user -. cache/locks .-> redis
+    course -. cache/locks .-> redis
+    communication -. realtime state .-> redis
+
+    communication --> kafka
+    course --> kafka
+    assignment --> kafka
+    attendance --> kafka
+    exam --> kafka
+    payment --> kafka
+    kafka --> notification
     kafka --> analytics
-    postgres[(PostgreSQL)] --> domains
-    redis[(Redis)] --> domains
-    material --> s3[(Amazon S3)]
+
+    subgraph external[External services]
+        s3[(Amazon S3\nobject storage)]
+        ai_provider[AI / LLM provider\nOpenAI-compatible API]
+        stripe[Stripe\npayment provider]
+        smtp[SMTP provider\nemail delivery]
+        sms[SMS provider\noptional delivery]
+    end
+
+    material --> s3
+    ai --> ai_provider
+    payment --> stripe
+    notification --> smtp
+    notification --> sms
 ```
 
-The diagram shows every backend service in this repository. All service-to-service communication remains private to the Docker network; Caddy and the gateway are the public request path.
+The diagram shows every backend service, its main data dependencies, and external integrations. PostgreSQL is one runtime container with service-owned databases; Redis and Kafka are private Docker services. Amazon S3, AI/LLM APIs, Stripe, SMTP, and SMS providers are external network integrations. Caddy and the gateway are the public request path.
 
 ---
 
