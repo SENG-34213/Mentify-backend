@@ -111,8 +111,8 @@ Backend containers run on one EC2 instance with Docker Compose for the academic/
 
 > **Production network:** `mentify-prod_backend`<br>
 > **Backend image:** `holins/mentify-backend:<git-sha>`<br>
-> **Public API:** `http://13.235.45.255/api`<br>
-> **Health check:** `http://13.235.45.255/actuator/health`
+> **Public API:** `http://<EC2_HOST>/api`<br>
+> **Health check:** `http://<EC2_HOST>/actuator/health`
 
 ## Contents
 
@@ -139,39 +139,59 @@ Mentify follows a **Spring Cloud microservices** pattern. The gateway is the pub
 
 ### In-Depth System Design
 
-```text
-                                       +-------------------------------------------------------+
-                                       |             Frontend / API clients                  |
-                                       +---------------------------+---------------------------+
-                                                                   |
-                                                                   v [HTTP :80 via Caddy]
-                                                    +--------------+--------------+
-                                                    |       API Gateway :8080     |
-                                                    |  Routing, CORS, JWT checks  |
-                                                    +--------------+--------------+
-                                                                   |
-            +-----------------------+--------------------+----------------------+
-            |                       |                    |                      |
-    +-------v-------+       +-------v-------+      +------v-------+       +------v-------+
-    | User / Course |       | Exams / Work |      | AI / Material|       | Payment /    |
-    | Enrolment     |       | Attendance   |      | S3 workflows  |       | Notifications|
-    +-------+-------+       +-------+-------+      +------+-------+       +------+-------+
-            |                       |                    |                      |
-            +----------- Inter-service calls via Feign / service discovery ----+
-                                    |
-                 +------------------+------------------+
-                 |                                     |
-        +--------v---------+                 +---------v---------+
-        | Config + Eureka  |                 | Kafka event bus   |
-        | platform services|                 | notifications and |
-        +------------------+                 | analytics events  |
-                                             +---------+---------+
-                                                       |
-                                             +---------v---------+
-                                             | PostgreSQL / Redis|
-                                             | Amazon S3 objects  |
-                                             +--------------------+
+```mermaid
+flowchart TB
+    clients[Frontend and API clients] --> caddy[Caddy reverse proxy :80]
+    caddy --> gateway[api-gateway :8080\nRouting · CORS · JWT validation]
+
+    subgraph platform[Platform services]
+        registry[service-registry\nEureka discovery]
+        config[config-server\nCentral configuration]
+        auth[auth-service\nSimple JWT issuance]
+        user[user-service\nUsers and RBAC]
+    end
+
+    subgraph domains[Domain services]
+        course[course-service]
+        enrollment[entrollment-service]
+        assignment[assignment-service]
+        communication[communication-service]
+        attendance[attendance-service]
+        exam[exam-service]
+        material[material-service]
+        calendar[calender-service]
+        payment[payment-service]
+        notification[notification-service]
+        analytics[analytics-service]
+        ai[ai-service]
+    end
+
+    gateway --> auth
+    gateway --> user
+    gateway --> course
+    gateway --> enrollment
+    gateway --> assignment
+    gateway --> communication
+    gateway --> attendance
+    gateway --> exam
+    gateway --> material
+    gateway --> calendar
+    gateway --> payment
+    gateway --> notification
+    gateway --> analytics
+    gateway --> ai
+
+    platform -. service discovery and configuration .-> domains
+    domains -. internal Feign calls .-> domains
+
+    kafka[(Kafka :29092)] --> notification
+    kafka --> analytics
+    postgres[(PostgreSQL)] --> domains
+    redis[(Redis)] --> domains
+    material --> s3[(Amazon S3)]
 ```
+
+The diagram shows every backend service in this repository. All service-to-service communication remains private to the Docker network; Caddy and the gateway are the public request path.
 
 ---
 
@@ -389,7 +409,7 @@ DOCKERHUB_IMAGE=holins/mentify-backend
 ### EC2 checks
 
 ```bash
-ssh -i ~/Downloads/mentify-ec2-key-2.pem ubuntu@13.235.45.255
+ssh -i ~/Downloads/mentify-ec2-key-2.pem ubuntu@<EC2_HOST>
 cd /opt/mentify
 
 docker compose \
