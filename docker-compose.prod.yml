@@ -4,6 +4,9 @@ x-app: &app
   image: ${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must be set}:${IMAGE_TAG:-latest}
   env_file:
     - "${MENTIFY_ENV_FILE:-.env.prod}"
+  environment:
+    AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:?AUTH_ISSUER_URI must be set}
+    AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI:?AUTH_JWK_SET_URI must be set}
   restart: unless-stopped
   networks:
     - backend
