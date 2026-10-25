@@ -12,6 +12,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.HtmlUtils;
+import com.mentify.enums.Role;
 
 import java.nio.charset.StandardCharsets;
 
@@ -27,11 +28,25 @@ public class TemporaryCredentialsEmailDeliveryService {
     @Value("${mentify.registration.email.login-url:http://localhost:5173/login}")
     private String loginUrl = "http://localhost:5173/login";
 
+    @Value("${mentify.registration.email.student-login-url:http://localhost:5173/login}")
+    private String studentLoginUrl = "http://localhost:5173/login";
+
+    @Value("${mentify.registration.email.teacher-login-url:http://localhost:5173/login}")
+    private String teacherLoginUrl = "http://localhost:5173/login";
+
+    @Value("${mentify.registration.email.admin-login-url:http://localhost:5173/login}")
+    private String adminLoginUrl = "http://localhost:5173/login";
+
     @Value("${mentify.registration.email.retry-attempts:2}")
     private int retryAttempts = 2;
 
     public void send(String email, String firstName, String temporaryPassword) {
+        send(email, firstName, temporaryPassword, null);
+    }
+
+    public void send(String email, String firstName, String temporaryPassword, Role role) {
         try {
+            String resolvedLoginUrl = resolveLoginUrl(role);
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
             helper.setFrom(fromAddress);
@@ -40,11 +55,11 @@ public class TemporaryCredentialsEmailDeliveryService {
             MimeMultipart alternative = new MimeMultipart("alternative");
 
             MimeBodyPart plainTextPart = new MimeBodyPart();
-            plainTextPart.setText(plainText(email, firstName, temporaryPassword), StandardCharsets.UTF_8.name());
+            plainTextPart.setText(plainText(email, firstName, temporaryPassword, resolvedLoginUrl), StandardCharsets.UTF_8.name());
             alternative.addBodyPart(plainTextPart);
 
             MimeBodyPart htmlPart = new MimeBodyPart();
-            htmlPart.setContent(htmlText(email, firstName, temporaryPassword),
+            htmlPart.setContent(htmlText(email, firstName, temporaryPassword, resolvedLoginUrl),
                     "text/html; charset=" + StandardCharsets.UTF_8.name());
             htmlPart.setHeader("Content-Type", "text/html; charset=" + StandardCharsets.UTF_8.name());
             alternative.addBodyPart(htmlPart);
@@ -68,17 +83,17 @@ public class TemporaryCredentialsEmailDeliveryService {
         }
     }
 
-    private String plainText(String email, String firstName, String temporaryPassword) {
+    private String plainText(String email, String firstName, String temporaryPassword, String resolvedLoginUrl) {
         return "Hello " + safeName(firstName) + ",\n\n"
                 + "Your TiT account has been created. Sign in with " + email + " and this temporary password:\n\n"
                 + temporaryPassword + "\n\n"
-                + "Sign in at " + loginUrl + " with these credentials. You will be asked to change this password "
+                + "Sign in at " + resolvedLoginUrl + " with these credentials. You will be asked to change this password "
                 + "after signing in. Keep this message private, never forward it, and delete it after changing "
                 + "your password.\n";
     }
 
-    private String htmlText(String email, String firstName, String temporaryPassword) {
-        String safeLoginUrl = StringUtils.hasText(loginUrl) ? loginUrl.trim() : "http://localhost:5173/login";
+    private String htmlText(String email, String firstName, String temporaryPassword, String resolvedLoginUrl) {
+        String safeLoginUrl = StringUtils.hasText(resolvedLoginUrl) ? resolvedLoginUrl.trim() : "http://localhost:5173/login";
         return """
                 <!doctype html>
                 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -108,5 +123,16 @@ public class TemporaryCredentialsEmailDeliveryService {
 
     private String safeName(String firstName) {
         return firstName == null || firstName.isBlank() ? "there" : firstName.trim();
+    }
+
+    private String resolveLoginUrl(Role role) {
+        if (role == Role.STUDENT) return fallback(studentLoginUrl);
+        if (role == Role.TEACHER) return fallback(teacherLoginUrl);
+        if (role == Role.ADMIN || role == Role.SUPER_ADMIN) return fallback(adminLoginUrl);
+        return fallback(loginUrl);
+    }
+
+    private String fallback(String value) {
+        return StringUtils.hasText(value) ? value.trim() : "http://localhost:5173/login";
     }
 }

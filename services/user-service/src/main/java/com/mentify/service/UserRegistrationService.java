@@ -64,7 +64,7 @@ public class UserRegistrationService {
             User savedUser = userRepository.saveAndFlush(user);
             authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword, request.getRole());
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {
@@ -302,7 +302,7 @@ public class UserRegistrationService {
         String temporaryPassword = temporaryPasswordGenerator.generate();
             authCredentialService.setInitialPassword(user.getAuthUserId(), temporaryPassword);
         registrationEmailDispatcher.sendAfterCommit(
-                    user.getAuthUserId(), user.getEmail(), user.getFirstName(), temporaryPassword);
+                    user.getAuthUserId(), user.getEmail(), user.getFirstName(), temporaryPassword, user.getRole());
     }
 
     @Transactional
