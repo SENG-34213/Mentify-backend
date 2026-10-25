@@ -17,6 +17,103 @@ Mentify is an AI-enabled Learning Management System backend built from independe
 
 > **Current deployment model:** the backend runs as Docker containers on one AWS EC2 instance for the cost-conscious academic/demo environment. The separate `SENG-34213/infra` repository owns EC2 infrastructure and reverse-proxy operations.
 
+## At a glance
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### ☕ Runtime
+
+**Java 17 + Spring Boot 3.x**
+
+The backend is organized as a Maven multi-module Spring Cloud application.
+
+</td>
+<td width="33%" valign="top">
+
+### 🧩 Services
+
+**Platform + domain microservices**
+
+Gateway, discovery, configuration, authentication, learning, communication, analytics, payment, and AI services.
+
+</td>
+<td width="33%" valign="top">
+
+### 🐳 Packaging
+
+**One reusable Docker image**
+
+`holins/mentify-backend:<git-sha>` contains all service JARs and Compose selects the active service.
+
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+
+### 🔐 Security
+
+**Simple RSA-signed JWT**
+
+`auth-service` issues access/refresh tokens. Keycloak is not required by the current runtime.
+
+</td>
+<td width="33%" valign="top">
+
+### 📨 Messaging
+
+**Apache Kafka 3.9.1**
+
+Notification and analytics workflows use asynchronous events through Kafka topics.
+
+</td>
+<td width="33%" valign="top">
+
+### 🗄️ Data
+
+**PostgreSQL + Redis**
+
+PostgreSQL stores transactional data. Redis provides caching, locks, and short-lived state.
+
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+
+### ☁️ Object storage
+
+**Amazon S3**
+
+Learning materials and application files are stored outside the EC2 container filesystem.
+
+</td>
+<td width="33%" valign="top">
+
+### 🚀 Delivery
+
+**GitHub Actions → Docker Hub → EC2**
+
+Successful `main` builds publish an immutable image and deploy it automatically to EC2.
+
+</td>
+<td width="33%" valign="top">
+
+### 💰 Deployment model
+
+**Cost-conscious single EC2 host**
+
+Backend containers run on one EC2 instance with Docker Compose for the academic/demo environment.
+
+</td>
+</tr>
+</table>
+
+> **Production network:** `mentify-prod_backend`<br>
+> **Backend image:** `holins/mentify-backend:<git-sha>`<br>
+> **Public API:** `http://13.235.45.255/api`<br>
+> **Health check:** `http://13.235.45.255/actuator/health`
+
 ## Contents
 
 - [Architecture Overview](#architecture-overview)
