@@ -46,6 +46,7 @@ public class GatewaySecurityConfig {
                                 "/actuator/health",
                                 "/actuator/info",
                                 "/api/v1/auth/public-test",
+                                "/api/v1/auth/.well-known/jwks.json",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/api/v1/auth/login",

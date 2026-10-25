@@ -44,6 +44,13 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void givenNoToken_whenCallingJwksEndpoint_thenReturnsOk() {
+        webTestClient.get().uri("/api/v1/auth/.well-known/jwks.json")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
     void givenNoToken_whenCallingGatewayRefreshEndpoint_thenReturnsOk() {
         // Arrange
         var request = webTestClient.post().uri("/api/v1/auth/refresh");
@@ -149,6 +156,11 @@ class GatewaySecurityConfigTest {
 
         @GetMapping("/api/v1/auth/public-test")
         Map<String, String> publicTest() {
+            return Map.of("status", "success");
+        }
+
+        @GetMapping("/api/v1/auth/.well-known/jwks.json")
+        Map<String, String> jwks() {
             return Map.of("status", "success");
         }
 
