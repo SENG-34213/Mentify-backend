@@ -1,5 +1,6 @@
 package com.mentify.service.registration;
 
+import com.mentify.enums.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -14,8 +15,12 @@ public class RegistrationEmailDispatcher {
     private final TemporaryCredentialsEmailDeliveryService temporaryCredentialsEmailDeliveryService;
 
     public void sendAfterCommit(String authUserId, String email, String firstName, String temporaryPassword) {
+        sendAfterCommit(authUserId, email, firstName, temporaryPassword, null);
+    }
+
+    public void sendAfterCommit(String authUserId, String email, String firstName, String temporaryPassword, Role role) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            sendSafely(authUserId, email, firstName, temporaryPassword);
+            sendSafely(authUserId, email, firstName, temporaryPassword, role);
             return;
         }
 
@@ -23,7 +28,7 @@ public class RegistrationEmailDispatcher {
             @Override
             public void afterCommit() {
                 try {
-                    sendSafely(authUserId, email, firstName, temporaryPassword);
+                    sendSafely(authUserId, email, firstName, temporaryPassword, role);
                 } catch (RegistrationEmailDeliveryException exception) {
                     // The user transaction has already committed. Do not turn a
                     // successful registration into an HTTP 500 because SMTP is
@@ -36,9 +41,13 @@ public class RegistrationEmailDispatcher {
         });
     }
 
-    private void sendSafely(String authUserId, String email, String firstName, String temporaryPassword) {
+    private void sendSafely(String authUserId, String email, String firstName, String temporaryPassword, Role role) {
         try {
-            temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword);
+            if (role == null) {
+                temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword);
+            } else {
+                temporaryCredentialsEmailDeliveryService.send(email, firstName, temporaryPassword, role);
+            }
         } catch (Exception exception) {
             // Never log the temporary credential or a mail exception that might contain message content.
             log.error("Failed to deliver sign-in credentials for auth user {}", authUserId);

@@ -65,6 +65,9 @@ mentify:
     email:
       from: ${SMTP_FROM:titeducation86@gmail.com}
       login-url: ${MENTIFY_LOGIN_URL:http://localhost:5173/login}
+      student-login-url: ${MENTIFY_STUDENT_LOGIN_URL:${MENTIFY_LOGIN_URL:http://localhost:5173/login}}
+      teacher-login-url: ${MENTIFY_TEACHER_LOGIN_URL:${MENTIFY_LOGIN_URL:http://localhost:5173/login}}
+      admin-login-url: ${MENTIFY_ADMIN_LOGIN_URL:${MENTIFY_LOGIN_URL:http://localhost:5173/login}}
       retry-attempts: ${MENTIFY_WELCOME_EMAIL_RETRY_ATTEMPTS:2}
   security:
     enabled: true
