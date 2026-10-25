@@ -7,6 +7,8 @@ x-app: &app
   environment:
     AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:?AUTH_ISSUER_URI must be set}
     AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI:?AUTH_JWK_SET_URI must be set}
+    SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH_ISSUER_URI}
+    SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${AUTH_JWK_SET_URI}
   restart: unless-stopped
   networks:
     - backend
