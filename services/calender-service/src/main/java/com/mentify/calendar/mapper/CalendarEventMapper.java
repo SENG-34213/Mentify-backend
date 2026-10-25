@@ -5,12 +5,19 @@ import com.mentify.calendar.dto.CalendarEventResponse;
 import com.mentify.calendar.entity.CalendarEvent;
 import com.mentify.calendar.enums.CalendarEventStatus;
 import com.mentify.calendar.enums.CalendarSourceType;
+import com.mentify.calendar.security.CurrentCalendarUserService;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
 @Component
 public class CalendarEventMapper {
+
+    private final CurrentCalendarUserService currentUser;
+
+    public CalendarEventMapper(CurrentCalendarUserService currentUser) {
+        this.currentUser = currentUser;
+    }
 
     public CalendarEvent toEntity(CalendarEventRequest request, UUID creator) {
         return CalendarEvent.builder()
@@ -21,7 +28,8 @@ public class CalendarEventMapper {
                 .endDateTime(request.getEndDateTime())
                 .allDay(request.getAllDay())
                 .courseId(request.getCourseId())
-                .sourceType(CalendarSourceType.CUSTOM)
+                .sourceType(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        ? CalendarSourceType.ADMIN : CalendarSourceType.CUSTOM)
                 .createdBy(creator)
                 .visibility(request.getVisibility())
                 .targetRole(request.getTargetRole())

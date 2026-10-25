@@ -78,6 +78,15 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalStateException(IllegalStateException ex, WebRequest request) {
+        ApiResponse<Object> response = ApiResponse.builder()
+                .message(ex.getMessage())
+                .status(HttpStatus.FORBIDDEN)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException ex,
