@@ -689,5 +689,31 @@
 
         - name: Verify deployment health
           run: |
+            SSH_TARGET="$EC2_USERNAME@$EC2_HOST"
+            SSH_OPTIONS=(
+              -i ~/.ssh/mentify-ec2.pem
+              -o BatchMode=yes
+              -o ConnectTimeout=30
+              -o ServerAliveInterval=30
+              -o ServerAliveCountMax=20
+            )
+
+            echo "Checking service state and port 80 from inside EC2..."
+            ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" <<'REMOTE_HEALTH_CHECK'
+            set -eu
+            cd /opt/mentify
+            docker compose \
+              --env-file .env.prod \
+              --env-file .deploy.env \
+              -f docker-compose.prod.yml \
+              ps caddy api-gateway
+            if command -v ss >/dev/null 2>&1; then
+              ss -ltn '( sport = :80 )' || true
+            fi
+            curl --fail --show-error --connect-timeout 10 \
+              http://127.0.0.1/actuator/health
+            REMOTE_HEALTH_CHECK
+
+            echo "Checking the public EC2 endpoint..."
             curl --fail --retry 20 --retry-delay 5 --connect-timeout 10 \
               "http://$EC2_HOST/actuator/health"

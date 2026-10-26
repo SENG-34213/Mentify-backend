@@ -9,6 +9,10 @@
         reverse_proxy api-gateway:8080
     }
 
+    handle /actuator/* {
+        reverse_proxy api-gateway:8080
+    }
+
     handle /admin* {
         reverse_proxy admin-frontend:3000
     }
