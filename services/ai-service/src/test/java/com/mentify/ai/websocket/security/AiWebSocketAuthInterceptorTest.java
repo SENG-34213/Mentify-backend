@@ -129,7 +129,7 @@ class AiWebSocketAuthInterceptorTest {
 
     @Test
     void sendRestoresAuthenticationFromSessionForAiChatDestination() {
-        Authentication authentication = authentication("teacher-user", "ROLE_TEACHER");
+        Authentication authentication = authentication("admin-user", "ROLE_ADMIN");
         AiWebSocketAuthInterceptor interceptor = interceptor();
         StompHeaderAccessor accessor = accessor(StompCommand.SEND, "/app/ai/chat");
         accessor.getSessionAttributes().put(AiWebSocketAuthInterceptor.SESSION_AUTHENTICATION_KEY, authentication);

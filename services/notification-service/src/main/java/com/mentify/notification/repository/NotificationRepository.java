@@ -29,6 +29,10 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     long countByRecipientUserIdAndReadAtIsNull(String recipientUserId);
 
+    long countByReadAtIsNull();
+
+    long countByEmailStatus(EmailDeliveryStatus emailStatus);
+
     Optional<Notification> findByIdAndRecipientUserId(UUID id, String recipientUserId);
 
     int deleteByIdAndRecipientUserId(UUID id, String recipientUserId);

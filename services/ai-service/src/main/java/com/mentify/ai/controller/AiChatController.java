@@ -25,7 +25,7 @@ public class AiChatController {
     private final AiChatService aiChatService;
 
     @PostMapping("/chat")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AiChatResponse>> chat(
             @Valid @RequestBody AiChatRequest request,
             @RequestHeader("Authorization") String authorizationHeader
