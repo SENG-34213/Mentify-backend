@@ -31,6 +31,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        .requestMatchers("/actuator/metrics", "/actuator/metrics/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

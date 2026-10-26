@@ -102,7 +102,7 @@ class AiChatWebSocketControllerTest {
                 .conversationId(conversationId)
                 .message("How many of them are active?")
                 .build();
-        Authentication authentication = authentication("teacher-user", "ROLE_TEACHER");
+        Authentication authentication = authentication("admin-user", "ROLE_ADMIN");
         when(aiChatService.chat(any(AiChatRequest.class), eq(AUTHORIZATION_HEADER))).thenReturn(AiChatResponse.builder()
                 .message("I need a little more context before I can answer that follow-up.")
                 .toolsUsed(List.of())

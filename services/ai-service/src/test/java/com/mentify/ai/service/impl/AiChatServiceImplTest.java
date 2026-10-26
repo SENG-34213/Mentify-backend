@@ -32,6 +32,13 @@ import com.mentify.ai.tool.StudentProgressTool;
 import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
+import com.mentify.ai.tool.AdminDashboardOverviewTool;
+import com.mentify.ai.tool.AiUsageOverviewTool;
+import com.mentify.ai.tool.MaterialOverviewTool;
+import com.mentify.ai.tool.NotificationOverviewTool;
+import com.mentify.ai.tool.CommunicationOverviewTool;
+import com.mentify.ai.tool.SystemHealthOverviewTool;
+import com.mentify.ai.tool.AiToolRegistry;
 import feign.FeignException;
 import feign.Request;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,6 +110,18 @@ class AiChatServiceImplTest {
 
     @Mock
     private UserRegistrationOverviewTool userRegistrationOverviewTool;
+    @Mock
+    private AdminDashboardOverviewTool adminDashboardOverviewTool;
+    @Mock
+    private AiUsageOverviewTool aiUsageOverviewTool;
+    @Mock
+    private MaterialOverviewTool materialOverviewTool;
+    @Mock
+    private NotificationOverviewTool notificationOverviewTool;
+    @Mock
+    private CommunicationOverviewTool communicationOverviewTool;
+    @Mock
+    private SystemHealthOverviewTool systemHealthOverviewTool;
 
     @Mock
     private UpcomingCalendarEventsTool upcomingCalendarEventsTool;
@@ -130,6 +149,12 @@ class AiChatServiceImplTest {
         lenient().when(studentProgressTool.getName()).thenReturn(StudentProgressTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
         lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
+        lenient().when(adminDashboardOverviewTool.getName()).thenReturn(AdminDashboardOverviewTool.TOOL_NAME);
+        lenient().when(aiUsageOverviewTool.getName()).thenReturn(AiUsageOverviewTool.TOOL_NAME);
+        lenient().when(materialOverviewTool.getName()).thenReturn(MaterialOverviewTool.TOOL_NAME);
+        lenient().when(notificationOverviewTool.getName()).thenReturn(NotificationOverviewTool.TOOL_NAME);
+        lenient().when(communicationOverviewTool.getName()).thenReturn(CommunicationOverviewTool.TOOL_NAME);
+        lenient().when(systemHealthOverviewTool.getName()).thenReturn(SystemHealthOverviewTool.TOOL_NAME);
 
         aiChatService = new AiChatServiceImpl(
                 properties,
@@ -146,6 +171,27 @@ class AiChatServiceImplTest {
                 courseResolutionTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,
+                adminDashboardOverviewTool,
+                aiUsageOverviewTool,
+                materialOverviewTool,
+                notificationOverviewTool,
+                communicationOverviewTool,
+                systemHealthOverviewTool,
+                new AiToolRegistry(List.of(
+                        todayQuizPerformanceTool,
+                        attendancePerformanceTool,
+                        assignmentPerformanceTool,
+                        quizPerformanceTool,
+                        studentProgressTool,
+                        userRegistrationOverviewTool,
+                        upcomingCalendarEventsTool,
+                        adminDashboardOverviewTool,
+                        aiUsageOverviewTool,
+                        materialOverviewTool,
+                        notificationOverviewTool,
+                        communicationOverviewTool,
+                        systemHealthOverviewTool
+                )),
                 new ObjectMapper().findAndRegisterModules(),
                 conversationRepository,
                 messageRepository
