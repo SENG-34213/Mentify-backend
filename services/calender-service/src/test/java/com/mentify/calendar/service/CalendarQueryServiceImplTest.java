@@ -86,6 +86,28 @@ class CalendarQueryServiceImplTest {
     }
 
     @Test
+    void teacherWithoutCoursesStillSeesGlobalAdminEvents() {
+        when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUser.hasRole(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> "TEACHER".equals(invocation.getArgument(0)));
+        when(currentUser.getCurrentUserId()).thenReturn(userId);
+        when(courseAccess.getVisibleCourseIds("Bearer token")).thenReturn(Set.of());
+
+        CalendarEvent event = CalendarEvent.builder()
+                .id(UUID.randomUUID())
+                .visibility(com.mentify.calendar.enums.CalendarVisibility.GLOBAL)
+                .sourceType(com.mentify.calendar.enums.CalendarSourceType.ADMIN)
+                .build();
+        CalendarEventResponse response = CalendarEventResponse.builder().id(event.getId()).build();
+        when(repository.findVisibleOverlappingWithoutCourses(eq(start), eq(end), eq(null), eq(null),
+                eq(null), eq(userId), any())).thenReturn(List.of(event));
+        when(mapper.toResponse(event, true, true, true)).thenReturn(response);
+
+        assertThat(service.findEvents(start, end, null, null, null, "Bearer token"))
+                .containsExactly(response);
+    }
+
+    @Test
     void upcomingUsesApplicationClockAndAppliesLimit() {
         when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(true);
         CalendarEvent first = CalendarEvent.builder().id(UUID.randomUUID()).build();
@@ -96,5 +118,22 @@ class CalendarQueryServiceImplTest {
                 .thenReturn(CalendarEventResponse.builder().build());
 
         assertThat(service.findUpcoming(1, "Bearer token")).hasSize(1);
+    }
+
+    @Test
+    void administratorCanManageProjectedEventsFromCalendarResults() {
+        when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(true);
+        CalendarEvent event = CalendarEvent.builder()
+                .id(UUID.randomUUID())
+                .sourceType(com.mentify.calendar.enums.CalendarSourceType.ASSIGNMENT)
+                .sourceId(UUID.randomUUID())
+                .build();
+        CalendarEventResponse response = CalendarEventResponse.builder().id(event.getId()).build();
+        when(repository.findAdministrativeOverlapping(eq(start), eq(end), eq(null), eq(null), eq(null)))
+                .thenReturn(List.of(event));
+        when(mapper.toResponse(event, true, true, true)).thenReturn(response);
+
+        assertThat(service.findEvents(start, end, null, null, null, "Bearer token"))
+                .containsExactly(response);
     }
 }
