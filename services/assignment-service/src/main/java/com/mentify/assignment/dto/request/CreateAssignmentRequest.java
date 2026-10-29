@@ -57,4 +57,7 @@ public class CreateAssignmentRequest {
     @Valid
     @Size(max = 50, message = "An assignment cannot have more than 50 rubric items")
     private List<RubricItemRequest> rubricItems;
+
+    @Builder.Default
+    private Boolean publishImmediately = false;
 }

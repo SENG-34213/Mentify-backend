@@ -61,11 +61,19 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .allowedAttempts(request.getAllowedAttempts())
                 .allowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()))
                 .latePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
-                .status(AssignmentStatus.DRAFT)
+                .status(Boolean.TRUE.equals(request.getPublishImmediately())
+                        ? AssignmentStatus.PUBLISHED
+                        : AssignmentStatus.DRAFT)
                 .build();
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            assignment.setPublishedAt(LocalDateTime.now());
+        }
         replaceRubricItems(assignment, request.getRubricItems());
 
         Assignment saved = assignmentRepository.save(assignment);
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
+        }
         return response(HttpStatus.CREATED, "Assignment created successfully",
                 withCourseDetails(mapToResponse(saved), course));
     }
