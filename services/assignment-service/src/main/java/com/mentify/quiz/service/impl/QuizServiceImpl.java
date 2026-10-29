@@ -37,6 +37,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -72,7 +73,8 @@ public class QuizServiceImpl implements QuizService {
                 .teacherId(courseQuizAuthorizationService.resolveTeacherId(course))
                 .title(request.getTitle().trim())
                 .description(trimToNull(request.getDescription()))
-                .durationMinutes(request.getDurationMinutes())
+                .durationMinutes(resolveDurationMinutes(
+                        request.getDurationMinutes(), request.getStartTime(), request.getEndTime()))
                 .totalMarks(BigDecimal.ZERO)
                 .creationMethod(resolveCreationMethod(request))
                 .passMark(request.getPassMark())
@@ -119,7 +121,8 @@ public class QuizServiceImpl implements QuizService {
 
         quiz.setTitle(request.getTitle().trim());
         quiz.setDescription(trimToNull(request.getDescription()));
-        quiz.setDurationMinutes(request.getDurationMinutes());
+        quiz.setDurationMinutes(resolveDurationMinutes(
+                request.getDurationMinutes(), request.getStartTime(), request.getEndTime()));
         quiz.setPassMark(request.getPassMark());
         quiz.setStartTime(request.getStartTime());
         quiz.setEndTime(request.getEndTime());
@@ -376,6 +379,15 @@ public class QuizServiceImpl implements QuizService {
         if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
             throw new InvalidQuestionOptionsException("Quiz start time must be before end time");
         }
+    }
+
+    private Integer resolveDurationMinutes(Integer configuredDuration, java.time.LocalDateTime startTime,
+                                           java.time.LocalDateTime endTime) {
+        if (startTime != null && endTime != null && startTime.isBefore(endTime)) {
+            long scheduledMinutes = Duration.between(startTime, endTime).toMinutes();
+            return (int) Math.max(1, scheduledMinutes);
+        }
+        return configuredDuration;
     }
 
     private QuizCreationMethod resolveCreationMethod(CreateQuizRequest request) {
