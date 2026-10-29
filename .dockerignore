@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.DS_Store
+.env
+.env.prod
+.env.*
+!.env.example
+**/target
+**/.mvn
+uploads
+*.log
+*.pdf
+*.iml

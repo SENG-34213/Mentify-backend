@@ -11,12 +11,14 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignmentResponse {
     private UUID id;
     private UUID courseId;
+    private String courseName;
+    private String courseCode;
     private UUID moduleId;
     private UUID lessonId;
     private UUID teacherId;

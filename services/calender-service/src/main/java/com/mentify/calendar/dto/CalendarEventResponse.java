@@ -41,4 +41,5 @@ public class CalendarEventResponse {
     LocalDateTime updatedAt;
     boolean canEdit;
     boolean canCancel;
+    boolean canDelete;
 }

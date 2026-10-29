@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public class AiChatWebSocketController {
 
     private static final String RESPONSE_DESTINATION = "/queue/ai/chat";
-    private static final Set<String> ALLOWED_ROLES = Set.of("ROLE_TEACHER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN");
+    private static final Set<String> ALLOWED_ROLES = Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
 
     private final AiChatService aiChatService;
     private final SimpMessagingTemplate messagingTemplate;

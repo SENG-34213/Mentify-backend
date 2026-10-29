@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
+    long countByStatus(MessageStatus status);
+
     Page<Message> findByGroup_IdAndStatus(UUID groupId, MessageStatus status, Pageable pageable);
 
         Optional<Message> findByIdAndGroup_Id(UUID id, UUID groupId);

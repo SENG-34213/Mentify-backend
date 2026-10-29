@@ -5,8 +5,8 @@ spring:
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:mohanathasholins17@gmail.com}
-    password: ${SMTP_PASSWORD:pknd sjdn ksdq vetj}
+    username: ${SMTP_USERNAME:titeducation86@gmail.com}
+    password: ${SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -63,8 +63,11 @@ mentify:
     nic: ${MENTIFY_SUPER_ADMIN_NIC:}
   registration:
     email:
-      from: ${SMTP_FROM:no-reply@mentify.local}
+      from: ${SMTP_FROM:titeducation86@gmail.com}
       login-url: ${MENTIFY_LOGIN_URL:http://localhost:5173/login}
+      student-login-url: ${MENTIFY_STUDENT_LOGIN_URL:${MENTIFY_LOGIN_URL:http://localhost:5173/login}}
+      teacher-login-url: ${MENTIFY_TEACHER_LOGIN_URL:${MENTIFY_LOGIN_URL:http://localhost:5173/login}}
+      admin-login-url: ${MENTIFY_ADMIN_LOGIN_URL:${MENTIFY_LOGIN_URL:http://localhost:5173/login}}
       retry-attempts: ${MENTIFY_WELCOME_EMAIL_RETRY_ATTEMPTS:2}
   security:
     enabled: true

@@ -21,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,8 +60,7 @@ class AttendanceSummaryServiceImplTest {
         UUID studentId = UUID.randomUUID();
 
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
-        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
-                studentId, courseId, AttendanceSessionStatus.COMPLETED))
+        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndIsActiveTrue(studentId, courseId))
                 .thenReturn(List.of(
                         recordWithStatus(AttendanceStatus.PRESENT),
                         recordWithStatus(AttendanceStatus.PRESENT),
@@ -85,8 +85,7 @@ class AttendanceSummaryServiceImplTest {
         UUID studentId = UUID.randomUUID();
 
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
-        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
-                studentId, courseId, AttendanceSessionStatus.COMPLETED))
+        when(attendanceRecordRepository.findByStudentIdAndSession_CourseIdAndIsActiveTrue(studentId, courseId))
                 .thenReturn(List.of());
 
         ApiResponse<AttendanceSummaryResponse> response = attendanceSummaryService.getMyAttendanceSummary(courseId, AUTH_HEADER);
@@ -115,5 +114,42 @@ class AttendanceSummaryServiceImplTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> attendanceSummaryService.getStudentAttendanceSummary(studentId, courseId, AUTH_HEADER));
+    }
+
+    @Test
+    void getAnalyticsCourseSummary_filtersByDateAndValidatesAssignedTeacher() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        CourseLookupResponse course = new CourseLookupResponse();
+        course.setId(courseId);
+        course.setAssignedTeacherId(teacherId);
+
+        when(courseServiceClient.getCourseById(courseId, AUTH_HEADER))
+                .thenReturn(ApiResponse.<CourseLookupResponse>builder()
+                        .status(HttpStatus.OK)
+                        .data(course)
+                        .build());
+        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(attendanceRecordRepository
+                .findBySession_CourseIdAndSession_StatusAndSession_AttendanceDateBetweenAndIsActiveTrue(
+                        courseId,
+                        AttendanceSessionStatus.COMPLETED,
+                        LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2026, 9, 30)))
+                .thenReturn(List.of(
+                        recordWithStatus(AttendanceStatus.PRESENT),
+                        recordWithStatus(AttendanceStatus.ABSENT)));
+
+        ApiResponse<?> response = attendanceSummaryService.getAnalyticsCourseSummary(
+                courseId,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 30),
+                AUTH_HEADER);
+
+        assertThat(response.getData()).isNotNull();
+        assertThat(((com.mentify.attendance.dto.response.AttendanceAnalyticsSummaryResponse) response.getData())
+                .averageAttendance()).isEqualByComparingTo("50.00");
     }
 }

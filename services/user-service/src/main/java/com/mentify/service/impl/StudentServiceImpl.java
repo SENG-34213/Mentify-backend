@@ -51,7 +51,7 @@ public class StudentServiceImpl implements StudentService {
 
             User user = studentMapper.toUserEntity(request);
             user.setAuthUserId(authUserId);
-            user.setAccountStatus(AccountStatus.INVITED);
+            user.setAccountStatus(AccountStatus.ACTIVE);
             user.setEmailVerified(true);
             StudentProfile profile = studentMapper.toStudentProfileEntity(request);
             Address address = studentMapper.toAddressEntity(request.getAddress());
@@ -62,7 +62,7 @@ public class StudentServiceImpl implements StudentService {
             User savedUser = userRepository.saveAndFlush(user);
             authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword, Role.STUDENT);
 
             UserResponse userResponse = studentMapper.toUserResponse(savedUser);
 

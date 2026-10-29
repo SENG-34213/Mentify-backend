@@ -12,12 +12,15 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class ExamResponse {
     UUID id;
     UUID courseId;
+    String courseName;
+    String courseCode;
     String title;
     String description;
+    String venue;
     LocalDate examDate;
     LocalTime startTime;
     LocalTime endTime;

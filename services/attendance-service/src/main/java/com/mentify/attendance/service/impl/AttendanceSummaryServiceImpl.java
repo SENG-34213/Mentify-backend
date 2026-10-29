@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -61,6 +62,49 @@ public class AttendanceSummaryServiceImpl implements AttendanceSummaryService {
                         courseId, AttendanceSessionStatus.COMPLETED));
     }
 
+    @Override
+    public ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsOverview(LocalDate from, LocalDate to) {
+        DateRange range = normalizeDateRange(from, to);
+        List<AttendanceRecord> records = range.isUnbounded()
+                ? attendanceRecordRepository.findBySession_StatusAndIsActiveTrue(AttendanceSessionStatus.COMPLETED)
+                : attendanceRecordRepository.findBySession_StatusAndSession_AttendanceDateBetweenAndIsActiveTrue(
+                        AttendanceSessionStatus.COMPLETED, range.from(), range.to());
+        return analyticsResponse(null, records);
+    }
+
+    @Override
+    public ApiResponse<AttendanceAnalyticsSummaryResponse> getAnalyticsCourseSummary(
+            UUID courseId, LocalDate from, LocalDate to, String authorizationHeader) {
+        CourseLookupResponse course = getCourseOrThrow(courseId, authorizationHeader);
+        assertTeacherCanManageCourse(course);
+
+        DateRange range = normalizeDateRange(from, to);
+        List<AttendanceRecord> records = range.isUnbounded()
+                ? attendanceRecordRepository.findBySession_CourseIdAndSession_StatusAndIsActiveTrue(
+                        courseId, AttendanceSessionStatus.COMPLETED)
+                : attendanceRecordRepository.findBySession_CourseIdAndSession_StatusAndSession_AttendanceDateBetweenAndIsActiveTrue(
+                        courseId, AttendanceSessionStatus.COMPLETED, range.from(), range.to());
+        return analyticsResponse(courseId, records);
+    }
+
+    private DateRange normalizeDateRange(LocalDate from, LocalDate to) {
+        if (from == null && to == null) {
+            return new DateRange(null, null);
+        }
+        LocalDate normalizedFrom = from == null ? to : from;
+        LocalDate normalizedTo = to == null ? from : to;
+        if (normalizedFrom.isAfter(normalizedTo)) {
+            throw new IllegalArgumentException("Attendance date 'from' must not be after 'to'");
+        }
+        return new DateRange(normalizedFrom, normalizedTo);
+    }
+
+    private record DateRange(LocalDate from, LocalDate to) {
+        private boolean isUnbounded() {
+            return from == null && to == null;
+        }
+    }
+
     private ApiResponse<AttendanceAnalyticsSummaryResponse> analyticsResponse(
             UUID courseId, List<AttendanceRecord> records) {
         long attended = records.stream()
@@ -77,8 +121,14 @@ public class AttendanceSummaryServiceImpl implements AttendanceSummaryService {
 
     private AttendanceSummaryResponse buildSummary(UUID studentId, UUID courseId) {
         List<AttendanceRecord> records = attendanceRecordRepository
-                .findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
-                        studentId, courseId, AttendanceSessionStatus.COMPLETED);
+                .findByStudentIdAndSession_CourseIdAndIsActiveTrue(studentId, courseId)
+                .stream()
+                // A marked attendance is meaningful as soon as it is saved; waiting for the
+                // teacher to close the session made PRESENT/ABSENT records appear as zeroes.
+                // Cancelled sessions and unmarked roster rows are not attendance attempts.
+                .filter(record -> record.getSession().getStatus() != AttendanceSessionStatus.CANCELLED)
+                .filter(record -> record.getStatus() != AttendanceStatus.NOT_MARKED)
+                .toList();
 
         long completedSessions = records.size();
         long presentCount = records.stream().filter(r -> r.getStatus() == AttendanceStatus.PRESENT).count();

@@ -1,4 +1,25 @@
 services:
+  redis:
+    container_name: mentify-redis
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-change-me-redis-password}"]
+    profiles:
+      - app-cache
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change-me-redis-password}
+    volumes:
+      - redis:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - backend
+    restart: unless-stopped
+
   postgres:
     container_name: postgres_container_mentify
     image: postgres:14
@@ -118,5 +139,6 @@ networks:
 
 volumes:
   postgres:
+  redis:
   pgadmin:
   entrollment_postgres_data:

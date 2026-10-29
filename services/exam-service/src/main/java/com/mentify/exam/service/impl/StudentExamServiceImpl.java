@@ -62,6 +62,7 @@ public class StudentExamServiceImpl implements StudentExamService {
         return StudentUpcomingExamResponse.builder()
                 .examId(exam.getId()).courseId(exam.getCourseId()).title(exam.getTitle())
                 .description(exam.getDescription()).examDate(exam.getExamDate())
+                .venue(exam.getVenue())
                 .startTime(exam.getStartTime()).endTime(exam.getEndTime())
                 .totalMarks(exam.getTotalMarks()).passMarks(exam.getPassMarks())
                 .type(exam.getType()).status(exam.getStatus()).eligible(eligible).build();

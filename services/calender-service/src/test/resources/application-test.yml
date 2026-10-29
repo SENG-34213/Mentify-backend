@@ -3,7 +3,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/mentify
+          issuer-uri: http://localhost:8085
   cloud:
     config:
       enabled: false
@@ -31,3 +31,6 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    redis:
+      enabled: false

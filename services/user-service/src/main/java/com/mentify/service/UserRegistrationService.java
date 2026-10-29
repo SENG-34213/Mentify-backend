@@ -64,7 +64,7 @@ public class UserRegistrationService {
             User savedUser = userRepository.saveAndFlush(user);
             authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword, request.getRole());
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {
@@ -76,25 +76,49 @@ public class UserRegistrationService {
     @Transactional(readOnly = true)
     public List<UserRegistrationResponse> getUsersByRole(Role role) {
         return userRepository.findAllByRoleOrderByCreatedAtDesc(role).stream()
-                .map(UserRegistrationResponse::from)
+                .map(this::toUserRegistrationResponse)
                 .collect(Collectors.toList());
+    }
+
+    private UserRegistrationResponse toUserRegistrationResponse(User user) {
+        UserRegistrationResponse response = UserRegistrationResponse.from(user);
+        response.setAccountLocked(authCredentialService.isAccountLocked(user.getId().toString()));
+        return response;
     }
 
     @Transactional(readOnly = true)
     public List<StudentDirectoryProfileResponse> getStudentsByIds(List<UUID> ids) {
-        return userRepository.findAllByIdInAndRole(ids, Role.STUDENT).stream()
-                .map(user -> StudentDirectoryProfileResponse.builder()
-                        .id(user.getId())
-                        .name(user.getFirstName() + " " + user.getLastName())
-                        .email(user.getEmail())
-                        .studentNumber(user.getStudentProfile() != null
-                                ? user.getStudentProfile().getStudentId() : null)
-                        .avatar(user.getStudentProfile() != null
-                                ? user.getStudentProfile().getAvatarUrl() : null)
-                        .program(null)
-                        .status(!user.isActive() ? "INACTIVE"
-                                : user.getAccountStatus() != null ? user.getAccountStatus().name() : null)
-                        .build())
+        List<UUID> requestedIds = ids.stream().distinct().toList();
+        List<String> legacyIds = requestedIds.stream().map(UUID::toString).toList();
+        List<User> users = new java.util.ArrayList<>(
+                userRepository.findAllByIdInAndRole(requestedIds, Role.STUDENT));
+
+        userRepository.findAllByAuthUserIdInAndRole(legacyIds, Role.STUDENT).stream()
+                .filter(candidate -> users.stream().noneMatch(user -> user.getId().equals(candidate.getId())))
+                .forEach(users::add);
+
+        // Enrollment and attendance records may contain either the local user id
+        // or the legacy auth-service id. Preserve the requested identity in the
+        // response so the frontend can map the profile back to its roster row.
+        return requestedIds.stream()
+                .map(requestedId -> users.stream()
+                        .filter(user -> requestedId.equals(user.getId())
+                                || requestedId.toString().equals(user.getAuthUserId()))
+                        .findFirst()
+                        .map(user -> StudentDirectoryProfileResponse.builder()
+                                .id(requestedId)
+                                .name(user.getFirstName() + " " + user.getLastName())
+                                .email(user.getEmail())
+                                .studentNumber(user.getStudentProfile() != null
+                                        ? user.getStudentProfile().getStudentId() : null)
+                                .avatar(user.getStudentProfile() != null
+                                        ? user.getStudentProfile().getAvatarUrl() : null)
+                                .program(null)
+                                .status(!user.isActive() ? "INACTIVE"
+                                        : user.getAccountStatus() != null ? user.getAccountStatus().name() : null)
+                                .build())
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 
@@ -163,6 +187,13 @@ public class UserRegistrationService {
         User user = findByIdentity(identityId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         authCredentialService.changePassword(user.getId().toString(), request.getCurrentPassword(), request.getNewPassword());
+    }
+
+    @Transactional
+    public void unlockAccount(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        authCredentialService.unlock(user.getId().toString());
     }
 
     @Transactional
@@ -236,14 +267,22 @@ public class UserRegistrationService {
                 .filter(candidate -> users.stream().noneMatch(user -> user.getId().equals(candidate.getId())))
                 .forEach(users::add);
 
-        return users.stream()
-                .map(user -> StudentLookupResponse.builder()
-                        .studentId(user.getId() != null
-                                ? user.getId()
-                                : UUID.fromString(user.getAuthUserId()))
-                        .firstName(user.getFirstName())
-                        .lastName(user.getLastName())
-                        .build())
+        // Attendance records can contain either the local user id or the legacy
+        // auth-service id. Return the exact requested id so the caller can map
+        // the name without guessing which identity was stored in the record.
+        return requestedIds.stream()
+                .map(requestedId -> users.stream()
+                        .filter(user -> requestedId.equals(user.getId())
+                                || requestedId.toString().equals(user.getAuthUserId()))
+                        .findFirst()
+                        .map(user -> StudentLookupResponse.builder()
+                                .studentId(requestedId)
+                                .authUserId(user.getAuthUserId())
+                                .firstName(user.getFirstName())
+                                .lastName(user.getLastName())
+                                .build())
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 
@@ -263,7 +302,7 @@ public class UserRegistrationService {
         String temporaryPassword = temporaryPasswordGenerator.generate();
             authCredentialService.setInitialPassword(user.getAuthUserId(), temporaryPassword);
         registrationEmailDispatcher.sendAfterCommit(
-                    user.getAuthUserId(), user.getEmail(), user.getFirstName(), temporaryPassword);
+                    user.getAuthUserId(), user.getEmail(), user.getFirstName(), temporaryPassword, user.getRole());
     }
 
     @Transactional

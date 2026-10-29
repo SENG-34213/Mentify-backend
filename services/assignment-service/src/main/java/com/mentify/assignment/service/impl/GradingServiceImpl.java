@@ -10,6 +10,8 @@ import com.mentify.assignment.service.GradingService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.payload.response.ApiResponse;
+import com.mentify.quiz.client.CourseServiceClient;
+import com.mentify.quiz.client.dto.CourseLookupResponse;
 import com.mentify.quiz.security.CurrentUserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,9 @@ public class GradingServiceImpl implements GradingService {
     @Autowired(required = false)
     private NotificationEventPublisher notificationEventPublisher;
 
+    @Autowired(required = false)
+    private CourseServiceClient courseServiceClient;
+
     @Override
     @Transactional
     public ApiResponse<SubmissionResponse> gradeSubmission(UUID submissionId, GradeSubmissionRequest request, String authorizationHeader) {
@@ -50,8 +55,18 @@ public class GradingServiceImpl implements GradingService {
         submission.setGradedBy(currentUserService.getCurrentUserId());
 
         Submission saved = submissionRepository.save(submission);
-        publishStudentNotification(saved.getStudentId(), "SUBMISSION_GRADED", "Submission graded",
-                "Your assignment submission was graded successfully.");
+        Assignment assignment = saved.getAssignment();
+        String gradingDetails = "Your teacher graded \"" + assignment.getTitle() + "\" for "
+                + courseDetails(assignment, authorizationHeader) + ". Marks: "
+                + saved.getMarks() + " / " + assignment.getMaxMarks() + "; due: "
+                + assignment.getDueDate() + "; submitted: " + saved.getSubmittedAt()
+                + "; graded: " + saved.getGradedAt() + "; attempt: " + saved.getAttemptNumber()
+                + "; status: " + saved.getStatus() + ".";
+        if (saved.getFeedback() != null && !saved.getFeedback().isBlank()) {
+            gradingDetails += " Teacher feedback: " + saved.getFeedback();
+        }
+        publishStudentNotification(saved.getStudentId(), "SUBMISSION_GRADED", "Assignment graded",
+                gradingDetails);
         return response(HttpStatus.OK, "Submission graded successfully",
                 submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
@@ -64,8 +79,15 @@ public class GradingServiceImpl implements GradingService {
         submission.setStatus(SubmissionStatus.RETURNED);
         submission.setReturnedAt(LocalDateTime.now());
         Submission saved = submissionRepository.save(submission);
-        publishStudentNotification(saved.getStudentId(), "SUBMISSION_RETURNED", "Submission returned",
-                "Your assignment submission was returned successfully.");
+        Assignment assignment = saved.getAssignment();
+        publishStudentNotification(saved.getStudentId(), "SUBMISSION_RETURNED", "Assignment returned",
+                "Your teacher returned \"" + assignment.getTitle() + "\" for "
+                        + courseDetails(assignment, authorizationHeader) + " on " + saved.getReturnedAt()
+                        + ". Assignment due date: " + assignment.getDueDate() + "; attempt: "
+                        + saved.getAttemptNumber() + "; status: " + saved.getStatus()
+                        + (saved.getFeedback() == null || saved.getFeedback().isBlank()
+                        ? ". Review the assignment page for requested changes."
+                        : "; teacher feedback: " + saved.getFeedback()));
         return response(HttpStatus.OK, "Submission returned successfully",
                 submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
@@ -74,6 +96,23 @@ public class GradingServiceImpl implements GradingService {
         if (notificationEventPublisher != null && studentId != null) {
             notificationEventPublisher.publishForRecipient(studentId.toString(), null, type, title, message);
         }
+    }
+
+    private String courseDetails(Assignment assignment, String authorizationHeader) {
+        try {
+            if (courseServiceClient != null) {
+                ApiResponse<CourseLookupResponse> response = courseServiceClient.getCourseById(
+                        assignment.getCourseId(), authorizationHeader);
+                CourseLookupResponse course = response == null ? null : response.getData();
+                if (course != null && course.getCourseName() != null && !course.getCourseName().isBlank()) {
+                    return course.getCourseName() + (course.getCourseCode() == null
+                            || course.getCourseCode().isBlank() ? "" : " (" + course.getCourseCode() + ")");
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Keep grading successful if the optional notification detail lookup fails.
+        }
+        return "course details unavailable";
     }
 
     private void ensureTeacherCanGrade(Submission submission) {

@@ -46,7 +46,10 @@ public class CalendarEventRequest {
 
     @AssertTrue(message = "endDateTime must not precede startDateTime")
     public boolean isDateRangeValid() {
-        return startDateTime == null || endDateTime == null || !endDateTime.isBefore(startDateTime);
+        return startDateTime == null || endDateTime == null
+                || (Boolean.TRUE.equals(allDay)
+                ? !endDateTime.isBefore(startDateTime)
+                : endDateTime.isAfter(startDateTime));
     }
 
     @AssertTrue(message = "timed events require endDateTime")

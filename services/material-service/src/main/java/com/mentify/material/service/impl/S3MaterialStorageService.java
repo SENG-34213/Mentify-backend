@@ -66,7 +66,8 @@ public class S3MaterialStorageService implements MaterialStorageService {
             s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), validatedFile.fileSize()));
             return new S3UploadResult(storageKey);
         } catch (IOException | SdkException ex) {
-            log.warn("Material S3 upload failed for keyHash={}: {}", keyHash(storageKey), ex.getClass().getSimpleName());
+            log.warn("Material S3 upload failed for keyHash={}: {}: {}",
+                    keyHash(storageKey), ex.getClass().getSimpleName(), ex.getMessage());
             throw new MaterialStorageException("Material file upload failed", ex);
         }
     }

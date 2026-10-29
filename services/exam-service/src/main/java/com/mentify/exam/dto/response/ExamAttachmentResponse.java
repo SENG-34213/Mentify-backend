@@ -17,5 +17,6 @@ public class ExamAttachmentResponse {
     long fileSize;
     UUID uploadedBy;
     boolean studentVisible;
+    boolean active;
     LocalDateTime createdAt;
 }

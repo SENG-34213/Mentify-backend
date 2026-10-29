@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Value
@@ -17,4 +18,5 @@ public class TeacherGradebookItemResponse {
     String status;
     BigDecimal marksObtained;
     BigDecimal maxMarks;
+    LocalDateTime updatedAt;
 }

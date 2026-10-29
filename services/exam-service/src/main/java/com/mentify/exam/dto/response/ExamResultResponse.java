@@ -13,6 +13,7 @@ import java.util.UUID;
 @Builder
 public class ExamResultResponse {
     UUID studentId;
+    String studentName;
     AttendanceStatus attendanceStatus;
     BigDecimal marksObtained;
     ResultStatus resultStatus;

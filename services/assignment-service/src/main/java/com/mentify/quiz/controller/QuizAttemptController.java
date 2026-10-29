@@ -1,6 +1,5 @@
 package com.mentify.quiz.controller;
 
-import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.quiz.dto.request.SaveStudentAnswerRequest;
 import com.mentify.quiz.dto.response.StartQuizAttemptResponse;
@@ -28,7 +27,6 @@ public class QuizAttemptController {
     private final QuizAttemptService quizAttemptService;
 
     @PostMapping("/api/quizzes/{quizId}/attempts")
-    @NotifyOnSuccess(type = "QUIZ_ATTEMPT_STARTED", title = "Quiz started", message = "Your quiz attempt was started successfully.")
     public ResponseEntity<ApiResponse<StartQuizAttemptResponse>> startAttempt(
             @PathVariable UUID quizId,
             @RequestHeader("Authorization") String authorizationHeader
@@ -47,7 +45,6 @@ public class QuizAttemptController {
     }
 
     @PostMapping("/api/quiz-attempts/{attemptId}/submit")
-    @NotifyOnSuccess(type = "QUIZ_ATTEMPT_SUBMITTED", title = "Quiz submitted", message = "Your quiz attempt was submitted successfully.")
     public ResponseEntity<ApiResponse<SubmitQuizResponse>> submitAttempt(@PathVariable UUID attemptId) {
         ApiResponse<SubmitQuizResponse> response = quizAttemptService.submitAttempt(attemptId);
         return new ResponseEntity<>(response, response.getStatus());

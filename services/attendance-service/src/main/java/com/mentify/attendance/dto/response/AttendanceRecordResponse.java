@@ -16,6 +16,7 @@ import java.util.UUID;
 public class AttendanceRecordResponse {
     private UUID id;
     private UUID studentId;
+    private String studentName;
     private AttendanceStatus status;
     private String remarks;
     private UUID markedBy;

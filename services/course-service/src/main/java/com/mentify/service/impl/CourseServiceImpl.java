@@ -10,6 +10,7 @@ import com.mentify.client.dto.AssignmentDashboardResponse;
 import com.mentify.client.dto.CalendarDashboardResponse;
 import com.mentify.client.dto.ExamDashboardResponse;
 import com.mentify.client.dto.SubmissionDashboardResponse;
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.client.dashboard.DashboardDtos;
 import com.mentify.dto.CourseRequest;
 import com.mentify.dto.CourseResponse;
@@ -40,6 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,6 +59,9 @@ public class CourseServiceImpl implements CourseService {
     private final ExamDashboardClient examDashboardClient;
     private final QuizGradebookClient quizGradebookClient;
     private final CalendarDashboardClient calendarDashboardClient;
+
+    @Autowired(required = false)
+    private NotificationEventPublisher notificationEventPublisher;
 
     public CourseServiceImpl(CourseRepository courseRepository, GradeRepository gradeRepository,
                              UserServiceClient userServiceClient,
@@ -175,34 +180,59 @@ public class CourseServiceImpl implements CourseService {
     }
 
     private List<UUID> enrolledStudents(UUID courseId, String authorizationHeader) {
-        ApiResponse<List<UUID>> response = entrollmentServiceClient
-                .getEnrolledStudentIdsByCourse(courseId, authorizationHeader);
-        return response == null || response.getData() == null ? List.of() : response.getData();
+        ApiResponse<List<UUID>> response = timedDependency("entrollment-service", courseId,
+                () -> entrollmentServiceClient.getEnrolledStudentIdsByCourse(courseId, authorizationHeader));
+        if (response == null || response.getData() == null) {
+            throw new IllegalStateException("Enrollment service returned no student list for course " + courseId);
+        }
+        return response.getData().stream().filter(java.util.Objects::nonNull).distinct().toList();
     }
 
     private List<AssignmentDashboardResponse> assignments(UUID courseId, String authorizationHeader) {
-        ApiResponse<List<AssignmentDashboardResponse>> response = assignmentDashboardClient
-                .getAssignments(courseId, authorizationHeader);
+        ApiResponse<List<AssignmentDashboardResponse>> response = timedDependency("assignment-service", courseId,
+                () -> assignmentDashboardClient.getAssignments(courseId, authorizationHeader));
         return response == null || response.getData() == null ? List.of() : response.getData();
     }
 
     private List<SubmissionDashboardResponse> submissions(UUID assignmentId, String authorizationHeader) {
-        ApiResponse<List<SubmissionDashboardResponse>> response = assignmentDashboardClient
-                .getSubmissions(assignmentId, authorizationHeader);
+        ApiResponse<List<SubmissionDashboardResponse>> response = timedDependency(
+                "assignment-service submissions", assignmentId,
+                () -> assignmentDashboardClient.getSubmissions(assignmentId, authorizationHeader));
         return response == null || response.getData() == null ? List.of() : response.getData();
     }
 
     private List<ExamDashboardResponse> exams(UUID courseId, String authorizationHeader) {
-        ApiResponse<List<ExamDashboardResponse>> response = examDashboardClient
-                .getExams(courseId, authorizationHeader);
+        ApiResponse<List<ExamDashboardResponse>> response = timedDependency("exam-service", courseId,
+                () -> examDashboardClient.getExams(courseId, authorizationHeader));
         return response == null || response.getData() == null ? List.of() : response.getData();
     }
 
     private List<CalendarDashboardResponse> calendarEvents(LocalDateTime start, LocalDateTime end,
                                                             String authorizationHeader) {
-        ApiResponse<List<CalendarDashboardResponse>> response = calendarDashboardClient
-                .getEvents(start, end, authorizationHeader);
+        ApiResponse<List<CalendarDashboardResponse>> response = timedDependency("calender-service", null,
+                () -> calendarDashboardClient.getEvents(start, end, authorizationHeader));
         return response == null || response.getData() == null ? List.of() : response.getData();
+    }
+
+    private <T> T timedDependency(String service, UUID resourceId, Supplier<T> call) {
+        long startedAt = System.nanoTime();
+        try {
+            return call.get();
+        } catch (RuntimeException exception) {
+            log.error("Course service dependency call failed: service={}, resourceId={}, elapsedMs={}",
+                    service, resourceId, elapsedMillis(startedAt), exception);
+            throw exception;
+        } finally {
+            long elapsedMs = elapsedMillis(startedAt);
+            if (elapsedMs >= 1000) {
+                log.warn("Slow course service dependency call: service={}, resourceId={}, elapsedMs={}",
+                        service, resourceId, elapsedMs);
+            }
+        }
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
     }
 
     private DashboardDtos.CalendarEvent toCalendarEvent(CalendarDashboardResponse event) {
@@ -236,8 +266,9 @@ public class CourseServiceImpl implements CourseService {
 
         Course savedCourse = courseRepository.save(course);
 
-        CourseResponse courseResponse = toCourseResponse(savedCourse);
+        CourseResponse courseResponse = toCourseResponses(List.of(savedCourse), authorizationHeader).get(0);
         log.info("Course created successfully with ID [{}]", savedCourse.getId());
+        notifyAssignedTeacher(savedCourse, courseResponse);
 
         return ApiResponse.<CourseResponse>builder()
                 .message("Course created successfully")
@@ -245,6 +276,32 @@ public class CourseServiceImpl implements CourseService {
                 .statusCode(HttpStatus.CREATED.value())
                 .status(HttpStatus.CREATED)
                 .build();
+    }
+
+    private void notifyAssignedTeacher(Course course, CourseResponse courseResponse) {
+        if (notificationEventPublisher == null
+                || course.getAssignedTeacherId() == null
+                || teacherCourseAccessGuard.isTeacherAuthenticated()) {
+            return;
+        }
+
+        String courseName = courseResponse.getCourseName() == null
+                ? course.getCourseName()
+                : courseResponse.getCourseName();
+        String courseCode = courseResponse.getCourseCode() == null
+                ? course.getCourseCode()
+                : courseResponse.getCourseCode();
+        String status = course.isPublished() ? "published" : "saved as a draft";
+
+        notificationEventPublisher.publishForRecipient(
+                course.getAssignedTeacherId().toString(),
+                null,
+                "COURSE_ASSIGNED",
+                "New course assigned to you",
+                "An administrator assigned the course \"" + courseName + "\""
+                        + (courseCode == null || courseCode.isBlank() ? "" : " (" + courseCode + ")")
+                        + " to you. The course was " + status + ". Open your Courses page to review it."
+        );
     }
 
     @Override
@@ -303,7 +360,7 @@ public class CourseServiceImpl implements CourseService {
 
         Course savedCourse = courseRepository.save(existingCourse);
 
-        CourseResponse courseResponse = toCourseResponse(savedCourse);
+        CourseResponse courseResponse = toCourseResponses(List.of(savedCourse), authorizationHeader).get(0);
         log.info("Course updated successfully with ID [{}]", savedCourse.getId());
 
         return ApiResponse.<CourseResponse>builder()
@@ -334,6 +391,18 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public ApiResponse<CourseResponse> getCourseById(UUID courseId) {
+        ApiResponse<CourseResponse> response = getCourseById(courseId, null);
+        // This overload is retained for internal callers that have no user token.
+        // Do not present the persisted legacy value (which is not maintained) as a live count.
+        if (response.getData() != null) {
+            response.getData().setNumberOfStudents(null);
+        }
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<CourseResponse> getCourseById(UUID courseId, String authorizationHeader) {
         log.info("Fetching course with ID [{}]", courseId);
 
         Course course = courseRepository.findById(courseId)
@@ -343,7 +412,7 @@ public class CourseServiceImpl implements CourseService {
             teacherCourseAccessGuard.assertTeacherOwnsCourse(course);
         }
 
-        CourseResponse courseResponse = toCourseResponse(course);
+        CourseResponse courseResponse = toCourseResponses(List.of(course), authorizationHeader).get(0);
 
         return ApiResponse.<CourseResponse>builder()
                 .message("Course fetched successfully")
@@ -356,9 +425,13 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public ApiResponse<List<CourseResponse>> getAllCourses() {
-        List<CourseResponse> courses = courseRepository.findAll().stream()
-                .map(this::toCourseResponse)
-                .collect(Collectors.toList());
+        return getAllCourses(null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getAllCourses(String authorizationHeader) {
+        List<CourseResponse> courses = toCourseResponses(courseRepository.findAll(), authorizationHeader);
 
         return ApiResponse.<List<CourseResponse>>builder()
                 .message("Courses fetched successfully")
@@ -375,16 +448,14 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId, String authorizationHeader) {
         List<Course> teacherCourses = courseRepository
                 .findAllByAssignedTeacherIdOrderByCreatedAtDesc(teacherId);
-        // Keep the course-list request local and fast. Calling assignment,
-        // enrollment, exam, and quiz services synchronously here made the
-        // teacher portal wait for every downstream service before it could
-        // render even the basic course list. Those screens load their own
-        // detailed data after the course list is available.
-        List<CourseResponse> courses = toCourseResponses(teacherCourses, null);
+        // Pass the caller token through so the summary fields are populated from
+        // the same enrollment/assignment/exam/quiz services used by the teacher
+        // dashboard. Without it, the mapper left student and assessment counts
+        // at zero or null even when the course had data.
+        List<CourseResponse> courses = toCourseResponses(teacherCourses, authorizationHeader);
 
         return ApiResponse.<List<CourseResponse>>builder()
                 .message("Teacher courses fetched successfully")
@@ -419,6 +490,7 @@ public class CourseServiceImpl implements CourseService {
                     response.setNumberOfStudents(enrolledStudents(course.getId(), authorizationHeader).size());
                 } catch (RuntimeException exception) {
                     log.warn("Unable to resolve live student count for course [{}]", course.getId(), exception);
+                    response.setNumberOfStudents(null);
                 }
             }
             if (authorizationHeader != null && !authorizationHeader.isBlank() && examDashboardClient != null) {
@@ -431,44 +503,49 @@ public class CourseServiceImpl implements CourseService {
         }).toList();
     }
 
-    private long countAssignments(UUID courseId, String authorizationHeader) {
+    private Long countAssignments(UUID courseId, String authorizationHeader) {
         try {
             List<AssignmentDashboardResponse> response = assignments(courseId, authorizationHeader);
             return response == null ? 0L : response.size();
         } catch (RuntimeException exception) {
             log.warn("Unable to resolve assignment count for course [{}]", courseId, exception);
-            return 0L;
+            return null;
         }
     }
 
-    private long countExams(UUID courseId, String authorizationHeader) {
+    private Long countExams(UUID courseId, String authorizationHeader) {
         try {
-            return exams(courseId, authorizationHeader).size();
+            return (long) exams(courseId, authorizationHeader).size();
         } catch (RuntimeException exception) {
             log.warn("Unable to resolve exam count for course [{}]", courseId, exception);
-            return 0L;
+            return null;
         }
     }
 
-    private long countQuizzes(UUID courseId, String authorizationHeader) {
+    private Long countQuizzes(UUID courseId, String authorizationHeader) {
         try {
-            ApiResponse<List<com.mentify.client.dto.QuizGradebookResponse>> response = quizGradebookClient
-                    .getQuizzes(courseId, authorizationHeader);
+            ApiResponse<List<com.mentify.client.dto.QuizGradebookResponse>> response = timedDependency(
+                    "assignment-service quizzes", courseId,
+                    () -> quizGradebookClient.getQuizzes(courseId, authorizationHeader));
             return response == null || response.getData() == null ? 0L : response.getData().size();
         } catch (RuntimeException exception) {
             log.warn("Unable to resolve quiz count for course [{}]", courseId, exception);
-            return 0L;
+            return null;
         }
     }
 
     @Override
     @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids) {
+        return getCoursesByIds(ids, null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids, String authorizationHeader) {
         log.info("Fetching {} courses in bulk", ids.size());
 
-        List<CourseResponse> courses = courseRepository.findAllById(ids).stream()
-                .map(this::toCourseResponse)
-                .collect(Collectors.toList());
+        List<CourseResponse> courses = toCourseResponses(courseRepository.findAllById(ids), authorizationHeader);
 
         return ApiResponse.<List<CourseResponse>>builder()
                 .message("Courses fetched successfully")

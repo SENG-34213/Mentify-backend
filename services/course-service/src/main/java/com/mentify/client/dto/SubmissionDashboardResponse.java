@@ -16,4 +16,6 @@ public class SubmissionDashboardResponse {
     private Integer attemptNumber;
     private BigDecimal marks;
     private LocalDateTime submittedAt;
+    private LocalDateTime gradedAt;
+    private LocalDateTime updatedAt;
 }

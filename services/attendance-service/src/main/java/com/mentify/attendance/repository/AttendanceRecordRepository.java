@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Repository
@@ -22,8 +23,16 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     List<AttendanceRecord> findByStudentIdAndSession_CourseIdAndSession_StatusAndIsActiveTrue(
             UUID studentId, UUID courseId, AttendanceSessionStatus sessionStatus);
 
+    List<AttendanceRecord> findByStudentIdAndSession_CourseIdAndIsActiveTrue(UUID studentId, UUID courseId);
+
     List<AttendanceRecord> findBySession_StatusAndIsActiveTrue(AttendanceSessionStatus sessionStatus);
 
     List<AttendanceRecord> findBySession_CourseIdAndSession_StatusAndIsActiveTrue(
             UUID courseId, AttendanceSessionStatus sessionStatus);
+
+    List<AttendanceRecord> findBySession_StatusAndSession_AttendanceDateBetweenAndIsActiveTrue(
+            AttendanceSessionStatus sessionStatus, LocalDate from, LocalDate to);
+
+    List<AttendanceRecord> findBySession_CourseIdAndSession_StatusAndSession_AttendanceDateBetweenAndIsActiveTrue(
+            UUID courseId, AttendanceSessionStatus sessionStatus, LocalDate from, LocalDate to);
 }

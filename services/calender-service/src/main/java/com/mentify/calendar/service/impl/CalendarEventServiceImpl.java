@@ -11,11 +11,13 @@ import com.mentify.calendar.repository.CalendarEventRepository;
 import com.mentify.calendar.security.CurrentCalendarUserService;
 import com.mentify.calendar.service.CalendarCourseAccessService;
 import com.mentify.calendar.service.CalendarEventService;
+import com.mentify.calendar.service.CalendarVenueAvailabilityService;
 import com.mentify.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -28,27 +30,30 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     private final CalendarEventMapper mapper;
     private final CurrentCalendarUserService currentUser;
     private final CalendarCourseAccessService courseAccess;
+    private final CalendarVenueAvailabilityService venueAvailability;
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public CalendarEventResponse create(CalendarEventRequest request, String authorizationHeader) {
         authorizeWriteVisibility(request, authorizationHeader);
-        CalendarEvent event = repository.save(mapper.toEntity(request, currentUser.getCurrentUserId()));
-        return mapper.toResponse(event, true, true);
+        CalendarEvent event = mapper.toEntity(request, currentUser.getCurrentUserId());
+        venueAvailability.assertAvailable(event, null);
+        event = repository.save(event);
+        return mapper.toResponse(event, true, true, true);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public CalendarEventResponse get(UUID eventId, String authorizationHeader) {
         CalendarEvent event = find(eventId);
         if (!canView(event, authorizationHeader)) {
             throw hiddenEvent(eventId);
         }
-        return mapper.toResponse(event, canManage(event, authorizationHeader), canManage(event, authorizationHeader));
+        boolean manageable = canManage(event, authorizationHeader);
+        return mapper.toResponse(event, manageable, manageable, canDelete(event, authorizationHeader));
     }
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public CalendarEventResponse update(UUID eventId, CalendarEventRequest request, String authorizationHeader) {
         CalendarEvent event = find(eventId);
         assertManual(event, eventId);
@@ -56,18 +61,26 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         assertNotCancelled(event, "updated");
         authorizeWriteVisibility(request, authorizationHeader);
         mapper.applyUpdate(event, request);
-        return mapper.toResponse(repository.save(event), true, true);
+        venueAvailability.assertAvailable(event, eventId);
+        return mapper.toResponse(repository.save(event), true, true, true);
     }
 
     @Override
-    @Transactional
     public CalendarEventResponse cancel(UUID eventId, String authorizationHeader) {
         CalendarEvent event = find(eventId);
         assertManual(event, eventId);
         assertCanManage(event, eventId, authorizationHeader);
         assertNotCancelled(event, "cancelled");
         event.setStatus(CalendarEventStatus.CANCELLED);
-        return mapper.toResponse(repository.save(event), false, false);
+        return mapper.toResponse(repository.save(event), false, false, canDelete(event, authorizationHeader));
+    }
+
+    @Override
+    public void delete(UUID eventId, String authorizationHeader) {
+        CalendarEvent event = find(eventId);
+        assertManual(event, eventId);
+        assertCanManage(event, eventId, authorizationHeader);
+        repository.delete(event);
     }
 
     private void authorizeWriteVisibility(CalendarEventRequest request, String authorizationHeader) {
@@ -100,7 +113,7 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         }
         UUID userId = currentUser.getCurrentUserId();
         if (event.getVisibility() == CalendarVisibility.PRIVATE) {
-            return userId.equals(event.getCreatedBy());
+            return currentUser.getIdentityIds().contains(event.getCreatedBy());
         }
         if (event.getVisibility() == CalendarVisibility.GLOBAL) {
             return true;
@@ -124,9 +137,36 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     }
 
     private boolean canManage(CalendarEvent event, String authorizationHeader) {
-        if (event.getStatus() == CalendarEventStatus.CANCELLED || isProjected(event)) {
+        if (event.getStatus() == CalendarEventStatus.CANCELLED) {
             return false;
         }
+        // Administrators have full calendar-management access, including
+        // events projected from another service.
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return true;
+        }
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
+            return false;
+        }
+        if (isProjected(event)) {
+            return false;
+        }
+        try {
+            assertCanManage(event, event.getId(), authorizationHeader);
+            return true;
+        } catch (AccessDeniedException | CalendarDomainException ex) {
+            return false;
+        }
+    }
+
+    private boolean canDelete(CalendarEvent event, String authorizationHeader) {
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return true;
+        }
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
+            return false;
+        }
+        if (isProjected(event)) return false;
         try {
             assertCanManage(event, event.getId(), authorizationHeader);
             return true;
@@ -142,14 +182,17 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         if (!currentUser.hasRole("TEACHER")) {
             throw hiddenEvent(eventId);
         }
-        if (currentUser.getCurrentUserId().equals(event.getCreatedBy())) {
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
+            throw new AccessDeniedException("Teacher cannot manage administrator-created events");
+        }
+        if (currentUser.getIdentityIds().contains(event.getCreatedBy())) {
             return;
         }
         courseAccess.assertCanManage(event.getCourseId(), authorizationHeader);
     }
 
     private void assertManual(CalendarEvent event, UUID eventId) {
-        if (isProjected(event)) {
+        if (isProjected(event) && !currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             throw new CalendarDomainException(HttpStatus.CONFLICT,
                     "Source-projected events cannot be managed through manual event APIs");
         }

@@ -43,6 +43,16 @@ public class AuthCredentialServiceImpl implements AuthCredentialService {
     }
 
     @Override
+    public void unlock(String userId) {
+        authServiceClient.unlock(UUID.fromString(userId));
+    }
+
+    @Override
+    public boolean isAccountLocked(String userId) {
+        return authServiceClient.isAccountLocked(UUID.fromString(userId));
+    }
+
+    @Override
     @Transactional
     public void applyPendingPassword(String userId) {
         String password = pendingPasswords.remove(userId);

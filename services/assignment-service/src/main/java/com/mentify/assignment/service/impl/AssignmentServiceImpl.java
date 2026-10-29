@@ -69,7 +69,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         replaceRubricItems(assignment, request.getRubricItems());
 
         Assignment saved = assignmentRepository.save(assignment);
-        return response(HttpStatus.CREATED, "Assignment created successfully", mapToResponse(saved));
+        return response(HttpStatus.CREATED, "Assignment created successfully",
+                withCourseDetails(mapToResponse(saved), course));
     }
 
     @Override
@@ -82,7 +83,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         ensureAssignmentUpdateAllowed(assignment, hasSubmissions, request);
         validateUpdateDates(assignment, request.getStartDate(), request.getDueDate());
         validateRubricWeights(request.getRubricItems());
-        getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
+        CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
         assignment.setTitle(request.getTitle().trim());
         assignment.setDescription(trimToNull(request.getDescription()));
@@ -99,7 +100,8 @@ public class AssignmentServiceImpl implements AssignmentService {
 
         Assignment saved = assignmentRepository.save(assignment);
         calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
-        return response(HttpStatus.OK, "Assignment updated successfully", mapToResponse(saved));
+        return response(HttpStatus.OK, "Assignment updated successfully",
+                withCourseDetails(mapToResponse(saved), course));
     }
 
     @Override
@@ -117,7 +119,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         boolean hasSubmissions = assignment.getStatus() == AssignmentStatus.PUBLISHED
                 && hasActiveSubmissions(assignment);
         ensureAssignmentPatchAllowed(assignment, hasSubmissions, request);
-        getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
+        CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
         LocalDateTime startDate = request.getStartDate() == null ? assignment.getStartDate() : request.getStartDate();
         LocalDateTime dueDate = request.getDueDate() == null ? assignment.getDueDate() : request.getDueDate();
@@ -162,7 +164,8 @@ public class AssignmentServiceImpl implements AssignmentService {
 
         Assignment saved = assignmentRepository.save(assignment);
         calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
-        return response(HttpStatus.OK, "Assignment updated successfully", mapToResponse(saved));
+        return response(HttpStatus.OK, "Assignment updated successfully",
+                withCourseDetails(mapToResponse(saved), course));
     }
 
     @Override
@@ -216,7 +219,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     public ApiResponse<AssignmentResponse> publishAssignment(UUID assignmentId, String authorizationHeader) {
         Assignment assignment = getAssignmentOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
-        getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
+        CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
         if (assignment.getStatus() != AssignmentStatus.DRAFT) {
             throw new RuntimeException("Assignment can only be published from DRAFT status");
         }
@@ -225,7 +228,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setPublishedAt(LocalDateTime.now());
         Assignment saved = assignmentRepository.save(assignment);
         calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
-        return response(HttpStatus.OK, "Assignment published successfully", mapToResponse(saved));
+        return response(HttpStatus.OK, "Assignment published successfully",
+                withCourseDetails(mapToResponse(saved), course));
     }
 
     @Override
@@ -233,11 +237,12 @@ public class AssignmentServiceImpl implements AssignmentService {
     public ApiResponse<AssignmentResponse> closeAssignment(UUID assignmentId, String authorizationHeader) {
         Assignment assignment = getAssignmentOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
-        getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
+        CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
         assignment.setStatus(AssignmentStatus.CLOSED);
         Assignment saved = assignmentRepository.save(assignment);
         calendarProjectionService.cancelAssignment(saved, authorizationHeader);
-        return response(HttpStatus.OK, "Assignment closed successfully", mapToResponse(saved));
+        return response(HttpStatus.OK, "Assignment closed successfully",
+                withCourseDetails(mapToResponse(saved), course));
     }
 
     private Assignment getAssignmentOrThrow(UUID assignmentId) {
@@ -431,7 +436,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         validateAssignmentDateOrder(preciseStartDate, preciseDueDate);
     }
 
-    private void validateAssignmentDateOrder(LocalDateTime startDate, LocalDateTime dueDate) {
+    private static void validateAssignmentDateOrder(LocalDateTime startDate, LocalDateTime dueDate) {
         if (startDate == null || dueDate == null) {
             throw new RuntimeException("Start date and due date are required");
         }
@@ -491,6 +496,13 @@ public class AssignmentServiceImpl implements AssignmentService {
                         List.of(assignment.getId())
                 ).stream().findFirst().orElse(null);
         return mapToResponse(assignment, counts);
+    }
+
+    private AssignmentResponse withCourseDetails(AssignmentResponse response, CourseLookupResponse course) {
+        return response.toBuilder()
+                .courseName(course.getCourseName())
+                .courseCode(course.getCourseCode())
+                .build();
     }
 
     private AssignmentResponse mapToResponse(

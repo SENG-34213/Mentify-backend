@@ -69,7 +69,7 @@ class AiConversationControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void createConversationShouldReturnCreatedResponse() throws Exception {
         UUID conversationId = UUID.randomUUID();
         when(conversationService.createConversation(any())).thenReturn(AiConversationResponse.builder()
@@ -106,7 +106,7 @@ class AiConversationControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void getConversationShouldReturnMessages() throws Exception {
         UUID conversationId = UUID.randomUUID();
         when(conversationService.getConversation(conversationId)).thenReturn(AiConversationDetailResponse.builder()
@@ -126,7 +126,7 @@ class AiConversationControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void getConversationMessagesShouldReturnMessageList() throws Exception {
         UUID conversationId = UUID.randomUUID();
         when(conversationService.getConversationMessages(conversationId)).thenReturn(List.of(
@@ -144,7 +144,7 @@ class AiConversationControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void updateConversationShouldValidateTitle() throws Exception {
         UUID conversationId = UUID.randomUUID();
 
@@ -157,7 +157,7 @@ class AiConversationControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void updateConversationShouldReturnUpdatedConversation() throws Exception {
         UUID conversationId = UUID.randomUUID();
         when(conversationService.updateConversation(eq(conversationId), any())).thenReturn(AiConversationResponse.builder()

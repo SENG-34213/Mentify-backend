@@ -32,7 +32,7 @@ public class AiWebSocketAuthInterceptor implements ChannelInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String CHAT_SEND_DESTINATION = "/app/ai/chat";
     private static final String CHAT_SUBSCRIBE_DESTINATION = "/user/queue/ai/chat";
-    private static final Set<String> ALLOWED_ROLES = Set.of("ROLE_TEACHER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN");
+    private static final Set<String> ALLOWED_ROLES = Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
 
     private final JwtDecoder jwtDecoder;
     private final JwtAuthenticationConverter jwtAuthenticationConverter;

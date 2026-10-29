@@ -12,6 +12,7 @@ import com.mentify.calendar.mapper.CalendarEventMapper;
 import com.mentify.calendar.repository.CalendarEventRepository;
 import com.mentify.calendar.security.CurrentCalendarUserService;
 import com.mentify.calendar.service.impl.CalendarEventServiceImpl;
+import com.mentify.calendar.service.CalendarVenueAvailabilityService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +43,8 @@ class CalendarEventServiceImplTest {
     private CurrentCalendarUserService currentUser;
     @Mock
     private CalendarCourseAccessService courseAccess;
+    @Mock
+    private CalendarVenueAvailabilityService venueAvailability;
     @InjectMocks
     private CalendarEventServiceImpl service;
 
@@ -74,7 +77,8 @@ class CalendarEventServiceImplTest {
         when(currentUser.getCurrentUserId()).thenReturn(userId);
         when(mapper.toEntity(request, userId)).thenReturn(event);
         when(repository.save(event)).thenReturn(event);
-        when(mapper.toResponse(event, true, true)).thenReturn(CalendarEventResponse.builder().id(event.getId()).build());
+        when(mapper.toResponse(event, true, true, true))
+                .thenReturn(CalendarEventResponse.builder().id(event.getId()).build());
 
         CalendarEventResponse response = service.create(request, "Bearer token");
 
@@ -121,7 +125,8 @@ class CalendarEventServiceImplTest {
         when(repository.findById(event.getId())).thenReturn(java.util.Optional.of(event));
         when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(true);
         when(repository.save(event)).thenReturn(event);
-        when(mapper.toResponse(event, false, false)).thenReturn(CalendarEventResponse.builder().id(event.getId()).build());
+        when(mapper.toResponse(event, false, false, true))
+                .thenReturn(CalendarEventResponse.builder().id(event.getId()).build());
 
         service.cancel(event.getId(), "Bearer token");
 

@@ -225,6 +225,7 @@ public class UserRegistration {
                         .teacherCode(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getTeacherCode())
                         .title(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getAcademicTitle())
                         .department(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getDepartment())
+                        .avatarUrl(teacher.getTeacherProfile() == null ? null : teacher.getTeacherProfile().getAvatarUrl())
                         .role(teacher.getRole()).accountStatus(teacher.getAccountStatus())
                         .emailVerified(teacher.isEmailVerified()).createdAt(teacher.getCreatedAt()).build()));
     }

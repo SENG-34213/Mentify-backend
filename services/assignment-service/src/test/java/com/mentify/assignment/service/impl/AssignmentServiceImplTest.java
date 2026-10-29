@@ -3,6 +3,7 @@ package com.mentify.assignment.service.impl;
 import com.mentify.assignment.dto.request.CreateAssignmentRequest;
 import com.mentify.assignment.dto.request.PatchAssignmentRequest;
 import com.mentify.assignment.dto.request.RubricItemRequest;
+import com.mentify.assignment.dto.request.UpdateAssignmentRequest;
 import com.mentify.assignment.dto.response.AssignmentResponse;
 import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.entity.AssignmentRubricItem;
@@ -35,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class AssignmentServiceImplTest {
@@ -54,7 +56,7 @@ class AssignmentServiceImplTest {
     @Mock
     private CalendarProjectionService calendarProjectionService;
 
-    private AssignmentService assignmentService;
+    private AssignmentServiceImpl assignmentService;
 
     @BeforeEach
     void setUp() {
@@ -534,7 +536,7 @@ class AssignmentServiceImplTest {
         when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
         when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
         when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
-        when(courseServiceClient.getCourseById(courseId, authorization))
+        lenient().when(courseServiceClient.getCourseById(courseId, authorization))
                 .thenReturn(ApiResponse.<CourseLookupResponse>builder()
                         .status(HttpStatus.OK)
                         .statusCode(HttpStatus.OK.value())

@@ -1,0 +1,27 @@
+:80 {
+    encode gzip
+
+    request_body {
+        max_size 110MB
+    }
+
+    handle /api/* {
+        reverse_proxy api-gateway:8080
+    }
+
+    handle /admin* {
+        reverse_proxy admin-frontend:3000
+    }
+
+    handle /teacher* {
+        reverse_proxy teacher-frontend:3000
+    }
+
+    handle /student* {
+        reverse_proxy student-frontend:3000
+    }
+
+    handle {
+        redir /admin/ 302
+    }
+}

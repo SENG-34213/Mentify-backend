@@ -9,6 +9,7 @@ import com.mentify.material.service.impl.MaterialFileValidationServiceImpl;
 import com.mentify.payload.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.util.unit.DataSize;
@@ -149,6 +150,18 @@ class MaterialFileValidationServiceImplTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getMessage()).isEqualTo("Unsupported file type");
         assertThat(response.getBody().getMessage()).doesNotContain("script.exe");
+    }
+
+    @Test
+    void missingRequiredUploadPartsReturnBadRequest() {
+        MaterialExceptionHandler handler = new MaterialExceptionHandler();
+
+        ResponseEntity<ApiResponse<Object>> response = handler.handleMissingRequestPart(
+                new MissingServletRequestPartException("file"));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Required multipart file or field is missing");
     }
 
     private MockMultipartFile file(String filename, String contentType, String content) {

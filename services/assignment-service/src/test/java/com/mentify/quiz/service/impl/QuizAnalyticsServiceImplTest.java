@@ -8,6 +8,7 @@ import com.mentify.quiz.enums.QuizStatus;
 import com.mentify.quiz.repository.QuizAttemptRepository;
 import com.mentify.quiz.repository.QuizRepository;
 import com.mentify.quiz.security.CurrentUserService;
+import com.mentify.quiz.client.CourseServiceClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,9 @@ class QuizAnalyticsServiceImplTest {
     @Mock
     private CurrentUserService currentUserService;
 
+    @Mock
+    private CourseServiceClient courseServiceClient;
+
     private QuizAnalyticsServiceImpl quizAnalyticsService;
 
     @BeforeEach
@@ -45,7 +49,8 @@ class QuizAnalyticsServiceImplTest {
         quizAnalyticsService = new QuizAnalyticsServiceImpl(
                 quizRepository,
                 quizAttemptRepository,
-                currentUserService
+                currentUserService,
+                courseServiceClient
         );
     }
 

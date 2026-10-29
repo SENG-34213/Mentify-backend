@@ -92,12 +92,20 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseGet(() -> paymentRepository.saveAndFlush(Payment.builder()
                         .studentId(studentId)
                         .courseId(course.getId())
+                        .courseName(course.getCourseName())
+                        .courseCode(course.getCourseCode())
                         .amount(amount)
                         .currency(currency)
                         .status(PaymentStatus.PENDING)
                         .provider(PaymentProvider.STRIPE)
                         .paymentOperationKey(paymentOperationKey)
                         .build()));
+
+        if (payment.getCourseName() == null || payment.getCourseCode() == null) {
+            payment.setCourseName(course.getCourseName());
+            payment.setCourseCode(course.getCourseCode());
+            payment = paymentRepository.saveAndFlush(payment);
+        }
 
         if (hasReusableStripeIntent(payment)) {
             return toStartCoursePaymentResponse(payment);
@@ -268,7 +276,13 @@ public class PaymentServiceImpl implements PaymentService {
                         null,
                         "PAYMENT_SUCCEEDED",
                         "Payment successful",
-                        "Your course payment was successful."
+                        "Your payment for " + (payment.getCourseName() == null
+                                || payment.getCourseName().isBlank() ? "your course" : payment.getCourseName())
+                                + (payment.getCourseCode() == null || payment.getCourseCode().isBlank()
+                                ? "" : " (" + payment.getCourseCode() + ")") + " was completed successfully. Amount: "
+                                + payment.getAmount() + " " + payment.getCurrency() + "; paid at: " + payment.getPaidAt()
+                                + "; payment status: " + payment.getStatus()
+                                + ". Your enrollment can now access this course."
                 );
             }
         };
@@ -462,6 +476,8 @@ public class PaymentServiceImpl implements PaymentService {
         return StartCoursePaymentResponse.builder()
                 .paymentId(payment.getId())
                 .courseId(payment.getCourseId())
+                .courseName(payment.getCourseName())
+                .courseCode(payment.getCourseCode())
                 .amount(payment.getAmount())
                 .currency(payment.getCurrency())
                 .status(payment.getStatus())
@@ -545,6 +561,11 @@ public class PaymentServiceImpl implements PaymentService {
         return RefundPaymentResponse.builder()
                 .paymentId(payment.getId())
                 .status(payment.getStatus())
+                .courseName(payment.getCourseName())
+                .courseCode(payment.getCourseCode())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .refundReason(payment.getRefundReason())
                 .stripeRefundId(payment.getStripeRefundId())
                 .refundedAt(payment.getRefundedAt())
                 .build();

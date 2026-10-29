@@ -58,7 +58,7 @@ public class UserRegistrationFactory {
                 .lastName(request.getLastName())
                 .phoneNumber(request.getPhoneNumber())
                 .role(request.getRole())
-                .accountStatus(AccountStatus.INVITED)
+                .accountStatus(request.getRole() == Role.STUDENT ? AccountStatus.ACTIVE : AccountStatus.INVITED)
                 .accountNonLocked(true)
                 .emailVerified(false)
                 .loginAttempts(0)

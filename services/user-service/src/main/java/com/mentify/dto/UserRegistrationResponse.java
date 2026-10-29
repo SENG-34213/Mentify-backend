@@ -42,6 +42,7 @@ public class UserRegistrationResponse {
     private TeacherProfileResponse teacherProfile;
     private AdminProfileResponse adminProfile;
     private AddressResponse address;
+    private boolean accountLocked;
 
     public UserRegistrationResponse(UUID id, String authUserId, String email,
                                     String firstName, String lastName, String phoneNumber,
@@ -52,7 +53,7 @@ public class UserRegistrationResponse {
                                     AddressResponse address) {
         this(id, authUserId, email, firstName, lastName, phoneNumber, role, accountStatus,
                 null, null, true, true, false, null,
-                studentProfile, teacherProfile, adminProfile, address);
+                studentProfile, teacherProfile, adminProfile, address, false);
     }
 
     public static UserRegistrationResponse from(User user) {

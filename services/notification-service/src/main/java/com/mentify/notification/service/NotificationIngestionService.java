@@ -1,12 +1,15 @@
 package com.mentify.notification.service;
 
 import com.mentify.common.notification.NotificationEvent;
+import com.mentify.redis.RedisCacheService;
+import com.mentify.redis.RedisKey;
 import com.mentify.notification.entity.EmailDeliveryStatus;
 import com.mentify.notification.entity.Notification;
 import com.mentify.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
@@ -17,6 +20,8 @@ import java.util.UUID;
 public class NotificationIngestionService {
 
     private final NotificationRepository notificationRepository;
+    @Autowired(required = false)
+    private RedisCacheService redisCache;
 
     @Transactional
     public void ingest(NotificationEvent event) {
@@ -29,7 +34,8 @@ public class NotificationIngestionService {
         }
 
         Instant now = Instant.now();
-        boolean shouldSendEmail = StringUtils.hasText(event.recipientEmail());
+        boolean shouldSendEmail = StringUtils.hasText(event.recipientEmail())
+                && NotificationEmailPolicy.allowsEmail(event.type());
 
         Notification notification = new Notification();
         notification.setId(UUID.randomUUID());
@@ -46,6 +52,11 @@ public class NotificationIngestionService {
         notification.setEmailAttempts(0);
         notification.setNextEmailAttemptAt(shouldSendEmail ? now : null);
         notificationRepository.save(notification);
+        String notificationPrefix = RedisKey.of("mentify:v1", "notifications", event.recipientUserId());
+        if (redisCache != null) {
+            redisCache.evict(notificationPrefix + ":unread-count");
+            redisCache.evictByPattern(notificationPrefix + ":page:*");
+        }
     }
 
     private void validate(NotificationEvent event) {

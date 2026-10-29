@@ -4,7 +4,8 @@
 
 `POST /api/v1/auth/login`
 
-The backend authenticates the submitted email and password through Keycloak's token endpoint using the password grant. Mentify does not generate access tokens or refresh tokens.
+The backend authenticates the submitted email and password through `auth-service`. Mentify issues
+its own signed access and refresh JWTs.
 
 Successful responses use the common `ApiResponse` shape:
 
@@ -16,8 +17,8 @@ Successful responses use the common `ApiResponse` shape:
     "accessToken": "<jwt>",
     "refreshToken": "<refresh-token>",
     "tokenType": "Bearer",
-    "expiresIn": 300,
-    "refreshExpiresIn": 1800,
+    "expiresIn": 86400,
+    "refreshExpiresIn": 86400,
     "scope": "openid email profile",
     "issuedAt": "2026-06-26T00:00:00Z",
     "user": {}
@@ -26,9 +27,8 @@ Successful responses use the common `ApiResponse` shape:
 ```
 
 Newly registered accounts receive an email from user-service with their registered email and
-generated initial password. Keycloak does not add `UPDATE_PASSWORD` or `VERIFY_EMAIL` actions to
-these accounts and stores the credential as non-temporary, so the existing password-grant login
-bridge can issue a normal session. Users can change the password later through the forgot-password
+generated initial password. The auth service stores the credential and issues a normal session.
+Users can change the password later through the forgot-password
 flow. The login response contains the server-resolved `user.role` (`STUDENT`, `TEACHER`, `ADMIN`, or
 `SUPER_ADMIN`). The frontend uses that value for role-specific routing, while API authorization
 remains enforced by the existing JWT resource-server checks.
@@ -45,7 +45,8 @@ Request:
 }
 ```
 
-The endpoint is anonymous at the Spring Security layer because the access token may already be expired. The refresh token is validated by Keycloak using the `refresh_token` grant.
+The endpoint is anonymous at the Spring Security layer because the access token may already be expired.
+The refresh token is validated by `auth-service`.
 
 Successful response:
 
@@ -57,8 +58,8 @@ Successful response:
     "accessToken": "<new-jwt>",
     "refreshToken": "<new-refresh-token-if-rotated>",
     "tokenType": "Bearer",
-    "expiresIn": 300,
-    "refreshExpiresIn": 1800,
+    "expiresIn": 86400,
+    "refreshExpiresIn": 86400,
     "scope": "openid email profile",
     "issuedAt": "2026-06-26T00:00:00Z"
   }
@@ -76,7 +77,7 @@ Expired, malformed, or revoked refresh tokens return a controlled `401 Unauthori
 }
 ```
 
-Keycloak internal error details are not exposed.
+Authentication-service internal error details are not exposed.
 
 ## Logout
 
@@ -90,7 +91,8 @@ Request:
 }
 ```
 
-The backend calls Keycloak's OpenID Connect logout endpoint with the configured auth client credentials and refresh token. This invalidates the Keycloak session or refresh token. Mentify does not store refresh tokens.
+The backend invalidates the stored refresh session associated with the refresh token. Mentify does
+not expose token internals to clients.
 
 Successful response:
 
@@ -115,7 +117,8 @@ Request:
 }
 ```
 
-Mentify validates the email format and looks up the local user profile. If the profile is active, unlocked, and linked to Keycloak, the backend calls Keycloak Admin REST through the Keycloak admin client to execute the `UPDATE_PASSWORD` action email.
+Mentify validates the email format and looks up the local user profile. If the profile is active and
+unlocked, the backend creates a password-reset challenge and sends it through the configured SMTP service.
 
 Mentify always returns the same response for registered, unregistered, inactive, disabled, suspended, locked, or unlinked users:
 
@@ -130,14 +133,13 @@ This protects against email enumeration. Mentify does not generate, store, valid
 
 ## Password Reset Completion
 
-Password reset completion is Keycloak-native in this implementation. The email link takes the user into Keycloak's required-action flow. Keycloak validates the action token, enforces token expiry and one-time use, displays the password update form, and updates the credential.
-
-There is no Mentify `POST /api/v1/auth/reset-password` endpoint in this flow. A custom Mentify reset form would require a separate backend-owned token design or a verified Keycloak token exchange flow.
+Password reset completion is handled by the auth service through its reset-token and OTP endpoints.
 
 ## Security Notes
 
 Access tokens, refresh tokens, passwords, and client secrets must not be logged.
 
-Authentication errors must use local, controlled messages. Do not return Keycloak `error`, `error_description`, stack traces, token values, passwords, email registration status, or client secrets to API callers.
+Authentication errors must use local, controlled messages. Do not return provider errors, stack traces,
+token values, passwords, email registration status, or client secrets to API callers.
 
-The API gateway and user-service both allow `/api/v1/auth/refresh`, `/api/v1/auth/logout`, and `/api/v1/auth/forgot-password` without an access token. This is intentional. Keycloak remains the authority for refresh token validation, logout invalidation, password reset tokens, and password update completion.
+The API gateway and user-service both allow `/api/v1/auth/refresh`, `/api/v1/auth/logout`, and `/api/v1/auth/forgot-password` without an access token. This is intentional. `auth-service` remains the authority for refresh validation, logout invalidation, password-reset tokens, and password updates.

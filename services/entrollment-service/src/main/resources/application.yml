@@ -43,6 +43,10 @@ eureka:
     fetch-registry: true
 
 management:
+  health:
+    # Enrollment does not use Redis; keep its health status independent of the shared cache.
+    redis:
+      enabled: false
   endpoints:
     web:
       exposure:

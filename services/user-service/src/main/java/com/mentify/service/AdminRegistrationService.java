@@ -44,7 +44,7 @@ public class AdminRegistrationService {
             User savedUser = userRepository.saveAndFlush(user);
             authCredentialService.applyPendingPassword(authUserId);
             registrationEmailDispatcher.sendAfterCommit(
-                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword);
+                    authUserId, request.getEmail(), request.getFirstName(), temporaryPassword, Role.ADMIN);
 
             return UserRegistrationResponse.from(savedUser);
         } catch (Exception exception) {

@@ -4,7 +4,7 @@ spring:
   application:
     name: auth-service
   config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888},optional:file:./.env[.properties],optional:file:../../.env[.properties]
   datasource:
     url: jdbc:postgresql://${AUTH_DB_HOST:localhost}:${AUTH_DB_PORT:5432}/${AUTH_DB_NAME:auth_db}
     username: ${AUTH_DB_USERNAME:postgres}
@@ -13,7 +13,7 @@ spring:
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
+    username: ${SMTP_USERNAME:titeducation86@gmail.com}
     password: ${SMTP_PASSWORD:}
     properties:
       mail:
@@ -32,12 +32,12 @@ mentify:
   password-reset:
     otp-expiry-minutes: ${AUTH_PASSWORD_RESET_OTP_EXPIRY_MINUTES:10}
     email:
-      from: ${SMTP_FROM:no-reply@mentify.local}
+      from: ${SMTP_FROM:titeducation86@gmail.com}
   auth:
     issuer: ${AUTH_ISSUER_URI:http://localhost:8085}
     audience: ${AUTH_AUDIENCE:mentify-api}
-    access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}
-    refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:2592000}
+    access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:86400}
+    refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:86400}
     session-refresh-token-seconds: ${AUTH_SESSION_REFRESH_TOKEN_SECONDS:86400}
     key-id: ${AUTH_JWT_KEY_ID:mentify-auth-rsa}
     private-key-base64: ${AUTH_JWT_PRIVATE_KEY_BASE64:}
@@ -45,6 +45,8 @@ mentify:
     allow-ephemeral-keys: ${AUTH_JWT_ALLOW_EPHEMERAL_KEYS:false}
     user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
     internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
+    max-failed-attempts: ${AUTH_MAX_FAILED_ATTEMPTS:5}
+    lock-duration-minutes: ${AUTH_LOCK_DURATION_MINUTES:15}
 eureka:
   client:
     service-url:
@@ -52,6 +54,9 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:

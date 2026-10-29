@@ -21,7 +21,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -52,21 +51,25 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
     private int maxUpcomingLimit;
 
     @Override
-    @Transactional(readOnly = true)
     public List<CalendarEventResponse> findEvents(LocalDateTime start, LocalDateTime end,
                                                    CalendarEventType type, UUID courseId,
                                                    CalendarEventStatus requestedStatus,
                                                    String authorizationHeader) {
         validateRange(start, end);
         CalendarEventStatus status = resolveStatus(requestedStatus);
-        courseAccess.assertCanQueryCourse(courseId, authorizationHeader);
-
-        List<CalendarEvent> events = query(start, end, type, courseId, status, authorizationHeader);
-        return events.stream().map(event -> enrich(event, authorizationHeader)).toList();
+        Set<UUID> visibleCourseIds = visibleCourseIds(authorizationHeader);
+        if (courseId != null) {
+            if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+                courseAccess.assertCanQueryCourse(courseId, authorizationHeader);
+            } else if (!visibleCourseIds.contains(courseId)) {
+                throw new AccessDeniedException("You are not authorized to query this course");
+            }
+        }
+        List<CalendarEvent> events = query(start, end, type, courseId, status, visibleCourseIds);
+        return events.stream().map(event -> enrich(event, authorizationHeader, visibleCourseIds)).toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CalendarEventResponse> findUpcoming(Integer requestedLimit, String authorizationHeader) {
         int limit = requestedLimit == null ? defaultUpcomingLimit : requestedLimit;
         if (limit < 1 || limit > maxUpcomingLimit) {
@@ -74,14 +77,20 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
                     "limit must be between 1 and " + maxUpcomingLimit);
         }
 
-        CalendarEventStatus status = resolveStatus(null);
+        CalendarEventStatus status = CalendarEventStatus.SCHEDULED;
         LocalDateTime from = LocalDateTime.now(APPLICATION_ZONE);
-        List<CalendarEvent> events = upcoming(from, status, authorizationHeader);
-        return events.stream().limit(limit).map(event -> enrich(event, authorizationHeader)).toList();
+        Set<UUID> visibleCourseIds = visibleCourseIds(authorizationHeader);
+        List<CalendarEvent> events = upcoming(from, status, visibleCourseIds);
+        return events.stream().limit(limit)
+                .map(event -> enrich(event, authorizationHeader, visibleCourseIds)).toList();
     }
 
-    private CalendarEventResponse enrich(CalendarEvent event, String authorizationHeader) {
-        CalendarEventResponse response = mapper.toResponse(event, false, false);
+    private CalendarEventResponse enrich(CalendarEvent event, String authorizationHeader,
+                                         Set<UUID> visibleCourseIds) {
+        boolean canManage = canManage(event, authorizationHeader, visibleCourseIds);
+        boolean active = event.getStatus() != CalendarEventStatus.CANCELLED;
+        CalendarEventResponse response = mapper.toResponse(event, canManage && active,
+                canManage && active, canManage);
         if (event.getCourseId() == null) return response;
         try {
             ApiResponse<CourseLookupResponse> lookup = courseServiceClient.getCourseById(event.getCourseId(), authorizationHeader);
@@ -113,27 +122,52 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         }
     }
 
+    private boolean canManage(CalendarEvent event, String authorizationHeader, Set<UUID> visibleCourseIds) {
+        if (event.getSourceId() != null
+                || (event.getSourceType() != null
+                && event.getSourceType() != com.mentify.calendar.enums.CalendarSourceType.CUSTOM
+                && event.getSourceType() != com.mentify.calendar.enums.CalendarSourceType.ADMIN)) {
+            return false;
+        }
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) return true;
+        if (!currentUser.hasRole("TEACHER")) return false;
+        if (currentUser.getIdentityIds().contains(event.getCreatedBy())) return true;
+        // This list already confirms teacher assignment; reuse it instead of making a
+        // course-service request for every event just to determine action visibility.
+        if (event.getCourseId() != null && visibleCourseIds.contains(event.getCourseId())) return true;
+        try {
+            courseAccess.assertCanManage(event.getCourseId(), authorizationHeader);
+            return true;
+        } catch (AccessDeniedException | CalendarDomainException exception) {
+            return false;
+        }
+    }
+
     private List<CalendarEvent> query(LocalDateTime start, LocalDateTime end,
                                       CalendarEventType type, UUID courseId,
-                                      CalendarEventStatus status, String authorizationHeader) {
+                                      CalendarEventStatus status, Set<UUID> visibleCourseIds) {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             return repository.findAdministrativeOverlapping(start, end, courseId, type, status);
         }
         return repository.findVisibleOverlapping(start, end, courseId, type, status,
-                currentUser.getCurrentUserId(), targetRoles(), safeCourseIds(authorizationHeader));
+                currentUser.getCurrentUserId(), targetRoles(), nonEmptyCourseIds(visibleCourseIds));
     }
 
     private List<CalendarEvent> upcoming(LocalDateTime from, CalendarEventStatus status,
-                                         String authorizationHeader) {
+                                         Set<UUID> visibleCourseIds) {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             return repository.findAdministrativeUpcoming(from, null, null, status);
         }
         return repository.findVisibleUpcoming(from, null, null, status,
-                currentUser.getCurrentUserId(), targetRoles(), safeCourseIds(authorizationHeader));
+                currentUser.getCurrentUserId(), targetRoles(), nonEmptyCourseIds(visibleCourseIds));
     }
 
-    private Set<UUID> safeCourseIds(String authorizationHeader) {
-        Set<UUID> ids = courseAccess.getVisibleCourseIds(authorizationHeader);
+    private Set<UUID> visibleCourseIds(String authorizationHeader) {
+        return currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")
+                ? Set.of() : courseAccess.getVisibleCourseIds(authorizationHeader);
+    }
+
+    private Set<UUID> nonEmptyCourseIds(Set<UUID> ids) {
         return ids.isEmpty() ? Set.of(new UUID(0L, 0L)) : ids;
     }
 
@@ -148,7 +182,7 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
                 && !currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             throw new AccessDeniedException("Only administrators may query cancelled events");
         }
-        return requestedStatus == null ? CalendarEventStatus.SCHEDULED : requestedStatus;
+        return requestedStatus;
     }
 
     private void validateRange(LocalDateTime start, LocalDateTime end) {

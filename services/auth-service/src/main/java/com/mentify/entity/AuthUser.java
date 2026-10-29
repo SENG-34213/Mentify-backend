@@ -38,6 +38,9 @@ public class AuthUser {
     @Column(nullable = false)
     private int failedAttempts = 0;
 
+    @Column
+    private LocalDateTime lockedUntil;
+
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

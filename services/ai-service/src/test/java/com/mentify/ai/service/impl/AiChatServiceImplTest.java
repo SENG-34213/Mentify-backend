@@ -7,6 +7,7 @@ import com.mentify.ai.dto.request.AiChatRequest;
 import com.mentify.ai.dto.response.AiChatResponse;
 import com.mentify.ai.dto.response.AiGenerateResponse;
 import com.mentify.ai.dto.tool.CalendarEventSummary;
+import com.mentify.ai.dto.tool.AttendanceAnalyticsSummary;
 import com.mentify.ai.dto.tool.QuizPerformanceSummary;
 import com.mentify.ai.dto.tool.TodayQuizPerformanceToolResult;
 import com.mentify.ai.dto.tool.UserRegistrationOverviewToolResult;
@@ -24,8 +25,20 @@ import com.mentify.ai.service.AiAuditService;
 import com.mentify.ai.service.AiContentGuardService;
 import com.mentify.ai.service.AiUsageGuardService;
 import com.mentify.ai.tool.TodayQuizPerformanceTool;
+import com.mentify.ai.tool.AttendancePerformanceTool;
+import com.mentify.ai.tool.AssignmentPerformanceTool;
+import com.mentify.ai.tool.QuizPerformanceTool;
+import com.mentify.ai.tool.StudentProgressTool;
+import com.mentify.ai.tool.CourseResolutionTool;
 import com.mentify.ai.tool.UpcomingCalendarEventsTool;
 import com.mentify.ai.tool.UserRegistrationOverviewTool;
+import com.mentify.ai.tool.AdminDashboardOverviewTool;
+import com.mentify.ai.tool.AiUsageOverviewTool;
+import com.mentify.ai.tool.MaterialOverviewTool;
+import com.mentify.ai.tool.NotificationOverviewTool;
+import com.mentify.ai.tool.CommunicationOverviewTool;
+import com.mentify.ai.tool.SystemHealthOverviewTool;
+import com.mentify.ai.tool.AiToolRegistry;
 import feign.FeignException;
 import feign.Request;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +54,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,7 +94,34 @@ class AiChatServiceImplTest {
     private TodayQuizPerformanceTool todayQuizPerformanceTool;
 
     @Mock
+    private AttendancePerformanceTool attendancePerformanceTool;
+
+    @Mock
+    private AssignmentPerformanceTool assignmentPerformanceTool;
+
+    @Mock
+    private QuizPerformanceTool quizPerformanceTool;
+
+    @Mock
+    private StudentProgressTool studentProgressTool;
+
+    @Mock
+    private CourseResolutionTool courseResolutionTool;
+
+    @Mock
     private UserRegistrationOverviewTool userRegistrationOverviewTool;
+    @Mock
+    private AdminDashboardOverviewTool adminDashboardOverviewTool;
+    @Mock
+    private AiUsageOverviewTool aiUsageOverviewTool;
+    @Mock
+    private MaterialOverviewTool materialOverviewTool;
+    @Mock
+    private NotificationOverviewTool notificationOverviewTool;
+    @Mock
+    private CommunicationOverviewTool communicationOverviewTool;
+    @Mock
+    private SystemHealthOverviewTool systemHealthOverviewTool;
 
     @Mock
     private UpcomingCalendarEventsTool upcomingCalendarEventsTool;
@@ -102,8 +143,18 @@ class AiChatServiceImplTest {
 
         lenient().when(aiProvider.getProviderName()).thenReturn("OPENAI");
         lenient().when(todayQuizPerformanceTool.getName()).thenReturn(TodayQuizPerformanceTool.TOOL_NAME);
+        lenient().when(attendancePerformanceTool.getName()).thenReturn(AttendancePerformanceTool.TOOL_NAME);
+        lenient().when(assignmentPerformanceTool.getName()).thenReturn(AssignmentPerformanceTool.TOOL_NAME);
+        lenient().when(quizPerformanceTool.getName()).thenReturn(QuizPerformanceTool.TOOL_NAME);
+        lenient().when(studentProgressTool.getName()).thenReturn(StudentProgressTool.TOOL_NAME);
         lenient().when(userRegistrationOverviewTool.getName()).thenReturn(UserRegistrationOverviewTool.TOOL_NAME);
         lenient().when(upcomingCalendarEventsTool.getName()).thenReturn(UpcomingCalendarEventsTool.TOOL_NAME);
+        lenient().when(adminDashboardOverviewTool.getName()).thenReturn(AdminDashboardOverviewTool.TOOL_NAME);
+        lenient().when(aiUsageOverviewTool.getName()).thenReturn(AiUsageOverviewTool.TOOL_NAME);
+        lenient().when(materialOverviewTool.getName()).thenReturn(MaterialOverviewTool.TOOL_NAME);
+        lenient().when(notificationOverviewTool.getName()).thenReturn(NotificationOverviewTool.TOOL_NAME);
+        lenient().when(communicationOverviewTool.getName()).thenReturn(CommunicationOverviewTool.TOOL_NAME);
+        lenient().when(systemHealthOverviewTool.getName()).thenReturn(SystemHealthOverviewTool.TOOL_NAME);
 
         aiChatService = new AiChatServiceImpl(
                 properties,
@@ -113,12 +164,138 @@ class AiChatServiceImplTest {
                 contentGuardService,
                 auditService,
                 todayQuizPerformanceTool,
+                attendancePerformanceTool,
+                assignmentPerformanceTool,
+                quizPerformanceTool,
+                studentProgressTool,
+                courseResolutionTool,
                 userRegistrationOverviewTool,
                 upcomingCalendarEventsTool,
+                adminDashboardOverviewTool,
+                aiUsageOverviewTool,
+                materialOverviewTool,
+                notificationOverviewTool,
+                communicationOverviewTool,
+                systemHealthOverviewTool,
+                new AiToolRegistry(List.of(
+                        todayQuizPerformanceTool,
+                        attendancePerformanceTool,
+                        assignmentPerformanceTool,
+                        quizPerformanceTool,
+                        studentProgressTool,
+                        userRegistrationOverviewTool,
+                        upcomingCalendarEventsTool,
+                        adminDashboardOverviewTool,
+                        aiUsageOverviewTool,
+                        materialOverviewTool,
+                        notificationOverviewTool,
+                        communicationOverviewTool,
+                        systemHealthOverviewTool
+                )),
                 new ObjectMapper().findAndRegisterModules(),
                 conversationRepository,
                 messageRepository
         );
+    }
+
+    @Test
+    void attendanceQuestionUsesAttendanceToolAndGroundedAiResponse() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(authenticatedUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(true);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(attendancePerformanceTool.execute(null, null, null, AUTH_HEADER)).thenReturn(
+                new AttendanceAnalyticsSummary(null, new BigDecimal("87.50")));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Average attendance is 87.50% across the authorized completed attendance records.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What is the attendance percentage?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("87.50%");
+        assertThat(response.getToolsUsed()).containsExactly(AttendancePerformanceTool.TOOL_NAME);
+        verify(attendancePerformanceTool).execute(null, null, null, AUTH_HEADER);
+
+        ArgumentCaptor<AiExecutionRequest> executionCaptor = ArgumentCaptor.forClass(AiExecutionRequest.class);
+        verify(aiProvider).generate(executionCaptor.capture());
+        assertThat(executionCaptor.getValue().getUserInput())
+                .contains(AttendancePerformanceTool.TOOL_NAME, "87.50");
+    }
+
+    @Test
+    void lastMonthAttendanceQuestionUsesFilteredCourseTool() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        UUID courseId = UUID.randomUUID();
+        YearMonth previousMonth = YearMonth.now().minusMonths(1);
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(attendancePerformanceTool.execute(
+                eq(courseId), eq(previousMonth.atDay(1)), eq(previousMonth.atEndOfMonth()), eq(AUTH_HEADER)))
+                .thenReturn(new AttendanceAnalyticsSummary(courseId, new BigDecimal("91.00")));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Attendance was 91.00% last month.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("What was attendance last month for course " + courseId + "?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("91.00%");
+        assertThat(response.getToolsUsed()).containsExactly(AttendancePerformanceTool.TOOL_NAME);
+        verify(attendancePerformanceTool).execute(
+                courseId, previousMonth.atDay(1), previousMonth.atEndOfMonth(), AUTH_HEADER);
+    }
+
+    @Test
+    void assignmentQuestionUsesAssignmentToolAndGroundedAiResponse() {
+        UUID teacherId = UUID.randomUUID();
+        UUID conversationId = prepareOwnedConversation(teacherId);
+        UUID courseId = UUID.randomUUID();
+        when(authenticatedUserService.getCurrentUserId()).thenReturn(teacherId);
+        when(assignmentPerformanceTool.execute(
+                eq(courseId), any(), any(), eq(AUTH_HEADER))).thenReturn(
+                new com.mentify.ai.dto.tool.AssignmentAnalyticsSummary(
+                        courseId, new BigDecimal("80.00"), new BigDecimal("75.00"), new BigDecimal("20.00")));
+        when(contentGuardService.sanitizeForPrompt(eq(AiFeatureType.TUTOR_CHAT), eq("ai_chat_message"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(aiProvider.generate(any(AiExecutionRequest.class))).thenReturn(AiGenerateResponse.builder()
+                .content("Assignment completion was 80.00%, with an average score of 75.00%.")
+                .provider("OPENAI")
+                .model("gpt-test")
+                .generatedAt(LocalDateTime.now())
+                .build());
+
+        AiChatResponse response = aiChatService.chat(
+                AiChatRequest.builder()
+                        .conversationId(conversationId)
+                        .message("How did assignments perform for course " + courseId + " last month?")
+                        .build(),
+                AUTH_HEADER
+        );
+
+        assertThat(response.getMessage()).contains("80.00%", "75.00%");
+        assertThat(response.getToolsUsed()).containsExactly(AssignmentPerformanceTool.TOOL_NAME);
+        verify(assignmentPerformanceTool).execute(eq(courseId), any(), any(), eq(AUTH_HEADER));
     }
 
     @Test
