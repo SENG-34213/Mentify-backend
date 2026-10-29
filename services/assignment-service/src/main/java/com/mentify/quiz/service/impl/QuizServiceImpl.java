@@ -38,6 +38,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -376,6 +377,9 @@ public class QuizServiceImpl implements QuizService {
     }
 
     private void validateQuizTimes(java.time.LocalDateTime startTime, java.time.LocalDateTime endTime) {
+        if (startTime != null && startTime.isBefore(LocalDateTime.now())) {
+            throw new InvalidQuestionOptionsException("Quiz start time cannot be before the current date and time");
+        }
         if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
             throw new InvalidQuestionOptionsException("Quiz start time must be before end time");
         }
