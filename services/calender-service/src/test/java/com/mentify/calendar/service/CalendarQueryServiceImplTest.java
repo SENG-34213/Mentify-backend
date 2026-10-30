@@ -101,7 +101,7 @@ class CalendarQueryServiceImplTest {
         CalendarEventResponse response = CalendarEventResponse.builder().id(event.getId()).build();
         when(repository.findVisibleOverlappingWithoutCourses(eq(start), eq(end), eq(null), eq(null),
                 eq(null), eq(userId), any())).thenReturn(List.of(event));
-        when(mapper.toResponse(event, true, true, true)).thenReturn(response);
+        when(mapper.toResponse(event, false, false, false)).thenReturn(response);
 
         assertThat(service.findEvents(start, end, null, null, null, "Bearer token"))
                 .containsExactly(response);

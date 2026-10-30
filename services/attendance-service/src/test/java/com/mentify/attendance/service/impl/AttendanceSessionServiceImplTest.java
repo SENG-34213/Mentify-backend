@@ -272,7 +272,9 @@ class AttendanceSessionServiceImplTest {
                 .status(HttpStatus.OK)
                 .data(course(courseId, teacherId))
                 .build());
-        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(true);
+        when(currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUserService.hasAnyRole("TEACHER")).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(teacherId);
 
         assertThrows(ResourceAlreadyExistsException.class,
                 () -> attendanceSessionService.markAttendance(sessionId, request, AUTH_HEADER));
