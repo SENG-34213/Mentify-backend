@@ -34,7 +34,6 @@ public class UpdateAssignmentRequest {
     @Min(value = 1, message = "Maximum marks must be at least 1")
     private Integer maxMarks;
 
-    @NotNull(message = "Allowed attempts is required")
     @Min(value = 1, message = "Allowed attempts must be at least 1")
     private Integer allowedAttempts;
 

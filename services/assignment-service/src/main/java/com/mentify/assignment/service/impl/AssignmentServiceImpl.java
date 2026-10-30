@@ -58,7 +58,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .startDate(request.getStartDate())
                 .dueDate(request.getDueDate())
                 .maxMarks(request.getMaxMarks())
-                .allowedAttempts(request.getAllowedAttempts())
+                .allowedAttempts(request.getAllowedAttempts() == null ? 1 : request.getAllowedAttempts())
                 .allowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()))
                 .latePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
                 .status(Boolean.TRUE.equals(request.getPublishImmediately())
@@ -96,7 +96,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setStartDate(request.getStartDate());
         assignment.setDueDate(request.getDueDate());
         assignment.setMaxMarks(request.getMaxMarks());
-        assignment.setAllowedAttempts(request.getAllowedAttempts());
+        assignment.setAllowedAttempts(request.getAllowedAttempts() == null ? 1 : request.getAllowedAttempts());
         assignment.setAllowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()));
         assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage());
         if (request.getRubricItems() != null) {
@@ -306,6 +306,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         if (!startDate.isBefore(dueDate)) {
             throw new RuntimeException("Assignment start date must be before due date");
         }
+        if (startDate.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Assignment start date cannot be before the current time");
+        }
     }
 
     private String trimToNull(String value) {
@@ -341,8 +344,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .filter(marks -> marks != null)
                 .mapToInt(Integer::intValue)
                 .sum();
-        if (totalRubricMarks > maxMarks) {
-            throw new IllegalArgumentException("Total rubric marks cannot exceed assignment maximum marks");
+        if (totalRubricMarks > 100) {
+            throw new IllegalArgumentException("Total rubric percentage cannot exceed 100");
         }
     }
 

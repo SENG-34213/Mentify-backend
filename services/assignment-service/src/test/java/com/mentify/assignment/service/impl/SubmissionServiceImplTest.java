@@ -148,7 +148,7 @@ class SubmissionServiceImplTest {
     }
 
     @Test
-    void createSubmission_whenMaximumAttemptsReached_rejectsWithoutSaving() {
+    void createSubmission_whenSubmissionExists_reopensExistingSubmission() {
         UUID assignmentId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
@@ -167,15 +167,15 @@ class SubmissionServiceImplTest {
 
         when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId)).thenReturn(Optional.of(assignment));
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
-        when(userServiceClient.isStudentExists(studentId, "Bearer token")).thenReturn(true);
-        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, "Bearer token"))
-                .thenReturn(true);
-        when(submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, studentId))
-                .thenReturn(1L);
-
-        org.junit.jupiter.api.Assertions.assertThrows(SubmissionConflictException.class,
-                () -> submissionService.createSubmission(assignmentId, new CreateSubmissionRequest(), "Bearer token"));
-
-        verify(submissionRepository, never()).save(any(Submission.class));
+        when(userServiceClient.isStudentExists(studentId, "******")).thenReturn(true);
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, "******")).thenReturn(true);
+        Submission existing = Submission.builder().assignment(assignment).studentId(studentId).attemptNumber(1)
+                .status(com.mentify.assignment.enums.SubmissionStatus.SUBMITTED).content("Existing answer")
+                .build();
+        when(submissionRepository.findFirstByAssignmentIdAndStudentIdAndIsActiveTrueOrderByAttemptNumberDesc(assignmentId, studentId)).thenReturn(Optional.of(existing));
+        when(submissionRepository.save(existing)).thenReturn(existing);
+        ApiResponse<?> response = submissionService.createSubmission(assignmentId, new CreateSubmissionRequest(), "******");
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK.value());
+        verify(submissionRepository).save(existing);
     }
 }
