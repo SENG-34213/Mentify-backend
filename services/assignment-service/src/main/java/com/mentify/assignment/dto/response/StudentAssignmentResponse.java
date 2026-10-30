@@ -26,6 +26,8 @@ public class StudentAssignmentResponse {
     SubmissionStatus submissionStatus;
     Integer attemptNumber;
     LocalDateTime submittedAt;
+    Boolean allowLateSubmission;
+    Boolean gradeReleased;
     BigDecimal marks;
     String feedback;
 }

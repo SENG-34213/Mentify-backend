@@ -28,6 +28,7 @@ public class SubmissionResponse {
     private String feedback;
     private LocalDateTime gradedAt;
     private UUID gradedBy;
+    private Boolean gradeReleased;
     private LocalDateTime returnedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

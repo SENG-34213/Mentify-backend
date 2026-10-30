@@ -67,6 +67,7 @@ public class SubmissionResponseMapper {
                 .feedback(submission.getFeedback())
                 .gradedAt(submission.getGradedAt())
                 .gradedBy(submission.getGradedBy())
+                .gradeReleased(Boolean.TRUE.equals(submission.getGradeReleased()))
                 .returnedAt(submission.getReturnedAt())
                 .createdAt(submission.getCreatedAt())
                 .updatedAt(submission.getUpdatedAt())

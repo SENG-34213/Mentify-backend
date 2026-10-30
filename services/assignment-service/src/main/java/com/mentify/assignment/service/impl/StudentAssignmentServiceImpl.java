@@ -116,13 +116,15 @@ public class StudentAssignmentServiceImpl implements StudentAssignmentService {
                 .startDate(assignment.getStartDate())
                 .dueDate(assignment.getDueDate())
                 .maxMarks(assignment.getMaxMarks())
+                .allowLateSubmission(assignment.getAllowLateSubmission())
                 .assignmentStatus(assignment.getStatus().name())
                 .submissionId(submission == null ? null : submission.getId())
                 .submissionStatus(submission == null ? null : submission.getStatus())
                 .attemptNumber(submission == null ? null : submission.getAttemptNumber())
                 .submittedAt(submission == null ? null : submission.getSubmittedAt())
-                .marks(submission == null ? null : submission.getMarks())
-                .feedback(submission == null ? null : submission.getFeedback())
+                .gradeReleased(submission != null && Boolean.TRUE.equals(submission.getGradeReleased()))
+                .marks(submission == null || !Boolean.TRUE.equals(submission.getGradeReleased()) ? null : submission.getMarks())
+                .feedback(submission == null || !Boolean.TRUE.equals(submission.getGradeReleased()) ? null : submission.getFeedback())
                 .build();
     }
 }
