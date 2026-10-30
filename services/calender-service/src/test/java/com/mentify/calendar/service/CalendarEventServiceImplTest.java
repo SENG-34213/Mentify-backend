@@ -1,5 +1,6 @@
 package com.mentify.calendar.service;
 
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.calendar.dto.CalendarEventRequest;
 import com.mentify.calendar.dto.CalendarEventResponse;
 import com.mentify.calendar.entity.CalendarEvent;
@@ -20,6 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
@@ -29,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +48,10 @@ class CalendarEventServiceImplTest {
     private CalendarCourseAccessService courseAccess;
     @Mock
     private CalendarVenueAvailabilityService venueAvailability;
+    @Mock
+    private ObjectProvider<NotificationEventPublisher> notificationEventPublisher;
+    @Mock
+    private NotificationEventPublisher notificationPublisher;
     @InjectMocks
     private CalendarEventServiceImpl service;
 
@@ -55,6 +62,7 @@ class CalendarEventServiceImplTest {
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
+        lenient().when(notificationEventPublisher.getIfAvailable()).thenReturn(notificationPublisher);
         request = new CalendarEventRequest();
         request.setTitle("Meeting");
         request.setEventType(CalendarEventType.MEETING);
@@ -135,6 +143,44 @@ class CalendarEventServiceImplTest {
     }
 
     @Test
+    void cancellingAdminCreatedCourseEventNotifiesTheAdminCreator() {
+        event.setSourceType(CalendarSourceType.ADMIN);
+        event.setCreatedBy(UUID.randomUUID());
+        when(repository.findById(event.getId())).thenReturn(java.util.Optional.of(event));
+        when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUser.hasRole("TEACHER")).thenReturn(true);
+        when(currentUser.getIdentityIds()).thenReturn(java.util.Set.of(userId));
+        when(repository.save(event)).thenReturn(event);
+        when(mapper.toResponse(event, false, false, true))
+                .thenReturn(CalendarEventResponse.builder().id(event.getId()).build());
+
+        service.cancel(event.getId(), "Bearer token");
+
+        verify(notificationPublisher).publishForRecipient(
+                event.getCreatedBy().toString(), null, "CALENDAR_EVENT_CANCELLED_BY_TEACHER",
+                "Course calendar event cancelled",
+                "The assigned course teacher cancelled the course calendar event 'Meeting'.");
+    }
+
+    @Test
+    void deletingAdminCreatedCourseEventNotifiesTheAdminCreator() {
+        event.setSourceType(CalendarSourceType.ADMIN);
+        event.setCreatedBy(UUID.randomUUID());
+        when(repository.findById(event.getId())).thenReturn(java.util.Optional.of(event));
+        when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUser.hasRole("TEACHER")).thenReturn(true);
+        when(currentUser.getIdentityIds()).thenReturn(java.util.Set.of(userId));
+
+        service.delete(event.getId(), "Bearer token");
+
+        verify(repository).delete(event);
+        verify(notificationPublisher).publishForRecipient(
+                event.getCreatedBy().toString(), null, "CALENDAR_EVENT_DELETED_BY_TEACHER",
+                "Course calendar event deleted",
+                "The assigned course teacher deleted the course calendar event 'Meeting'.");
+    }
+
+    @Test
     void teacherCannotReadHiddenPrivateEvent() {
         event.setVisibility(CalendarVisibility.PRIVATE);
         event.setCreatedBy(UUID.randomUUID());
@@ -144,5 +190,23 @@ class CalendarEventServiceImplTest {
 
         assertThatThrownBy(() -> service.get(event.getId(), "Bearer token"))
                 .isInstanceOf(com.mentify.exception.ResourceNotFoundException.class);
+    }
+
+    @Test
+    void assignedTeacherCanManageAdminCreatedCourseEvent() {
+        event.setSourceType(CalendarSourceType.ADMIN);
+        event.setCreatedBy(UUID.randomUUID());
+        when(repository.findById(event.getId())).thenReturn(java.util.Optional.of(event));
+        when(currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")).thenReturn(false);
+        when(currentUser.hasRole("TEACHER")).thenReturn(true);
+        when(currentUser.getIdentityIds()).thenReturn(java.util.Set.of(userId));
+        when(mapper.toResponse(event, true, true, true))
+                .thenReturn(CalendarEventResponse.builder().id(event.getId()).build());
+
+        CalendarEventResponse response = service.get(event.getId(), "Bearer token");
+
+        assertThat(response.getId()).isEqualTo(event.getId());
+        verify(courseAccess, org.mockito.Mockito.times(3))
+                .assertCanManage(event.getCourseId(), "Bearer token");
     }
 }

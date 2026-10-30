@@ -131,7 +131,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         CourseLookupResponse course = getCourseOrThrow(session.getCourseId(), authorizationHeader);
         assertTeacherCanManageCourse(course);
 
-        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
+        if (session.getStatus() != AttendanceSessionStatus.OPEN
+                && !currentUserService.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             throw new ResourceAlreadyExistsException("Attendance can only be marked while the session is OPEN");
         }
 

@@ -1,5 +1,6 @@
 package com.mentify.calendar.service.impl;
 
+import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.calendar.dto.CalendarEventRequest;
 import com.mentify.calendar.dto.CalendarEventResponse;
 import com.mentify.calendar.entity.CalendarEvent;
@@ -14,6 +15,7 @@ import com.mentify.calendar.service.CalendarEventService;
 import com.mentify.calendar.service.CalendarVenueAvailabilityService;
 import com.mentify.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,8 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     private final CurrentCalendarUserService currentUser;
     private final CalendarCourseAccessService courseAccess;
     private final CalendarVenueAvailabilityService venueAvailability;
+
+    private final ObjectProvider<NotificationEventPublisher> notificationEventPublisher;
 
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -72,7 +76,9 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         assertCanManage(event, eventId, authorizationHeader);
         assertNotCancelled(event, "cancelled");
         event.setStatus(CalendarEventStatus.CANCELLED);
-        return mapper.toResponse(repository.save(event), false, false, canDelete(event, authorizationHeader));
+        CalendarEvent savedEvent = repository.save(event);
+        notifyAdminOfTeacherAction(savedEvent, "cancelled");
+        return mapper.toResponse(savedEvent, false, false, canDelete(savedEvent, authorizationHeader));
     }
 
     @Override
@@ -81,6 +87,27 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         assertManual(event, eventId);
         assertCanManage(event, eventId, authorizationHeader);
         repository.delete(event);
+        notifyAdminOfTeacherAction(event, "deleted");
+    }
+
+    private void notifyAdminOfTeacherAction(CalendarEvent event, String action) {
+        NotificationEventPublisher publisher = notificationEventPublisher.getIfAvailable();
+        if (publisher == null
+                || event.getSourceType() != com.mentify.calendar.enums.CalendarSourceType.ADMIN
+                || event.getCourseId() == null
+                || event.getCreatedBy() == null) {
+            return;
+        }
+
+        String actionLabel = action.substring(0, 1).toUpperCase() + action.substring(1);
+        publisher.publishForRecipient(
+                event.getCreatedBy().toString(),
+                null,
+                "CALENDAR_EVENT_" + action.toUpperCase() + "_BY_TEACHER",
+                "Course calendar event " + action,
+                "The assigned course teacher " + action + " the course calendar event '"
+                        + event.getTitle() + "'."
+        );
     }
 
     private void authorizeWriteVisibility(CalendarEventRequest request, String authorizationHeader) {
@@ -145,9 +172,6 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             return true;
         }
-        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
-            return false;
-        }
         if (isProjected(event)) {
             return false;
         }
@@ -162,9 +186,6 @@ public class CalendarEventServiceImpl implements CalendarEventService {
     private boolean canDelete(CalendarEvent event, String authorizationHeader) {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             return true;
-        }
-        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
-            return false;
         }
         if (isProjected(event)) return false;
         try {
@@ -182,11 +203,12 @@ public class CalendarEventServiceImpl implements CalendarEventService {
         if (!currentUser.hasRole("TEACHER")) {
             throw hiddenEvent(eventId);
         }
-        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN) {
-            throw new AccessDeniedException("Teacher cannot manage administrator-created events");
-        }
         if (currentUser.getIdentityIds().contains(event.getCreatedBy())) {
             return;
+        }
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN
+                && event.getCourseId() == null) {
+            throw new AccessDeniedException("Teacher cannot manage administrator events without a course");
         }
         courseAccess.assertCanManage(event.getCourseId(), authorizationHeader);
     }

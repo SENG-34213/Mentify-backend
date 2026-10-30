@@ -96,6 +96,14 @@ public class MarketplaceProductServiceImpl implements MarketplaceProductService 
         return toResponse(repository.save(product));
     }
 
+    @Override
+    @Transactional
+    public void delete(UUID productId) {
+        MarketplaceProduct product = repository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Marketplace product not found"));
+        repository.delete(product);
+    }
+
     private void apply(MarketplaceProduct product, MarketplaceProductRequest request) {
         product.setMaterialId(request.materialId());
         product.setThumbnailMaterialId(request.thumbnailMaterialId());

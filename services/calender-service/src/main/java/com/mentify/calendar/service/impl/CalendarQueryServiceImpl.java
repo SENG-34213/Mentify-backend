@@ -85,7 +85,7 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
 
     private CalendarEventResponse enrich(CalendarEvent event, String authorizationHeader,
                                          Set<UUID> visibleCourseIds) {
-        boolean canManage = canManage(event, authorizationHeader, visibleCourseIds);
+        boolean canManage = canManage(event, authorizationHeader);
         boolean active = event.getStatus() != CalendarEventStatus.CANCELLED;
         CalendarEventResponse response = mapper.toResponse(event, canManage && active,
                 canManage && active, canManage);
@@ -120,7 +120,7 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         }
     }
 
-    private boolean canManage(CalendarEvent event, String authorizationHeader, Set<UUID> visibleCourseIds) {
+    private boolean canManage(CalendarEvent event, String authorizationHeader) {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) return true;
         if (event.getSourceId() != null
                 || (event.getSourceType() != null
@@ -130,9 +130,8 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         }
         if (!currentUser.hasRole("TEACHER")) return false;
         if (currentUser.getIdentityIds().contains(event.getCreatedBy())) return true;
-        // This list already confirms teacher assignment; reuse it instead of making a
-        // course-service request for every event just to determine action visibility.
-        if (event.getCourseId() != null && visibleCourseIds.contains(event.getCourseId())) return true;
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN
+                && event.getCourseId() == null) return false;
         try {
             courseAccess.assertCanManage(event.getCourseId(), authorizationHeader);
             return true;

@@ -14,4 +14,5 @@ public interface MarketplaceProductService {
     MarketplaceProductResponse create(MarketplaceProductRequest request);
     MarketplaceProductResponse update(UUID productId, MarketplaceProductRequest request);
     MarketplaceProductResponse changeStatus(UUID productId, com.mentify.enums.MarketplaceProductStatus status);
+    void delete(UUID productId);
 }
