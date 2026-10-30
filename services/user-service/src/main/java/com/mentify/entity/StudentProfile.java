@@ -25,7 +25,7 @@ public class StudentProfile extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(unique = true, length = 20)
+    @Column(unique = true, length = 50)
     private String studentId;
 
     @Column(nullable = false, length = 2)

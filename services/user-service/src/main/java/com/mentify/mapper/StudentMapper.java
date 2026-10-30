@@ -22,7 +22,8 @@ public class StudentMapper {
                 .lastName(request.getLastName())
                 .phoneNumber(request.getPhoneNumber())
                 .role(Role.STUDENT)
-                .accountStatus(AccountStatus.ACTIVE)
+                // The account is activated by auth-service after the first successful login.
+                .accountStatus(AccountStatus.INVITED)
                 .accountNonLocked(true)
                 .emailVerified(false)
                 .loginAttempts(0)
