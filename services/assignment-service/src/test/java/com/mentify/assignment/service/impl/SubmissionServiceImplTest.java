@@ -7,6 +7,7 @@ import com.mentify.assignment.enums.AssignmentStatus;
 import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
+import com.mentify.assignment.repository.SubmissionFileRepository;
 import com.mentify.assignment.service.SubmissionService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.payload.response.ApiResponse;
@@ -41,6 +42,9 @@ class SubmissionServiceImplTest {
     private SubmissionRepository submissionRepository;
 
     @Mock
+    private SubmissionFileRepository submissionFileRepository;
+
+    @Mock
     private EnrollmentServiceClient enrollmentServiceClient;
 
     @Mock
@@ -59,6 +63,7 @@ class SubmissionServiceImplTest {
         submissionService = new SubmissionServiceImpl(
                 assignmentRepository,
                 submissionRepository,
+                submissionFileRepository,
                 enrollmentServiceClient,
                 userServiceClient,
                 currentUserService,

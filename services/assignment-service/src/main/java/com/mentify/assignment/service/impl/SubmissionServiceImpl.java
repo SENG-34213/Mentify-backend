@@ -9,6 +9,8 @@ import com.mentify.assignment.enums.SubmissionStatus;
 import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
+import com.mentify.assignment.repository.SubmissionFileRepository;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import com.mentify.assignment.service.SubmissionService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.common.notification.NotificationEventPublisher;
@@ -34,6 +36,7 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
+    private final SubmissionFileRepository submissionFileRepository;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
@@ -128,6 +131,18 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.SUBMITTED) {
             throw new RuntimeException("Submission has already been submitted");
+        }
+
+        AssignmentSubmissionType submissionType = assignment.getSubmissionType() == null
+                ? AssignmentSubmissionType.TEXT
+                : assignment.getSubmissionType();
+        if (submissionType == AssignmentSubmissionType.DOCUMENT
+                && submissionFileRepository.countBySubmissionIdAndIsActiveTrue(submission.getId()) == 0) {
+            throw new SubmissionConflictException("A document attachment is required for this assignment");
+        }
+        if (submissionType == AssignmentSubmissionType.TEXT
+                && (submission.getContent() == null || submission.getContent().trim().isEmpty())) {
+            throw new SubmissionConflictException("A text answer is required for this assignment");
         }
 
         submission.setStatus(SubmissionStatus.SUBMITTED);

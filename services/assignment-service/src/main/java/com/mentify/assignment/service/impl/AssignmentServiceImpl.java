@@ -61,6 +61,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .allowedAttempts(request.getAllowedAttempts() == null ? 1 : request.getAllowedAttempts())
                 .allowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()))
                 .latePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
+                .submissionType(request.getSubmissionType() == null ? com.mentify.assignment.enums.AssignmentSubmissionType.TEXT : request.getSubmissionType())
                 .status(Boolean.TRUE.equals(request.getPublishImmediately())
                         ? AssignmentStatus.PUBLISHED
                         : AssignmentStatus.DRAFT)
@@ -99,6 +100,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setAllowedAttempts(request.getAllowedAttempts() == null ? 1 : request.getAllowedAttempts());
         assignment.setAllowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()));
         assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage());
+        assignment.setSubmissionType(request.getSubmissionType() == null ? com.mentify.assignment.enums.AssignmentSubmissionType.TEXT : request.getSubmissionType());
         if (request.getRubricItems() != null) {
             replaceRubricItems(assignment, request.getRubricItems());
         }
@@ -162,6 +164,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         if (request.getLatePenaltyPercentage() != null) {
             assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage());
+        }
+        if (request.getSubmissionType() != null) {
+            assignment.setSubmissionType(request.getSubmissionType());
         }
         if (request.getRubricItems() != null) {
             replaceRubricItems(assignment, request.getRubricItems());
@@ -383,6 +388,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .allowedAttempts(assignment.getAllowedAttempts())
                 .allowLateSubmission(assignment.getAllowLateSubmission())
                 .latePenaltyPercentage(assignment.getLatePenaltyPercentage())
+                .submissionType(assignment.getSubmissionType())
                 .status(assignment.getStatus())
                 .publishedAt(assignment.getPublishedAt())
                 .createdAt(assignment.getCreatedAt())

@@ -1,6 +1,7 @@
 package com.mentify.assignment.dto.response;
 
 import com.mentify.assignment.enums.AssignmentStatus;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,6 +32,7 @@ public class AssignmentResponse {
     private Integer allowedAttempts;
     private Boolean allowLateSubmission;
     private Integer latePenaltyPercentage;
+    private AssignmentSubmissionType submissionType;
     private AssignmentStatus status;
     private LocalDateTime publishedAt;
     private LocalDateTime createdAt;
