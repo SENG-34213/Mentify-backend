@@ -13,6 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "assignment_rubric_items")
 @Getter
@@ -29,8 +31,8 @@ public class AssignmentRubricItem extends BaseEntity {
     @Column(nullable = false, length = 150)
     private String criterion;
 
-    @Column(nullable = false)
-    private Integer marks;
+    @Column(name = "percentage_weight", nullable = false, precision = 5, scale = 2)
+    private BigDecimal percentageWeight;
 
     @Column(nullable = false)
     private Integer displayOrder;

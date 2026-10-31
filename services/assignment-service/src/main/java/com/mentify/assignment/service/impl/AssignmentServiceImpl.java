@@ -22,9 +22,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -45,7 +48,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         CourseLookupResponse course = getCourseOrThrow(request.getCourseId(), authorizationHeader);
         assertTeacherCanManageCourse(course);
         validateAssignmentDates(request.getStartDate(), request.getDueDate());
-        validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
+        validateRubricWeights(request.getRubricItems());
 
         Assignment assignment = Assignment.builder()
                 .courseId(request.getCourseId())
@@ -73,13 +76,13 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Override
     @Transactional
     public ApiResponse<AssignmentResponse> updateAssignment(UUID assignmentId, UpdateAssignmentRequest request, String authorizationHeader) {
-        Assignment assignment = getAssignmentOrThrow(assignmentId);
+        Assignment assignment = getAssignmentForUpdateOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
-        if (assignment.getStatus() != AssignmentStatus.DRAFT) {
-            throw new RuntimeException("Assignment can only be updated while it is in DRAFT status");
-        }
-        validateAssignmentDates(request.getStartDate(), request.getDueDate());
-        validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
+        boolean hasSubmissions = assignment.getStatus() == AssignmentStatus.PUBLISHED
+                && hasActiveSubmissions(assignment);
+        ensureAssignmentUpdateAllowed(assignment, hasSubmissions, request);
+        validateUpdateDates(assignment, request.getStartDate(), request.getDueDate());
+        validateRubricWeights(request.getRubricItems());
         CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
         assignment.setTitle(request.getTitle().trim());
@@ -111,25 +114,25 @@ public class AssignmentServiceImpl implements AssignmentService {
         if (request.isEmpty()) {
             throw new IllegalArgumentException("At least one assignment field must be provided");
         }
-        Assignment assignment = getAssignmentOrThrow(assignmentId);
+        Assignment assignment = getAssignmentForUpdateOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
-        if (assignment.getStatus() != AssignmentStatus.DRAFT) {
-            throw new RuntimeException("Assignment can only be updated while in DRAFT status");
-        }
+        boolean hasSubmissions = assignment.getStatus() == AssignmentStatus.PUBLISHED
+                && hasActiveSubmissions(assignment);
+        ensureAssignmentPatchAllowed(assignment, hasSubmissions, request);
         CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
         LocalDateTime startDate = request.getStartDate() == null ? assignment.getStartDate() : request.getStartDate();
         LocalDateTime dueDate = request.getDueDate() == null ? assignment.getDueDate() : request.getDueDate();
-        validateAssignmentDates(startDate, dueDate);
+        validateUpdateDates(assignment, startDate, dueDate);
         int maxMarks = request.getMaxMarks() == null ? assignment.getMaxMarks() : request.getMaxMarks();
-        validateRubricMarks(request.getRubricItems() == null
+        validateRubricWeights(request.getRubricItems() == null
                 ? assignment.getRubricItems().stream()
                         .map(item -> RubricItemRequest.builder()
                                 .criterion(item.getCriterion())
-                                .marks(item.getMarks())
+                                .percentageWeight(item.getPercentageWeight())
                                 .build())
                         .toList()
-                : request.getRubricItems(), maxMarks);
+                : request.getRubricItems());
 
         if (request.getTitle() != null) {
             if (request.getTitle().isBlank()) {
@@ -247,6 +250,11 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
     }
 
+    private Assignment getAssignmentForUpdateOrThrow(UUID assignmentId) {
+        return assignmentRepository.findByIdAndIsActiveTrueForUpdate(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Assignment not found"));
+    }
+
     private CourseLookupResponse getCourseOrThrow(UUID courseId, String authorizationHeader) {
         if (courseServiceClient == null) {
             throw new RuntimeException("Course service is not available");
@@ -284,6 +292,121 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
     }
 
+    private boolean hasActiveSubmissions(Assignment assignment) {
+        return submissionRepository.countByAssignmentIdAndIsActiveTrue(assignment.getId()) > 0;
+    }
+
+    private void ensureAssignmentUpdateAllowed(
+            Assignment assignment,
+            boolean hasSubmissions,
+            UpdateAssignmentRequest request
+    ) {
+        if (assignment.getStatus() == AssignmentStatus.DRAFT) {
+            return;
+        }
+        if (assignment.getStatus() != AssignmentStatus.PUBLISHED) {
+            throw new RuntimeException("Only draft or published assignments can be updated");
+        }
+        if (!hasSubmissions) {
+            return;
+        }
+        if (hasSubmissionAffectingChanges(assignment, request)) {
+            throw new RuntimeException(
+                    "Published assignments with submissions can only update the title and description");
+        }
+    }
+
+    private void ensureAssignmentPatchAllowed(
+            Assignment assignment,
+            boolean hasSubmissions,
+            PatchAssignmentRequest request
+    ) {
+        if (assignment.getStatus() == AssignmentStatus.DRAFT) {
+            return;
+        }
+        if (assignment.getStatus() != AssignmentStatus.PUBLISHED) {
+            throw new RuntimeException("Only draft or published assignments can be updated");
+        }
+        if (!hasSubmissions) {
+            return;
+        }
+        if (hasSubmissionAffectingChanges(assignment, request)) {
+            throw new RuntimeException(
+                    "Published assignments with submissions can only update the title and description");
+        }
+    }
+
+    private boolean hasSubmissionAffectingChanges(
+            Assignment assignment,
+            UpdateAssignmentRequest request
+    ) {
+        return !Objects.equals(assignment.getInstructions(), trimToNull(request.getInstructions()))
+                || !Objects.equals(assignment.getStartDate(), request.getStartDate())
+                || !Objects.equals(assignment.getDueDate(), request.getDueDate())
+                || !Objects.equals(assignment.getMaxMarks(), request.getMaxMarks())
+                || !Objects.equals(assignment.getAllowedAttempts(), request.getAllowedAttempts())
+                || !Objects.equals(assignment.getAllowLateSubmission(),
+                        Boolean.TRUE.equals(request.getAllowLateSubmission()))
+                || !Objects.equals(assignment.getLatePenaltyPercentage(),
+                        request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
+                || rubricHasChanged(assignment, request.getRubricItems());
+    }
+
+    private boolean hasSubmissionAffectingChanges(
+            Assignment assignment,
+            PatchAssignmentRequest request
+    ) {
+        return (request.getInstructions() != null
+                        && !Objects.equals(assignment.getInstructions(), trimToNull(request.getInstructions())))
+                || (request.getStartDate() != null
+                        && !Objects.equals(assignment.getStartDate(), request.getStartDate()))
+                || (request.getDueDate() != null
+                        && !Objects.equals(assignment.getDueDate(), request.getDueDate()))
+                || (request.getMaxMarks() != null
+                        && !Objects.equals(assignment.getMaxMarks(), request.getMaxMarks()))
+                || (request.getAllowedAttempts() != null
+                        && !Objects.equals(assignment.getAllowedAttempts(), request.getAllowedAttempts()))
+                || (request.getAllowLateSubmission() != null
+                        && !Objects.equals(assignment.getAllowLateSubmission(), request.getAllowLateSubmission()))
+                || (request.getLatePenaltyPercentage() != null
+                        && !Objects.equals(assignment.getLatePenaltyPercentage(), request.getLatePenaltyPercentage()))
+                || rubricHasChanged(assignment, request.getRubricItems());
+    }
+
+    private boolean rubricHasChanged(Assignment assignment, List<RubricItemRequest> rubricItems) {
+        if (rubricItems == null) {
+            return false;
+        }
+        List<AssignmentRubricItem> existingItems = assignment.getRubricItems();
+        if (rubricItems.size() != existingItems.size()) {
+            return true;
+        }
+        for (int index = 0; index < rubricItems.size(); index++) {
+            RubricItemRequest requested = rubricItems.get(index);
+            AssignmentRubricItem existing = existingItems.get(index);
+            if (requested == null
+                    || requested.getCriterion() == null
+                    || requested.getPercentageWeight() == null
+                    || !Objects.equals(existing.getCriterion(), requested.getCriterion().trim())
+                    || existing.getPercentageWeight().compareTo(requested.getPercentageWeight()) != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void validateUpdateDates(
+            Assignment assignment,
+            LocalDateTime startDate,
+            LocalDateTime dueDate
+    ) {
+        if (assignment.getStatus() == AssignmentStatus.DRAFT) {
+            validateAssignmentDates(startDate, dueDate);
+        } else {
+            validateAssignmentDateOrder(startDate, dueDate);
+        }
+    }
+
     private UUID resolveTeacherId(CourseLookupResponse course) {
         if (currentUserService.hasAnyRole("TEACHER")) {
             return currentUserService.getCurrentUserId();
@@ -292,10 +415,34 @@ public class AssignmentServiceImpl implements AssignmentService {
     }
 
     private void validateAssignmentDates(LocalDateTime startDate, LocalDateTime dueDate) {
+        validateAssignmentDates(startDate, dueDate, LocalDateTime.now());
+    }
+
+    static void validateAssignmentDates(
+            LocalDateTime startDate,
+            LocalDateTime dueDate,
+            LocalDateTime currentTime
+    ) {
         if (startDate == null || dueDate == null) {
             throw new RuntimeException("Start date and due date are required");
         }
-        if (!startDate.isBefore(dueDate)) {
+
+        LocalDateTime preciseStartDate = startDate.truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime preciseDueDate = dueDate.truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime preciseCurrentTime = currentTime.truncatedTo(ChronoUnit.MICROS);
+        if (!preciseStartDate.isAfter(preciseCurrentTime)) {
+            throw new RuntimeException("Assignment start date must be in the future");
+        }
+        validateAssignmentDateOrder(preciseStartDate, preciseDueDate);
+    }
+
+    private static void validateAssignmentDateOrder(LocalDateTime startDate, LocalDateTime dueDate) {
+        if (startDate == null || dueDate == null) {
+            throw new RuntimeException("Start date and due date are required");
+        }
+        LocalDateTime preciseStartDate = startDate.truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime preciseDueDate = dueDate.truncatedTo(ChronoUnit.MICROS);
+        if (!preciseStartDate.isBefore(preciseDueDate)) {
             throw new RuntimeException("Assignment start date must be before due date");
         }
     }
@@ -318,23 +465,28 @@ public class AssignmentServiceImpl implements AssignmentService {
             assignment.getRubricItems().add(AssignmentRubricItem.builder()
                     .assignment(assignment)
                     .criterion(rubricItem.getCriterion().trim())
-                    .marks(rubricItem.getMarks())
+                    .percentageWeight(rubricItem.getPercentageWeight())
                     .displayOrder(index)
                     .build());
         }
     }
 
-    private void validateRubricMarks(List<RubricItemRequest> rubricItems, int maxMarks) {
-        if (rubricItems == null) {
+    void validateRubricWeights(List<RubricItemRequest> rubricItems) {
+        if (rubricItems == null || rubricItems.isEmpty()) {
             return;
         }
-        int totalRubricMarks = rubricItems.stream()
-                .map(RubricItemRequest::getMarks)
-                .filter(marks -> marks != null)
-                .mapToInt(Integer::intValue)
-                .sum();
-        if (totalRubricMarks > maxMarks) {
-            throw new IllegalArgumentException("Total rubric marks cannot exceed assignment maximum marks");
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        for (RubricItemRequest rubricItem : rubricItems) {
+            BigDecimal weight = rubricItem.getPercentageWeight();
+            if (weight == null || weight.compareTo(BigDecimal.ZERO) < 0
+                    || weight.compareTo(BigDecimal.valueOf(100)) > 0
+                    || weight.scale() > 2) {
+                throw new IllegalArgumentException("Rubric percentage weights must be between 0 and 100 with up to 2 decimal places");
+            }
+            totalWeight = totalWeight.add(weight);
+        }
+        if (totalWeight.compareTo(BigDecimal.valueOf(100)) != 0) {
+            throw new IllegalArgumentException("Rubric percentage weights must total 100");
         }
     }
 
@@ -382,7 +534,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                                 .map(item -> RubricItemResponse.builder()
                                         .id(item.getId())
                                         .criterion(item.getCriterion())
-                                        .marks(item.getMarks())
+                                        .percentageWeight(item.getPercentageWeight())
                                         .displayOrder(item.getDisplayOrder())
                                         .build())
                                 .toList())
