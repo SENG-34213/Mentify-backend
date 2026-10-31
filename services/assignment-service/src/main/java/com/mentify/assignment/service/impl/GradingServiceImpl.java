@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -48,14 +49,26 @@ public class GradingServiceImpl implements GradingService {
             throw new RuntimeException("Marks are required and cannot be negative");
         }
 
-        submission.setMarks(marks);
+        Assignment assignment = submission.getAssignment();
+        if (marks.compareTo(BigDecimal.valueOf(assignment.getMaxMarks())) > 0) {
+            throw new RuntimeException("Marks cannot exceed assignment maximum");
+        }
+        BigDecimal finalMarks = marks;
+        if (Boolean.TRUE.equals(submission.getIsLate())
+                && assignment.getLatePenaltyPercentage() != null
+                && assignment.getLatePenaltyPercentage() > 0) {
+            BigDecimal penalty = marks.multiply(BigDecimal.valueOf(assignment.getLatePenaltyPercentage()))
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            finalMarks = marks.subtract(penalty).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+        }
+        submission.setMarks(finalMarks);
         submission.setFeedback(request.getFeedback());
         submission.setStatus(SubmissionStatus.GRADED);
         submission.setGradedAt(LocalDateTime.now());
         submission.setGradedBy(currentUserService.getCurrentUserId());
+        submission.setGradeReleased(false);
 
         Submission saved = submissionRepository.save(submission);
-        Assignment assignment = saved.getAssignment();
         String gradingDetails = "Your teacher graded \"" + assignment.getTitle() + "\" for "
                 + courseDetails(assignment, authorizationHeader) + ". Marks: "
                 + saved.getMarks() + " / " + assignment.getMaxMarks() + "; due: "
@@ -65,9 +78,7 @@ public class GradingServiceImpl implements GradingService {
         if (saved.getFeedback() != null && !saved.getFeedback().isBlank()) {
             gradingDetails += " Teacher feedback: " + saved.getFeedback();
         }
-        publishStudentNotification(saved.getStudentId(), "SUBMISSION_GRADED", "Assignment graded",
-                gradingDetails);
-        return response(HttpStatus.OK, "Submission graded successfully",
+        return response(HttpStatus.OK, "Grade draft saved successfully",
                 submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
 
@@ -78,6 +89,7 @@ public class GradingServiceImpl implements GradingService {
         ensureTeacherCanGrade(submission);
         submission.setStatus(SubmissionStatus.RETURNED);
         submission.setReturnedAt(LocalDateTime.now());
+        submission.setGradeReleased(true);
         Submission saved = submissionRepository.save(submission);
         Assignment assignment = saved.getAssignment();
         publishStudentNotification(saved.getStudentId(), "SUBMISSION_RETURNED", "Assignment returned",
@@ -88,7 +100,20 @@ public class GradingServiceImpl implements GradingService {
                         + (saved.getFeedback() == null || saved.getFeedback().isBlank()
                         ? ". Review the assignment page for requested changes."
                         : "; teacher feedback: " + saved.getFeedback()));
-        return response(HttpStatus.OK, "Submission returned successfully",
+        return response(HttpStatus.OK, "Grade released successfully",
+                submissionResponseMapper.toResponse(saved, authorizationHeader));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<SubmissionResponse> holdSubmissionGrade(UUID submissionId, String authorizationHeader) {
+        Submission submission = getSubmissionOrThrow(submissionId);
+        ensureTeacherCanGrade(submission);
+        submission.setGradeReleased(false);
+        submission.setReturnedAt(null);
+        submission.setStatus(submission.getMarks() == null ? SubmissionStatus.SUBMITTED : SubmissionStatus.GRADED);
+        Submission saved = submissionRepository.save(submission);
+        return response(HttpStatus.OK, "Grade held successfully",
                 submissionResponseMapper.toResponse(saved, authorizationHeader));
     }
 

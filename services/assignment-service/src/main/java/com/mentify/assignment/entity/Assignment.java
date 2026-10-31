@@ -1,6 +1,7 @@
 package com.mentify.assignment.entity;
 
 import com.mentify.assignment.enums.AssignmentStatus;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import com.mentify.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -59,6 +60,11 @@ public class Assignment extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Integer latePenaltyPercentage = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private AssignmentSubmissionType submissionType = AssignmentSubmissionType.TEXT;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

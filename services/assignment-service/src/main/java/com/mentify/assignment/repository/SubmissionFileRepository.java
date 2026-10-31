@@ -13,5 +13,7 @@ public interface SubmissionFileRepository extends JpaRepository<SubmissionFile, 
 
     List<SubmissionFile> findBySubmissionIdAndIsActiveTrueOrderByCreatedAtAsc(UUID submissionId);
 
+    long countBySubmissionIdAndIsActiveTrue(UUID submissionId);
+
     Optional<SubmissionFile> findByIdAndSubmissionIdAndIsActiveTrue(UUID id, UUID submissionId);
 }

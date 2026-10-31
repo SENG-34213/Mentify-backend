@@ -58,14 +58,23 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .startDate(request.getStartDate())
                 .dueDate(request.getDueDate())
                 .maxMarks(request.getMaxMarks())
-                .allowedAttempts(request.getAllowedAttempts())
+                .allowedAttempts(request.getAllowedAttempts() == null ? 1 : request.getAllowedAttempts())
                 .allowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()))
                 .latePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
-                .status(AssignmentStatus.DRAFT)
+                .submissionType(request.getSubmissionType() == null ? com.mentify.assignment.enums.AssignmentSubmissionType.TEXT : request.getSubmissionType())
+                .status(Boolean.TRUE.equals(request.getPublishImmediately())
+                        ? AssignmentStatus.PUBLISHED
+                        : AssignmentStatus.DRAFT)
                 .build();
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            assignment.setPublishedAt(LocalDateTime.now());
+        }
         replaceRubricItems(assignment, request.getRubricItems());
 
         Assignment saved = assignmentRepository.save(assignment);
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
+        }
         return response(HttpStatus.CREATED, "Assignment created successfully",
                 withCourseDetails(mapToResponse(saved), course));
     }
@@ -88,9 +97,10 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setStartDate(request.getStartDate());
         assignment.setDueDate(request.getDueDate());
         assignment.setMaxMarks(request.getMaxMarks());
-        assignment.setAllowedAttempts(request.getAllowedAttempts());
+        assignment.setAllowedAttempts(request.getAllowedAttempts() == null ? 1 : request.getAllowedAttempts());
         assignment.setAllowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()));
         assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage());
+        assignment.setSubmissionType(request.getSubmissionType() == null ? com.mentify.assignment.enums.AssignmentSubmissionType.TEXT : request.getSubmissionType());
         if (request.getRubricItems() != null) {
             replaceRubricItems(assignment, request.getRubricItems());
         }
@@ -154,6 +164,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         if (request.getLatePenaltyPercentage() != null) {
             assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage());
+        }
+        if (request.getSubmissionType() != null) {
+            assignment.setSubmissionType(request.getSubmissionType());
         }
         if (request.getRubricItems() != null) {
             replaceRubricItems(assignment, request.getRubricItems());
@@ -298,6 +311,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         if (!startDate.isBefore(dueDate)) {
             throw new RuntimeException("Assignment start date must be before due date");
         }
+        if (startDate.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Assignment start date cannot be before the current time");
+        }
     }
 
     private String trimToNull(String value) {
@@ -333,8 +349,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .filter(marks -> marks != null)
                 .mapToInt(Integer::intValue)
                 .sum();
-        if (totalRubricMarks > maxMarks) {
-            throw new IllegalArgumentException("Total rubric marks cannot exceed assignment maximum marks");
+        if (totalRubricMarks > 100) {
+            throw new IllegalArgumentException("Total rubric percentage cannot exceed 100");
         }
     }
 
@@ -372,6 +388,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .allowedAttempts(assignment.getAllowedAttempts())
                 .allowLateSubmission(assignment.getAllowLateSubmission())
                 .latePenaltyPercentage(assignment.getLatePenaltyPercentage())
+                .submissionType(assignment.getSubmissionType())
                 .status(assignment.getStatus())
                 .publishedAt(assignment.getPublishedAt())
                 .createdAt(assignment.getCreatedAt())

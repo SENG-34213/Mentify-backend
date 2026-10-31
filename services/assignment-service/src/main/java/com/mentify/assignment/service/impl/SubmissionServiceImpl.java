@@ -9,6 +9,8 @@ import com.mentify.assignment.enums.SubmissionStatus;
 import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
+import com.mentify.assignment.repository.SubmissionFileRepository;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import com.mentify.assignment.service.SubmissionService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.common.notification.NotificationEventPublisher;
@@ -34,6 +36,7 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
+    private final SubmissionFileRepository submissionFileRepository;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
@@ -61,10 +64,23 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new RuntimeException("Student is not enrolled in this course");
         }
 
-        long existingAttempts = submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, currentUserId);
-        if (assignment.getAllowedAttempts() != null && existingAttempts >= assignment.getAllowedAttempts()) {
-            throw new SubmissionConflictException("Maximum submission attempts reached");
+        if (LocalDateTime.now().isBefore(assignment.getStartDate())
+                || !LocalDateTime.now().isBefore(assignment.getDueDate())) {
+            throw new SubmissionConflictException("Assignment is not open for submission");
         }
+        java.util.Optional<Submission> existingSubmission =
+                submissionRepository.findFirstByAssignmentIdAndStudentIdAndIsActiveTrueOrderByAttemptNumberDesc(
+                        assignmentId, currentUserId);
+        if (existingSubmission.isPresent()) {
+            Submission submission = existingSubmission.get();
+            if (submission.getStatus() == SubmissionStatus.GRADED || submission.getStatus() == SubmissionStatus.RETURNED) {
+                throw new SubmissionConflictException("Submission can no longer be edited");
+            }
+            submission.setContent(request == null ? submission.getContent() : request.getContent());
+            return response(HttpStatus.OK, "Submission opened successfully",
+                    submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
+        }
+        long existingAttempts = submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, currentUserId);
 
         Submission submission = Submission.builder()
                 .assignment(assignment)
@@ -85,8 +101,11 @@ public class SubmissionServiceImpl implements SubmissionService {
     public ApiResponse<SubmissionResponse> updateSubmission(UUID submissionId, UpdateSubmissionRequest request, String authorizationHeader) {
         Submission submission = getSubmissionOrThrow(submissionId);
         ensureCanAccessSubmission(submission);
-        if (submission.getStatus() != SubmissionStatus.DRAFT) {
+        if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.SUBMITTED) {
             throw new RuntimeException("Submission can only be updated while in DRAFT status");
+        }
+        if (!LocalDateTime.now().isBefore(submission.getAssignment().getDueDate())) {
+            throw new SubmissionConflictException("Assignment submission window has closed");
         }
         submission.setContent(request.getContent());
         return response(HttpStatus.OK, "Submission updated successfully",
@@ -110,8 +129,20 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new SubmissionConflictException("Late submission is not allowed for this assignment");
         }
 
-        if (submission.getStatus() != SubmissionStatus.DRAFT) {
+        if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.SUBMITTED) {
             throw new RuntimeException("Submission has already been submitted");
+        }
+
+        AssignmentSubmissionType submissionType = assignment.getSubmissionType() == null
+                ? AssignmentSubmissionType.TEXT
+                : assignment.getSubmissionType();
+        if (submissionType == AssignmentSubmissionType.DOCUMENT
+                && submissionFileRepository.countBySubmissionIdAndIsActiveTrue(submission.getId()) == 0) {
+            throw new SubmissionConflictException("A document attachment is required for this assignment");
+        }
+        if (submissionType == AssignmentSubmissionType.TEXT
+                && (submission.getContent() == null || submission.getContent().trim().isEmpty())) {
+            throw new SubmissionConflictException("A text answer is required for this assignment");
         }
 
         submission.setStatus(SubmissionStatus.SUBMITTED);

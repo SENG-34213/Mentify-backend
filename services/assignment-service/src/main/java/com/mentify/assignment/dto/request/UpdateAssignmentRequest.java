@@ -2,6 +2,7 @@ package com.mentify.assignment.dto.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,7 +35,6 @@ public class UpdateAssignmentRequest {
     @Min(value = 1, message = "Maximum marks must be at least 1")
     private Integer maxMarks;
 
-    @NotNull(message = "Allowed attempts is required")
     @Min(value = 1, message = "Allowed attempts must be at least 1")
     private Integer allowedAttempts;
 
@@ -44,6 +44,8 @@ public class UpdateAssignmentRequest {
     @Min(value = 0, message = "Late penalty cannot be negative")
     @Max(value = 100, message = "Late penalty cannot exceed 100")
     private Integer latePenaltyPercentage;
+
+    private AssignmentSubmissionType submissionType = AssignmentSubmissionType.TEXT;
 
     @Valid
     @Size(max = 50, message = "An assignment cannot have more than 50 rubric items")
