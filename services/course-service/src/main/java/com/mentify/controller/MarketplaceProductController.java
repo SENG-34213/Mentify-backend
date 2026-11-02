@@ -68,4 +68,11 @@ public class MarketplaceProductController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Marketplace product status updated",
                 service.changeStatus(productId, status)));
     }
+
+    @DeleteMapping("/api/v1/marketplace/admin/products/{productId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable UUID productId) {
+        service.delete(productId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Marketplace product deleted", null));
+    }
 }

@@ -5,6 +5,7 @@ import com.mentify.calendar.enums.CalendarEventType;
 import com.mentify.calendar.enums.CalendarSourceType;
 import com.mentify.calendar.enums.CalendarTargetRole;
 import com.mentify.calendar.enums.CalendarVisibility;
+import com.mentify.calendar.config.CalendarTimeZone;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,7 +29,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.UUID;
 
 @Entity
@@ -56,8 +56,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CalendarEvent {
-
-    public static final ZoneId APPLICATION_ZONE = ZoneId.of("Asia/Colombo");
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -158,7 +156,7 @@ public class CalendarEvent {
 
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now(APPLICATION_ZONE);
+        LocalDateTime now = LocalDateTime.now(CalendarTimeZone.current());
         if (createdAt == null) {
             createdAt = now;
         }
@@ -172,6 +170,6 @@ public class CalendarEvent {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now(APPLICATION_ZONE);
+        updatedAt = LocalDateTime.now(CalendarTimeZone.current());
     }
 }

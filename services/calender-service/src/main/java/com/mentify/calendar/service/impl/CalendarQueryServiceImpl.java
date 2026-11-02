@@ -1,6 +1,7 @@
 package com.mentify.calendar.service.impl;
 
 import com.mentify.calendar.dto.CalendarEventResponse;
+import com.mentify.calendar.config.CalendarTimeZone;
 import com.mentify.calendar.entity.CalendarEvent;
 import com.mentify.calendar.enums.CalendarEventStatus;
 import com.mentify.calendar.enums.CalendarEventType;
@@ -23,7 +24,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,8 +31,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class CalendarQueryServiceImpl implements CalendarQueryService {
-
-    private static final ZoneId APPLICATION_ZONE = ZoneId.of("Asia/Colombo");
 
     private final CalendarEventRepository repository;
     private final CalendarEventMapper mapper;
@@ -78,7 +76,7 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         }
 
         CalendarEventStatus status = CalendarEventStatus.SCHEDULED;
-        LocalDateTime from = LocalDateTime.now(APPLICATION_ZONE);
+        LocalDateTime from = LocalDateTime.now(CalendarTimeZone.current());
         Set<UUID> visibleCourseIds = visibleCourseIds(authorizationHeader);
         List<CalendarEvent> events = upcoming(from, status, visibleCourseIds);
         return events.stream().limit(limit)
@@ -87,7 +85,7 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
 
     private CalendarEventResponse enrich(CalendarEvent event, String authorizationHeader,
                                          Set<UUID> visibleCourseIds) {
-        boolean canManage = canManage(event, authorizationHeader, visibleCourseIds);
+        boolean canManage = canManage(event, authorizationHeader);
         boolean active = event.getStatus() != CalendarEventStatus.CANCELLED;
         CalendarEventResponse response = mapper.toResponse(event, canManage && active,
                 canManage && active, canManage);
@@ -122,19 +120,18 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         }
     }
 
-    private boolean canManage(CalendarEvent event, String authorizationHeader, Set<UUID> visibleCourseIds) {
+    private boolean canManage(CalendarEvent event, String authorizationHeader) {
+        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) return true;
         if (event.getSourceId() != null
                 || (event.getSourceType() != null
                 && event.getSourceType() != com.mentify.calendar.enums.CalendarSourceType.CUSTOM
                 && event.getSourceType() != com.mentify.calendar.enums.CalendarSourceType.ADMIN)) {
             return false;
         }
-        if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) return true;
         if (!currentUser.hasRole("TEACHER")) return false;
         if (currentUser.getIdentityIds().contains(event.getCreatedBy())) return true;
-        // This list already confirms teacher assignment; reuse it instead of making a
-        // course-service request for every event just to determine action visibility.
-        if (event.getCourseId() != null && visibleCourseIds.contains(event.getCourseId())) return true;
+        if (event.getSourceType() == com.mentify.calendar.enums.CalendarSourceType.ADMIN
+                && event.getCourseId() == null) return false;
         try {
             courseAccess.assertCanManage(event.getCourseId(), authorizationHeader);
             return true;
@@ -149,8 +146,12 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             return repository.findAdministrativeOverlapping(start, end, courseId, type, status);
         }
+        if (visibleCourseIds.isEmpty()) {
+            return repository.findVisibleOverlappingWithoutCourses(start, end, courseId, type, status,
+                    currentUser.getCurrentUserId(), targetRoles());
+        }
         return repository.findVisibleOverlapping(start, end, courseId, type, status,
-                currentUser.getCurrentUserId(), targetRoles(), nonEmptyCourseIds(visibleCourseIds));
+                currentUser.getCurrentUserId(), targetRoles(), visibleCourseIds);
     }
 
     private List<CalendarEvent> upcoming(LocalDateTime from, CalendarEventStatus status,
@@ -158,17 +159,17 @@ public class CalendarQueryServiceImpl implements CalendarQueryService {
         if (currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             return repository.findAdministrativeUpcoming(from, null, null, status);
         }
+        if (visibleCourseIds.isEmpty()) {
+            return repository.findVisibleUpcomingWithoutCourses(from, null, null, status,
+                    currentUser.getCurrentUserId(), targetRoles());
+        }
         return repository.findVisibleUpcoming(from, null, null, status,
-                currentUser.getCurrentUserId(), targetRoles(), nonEmptyCourseIds(visibleCourseIds));
+                currentUser.getCurrentUserId(), targetRoles(), visibleCourseIds);
     }
 
     private Set<UUID> visibleCourseIds(String authorizationHeader) {
         return currentUser.hasAnyRole("ADMIN", "SUPER_ADMIN")
                 ? Set.of() : courseAccess.getVisibleCourseIds(authorizationHeader);
-    }
-
-    private Set<UUID> nonEmptyCourseIds(Set<UUID> ids) {
-        return ids.isEmpty() ? Set.of(new UUID(0L, 0L)) : ids;
     }
 
     private Set<CalendarTargetRole> targetRoles() {

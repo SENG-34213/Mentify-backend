@@ -20,8 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserRegistrationFactory {
 
+    private final MonthlyRegistrationIdGenerator monthlyRegistrationIdGenerator;
     private final StudentIdGenerator studentIdGenerator;
-    private final TeacherCodeGenerator teacherCodeGenerator;
     private final AdminCodeGenerator adminCodeGenerator;
 
     public User create(AdminRegisterUserRequest request, String authUserId) {
@@ -58,7 +58,9 @@ public class UserRegistrationFactory {
                 .lastName(request.getLastName())
                 .phoneNumber(request.getPhoneNumber())
                 .role(request.getRole())
-                .accountStatus(request.getRole() == Role.STUDENT ? AccountStatus.ACTIVE : AccountStatus.INVITED)
+                // Students receive credentials during registration, but their account
+                // becomes active only after the first successful login.
+                .accountStatus(AccountStatus.INVITED)
                 .accountNonLocked(true)
                 .emailVerified(false)
                 .loginAttempts(0)
@@ -79,7 +81,7 @@ public class UserRegistrationFactory {
         String normalizedGrade = studentIdGenerator.normalizeGrade(profileRequest.getGrade());
 
         user.setStudentProfile(StudentProfile.builder()
-                .studentId(studentIdGenerator.generate(normalizedGrade))
+                .studentId(monthlyRegistrationIdGenerator.generateStudentId())
                 .grade(normalizedGrade)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -97,7 +99,7 @@ public class UserRegistrationFactory {
         List<String> specializations = normalizeSpecializations(profileRequest.getSpecializations());
 
         user.setTeacherProfile(TeacherProfile.builder()
-                .teacherCode(teacherCodeGenerator.generate())
+                .teacherCode(monthlyRegistrationIdGenerator.generateTeacherId())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .dateOfBirth(profileRequest.getDateOfBirth())

@@ -65,6 +65,7 @@ feign:
         read-timeout: 5000
 
 calendar:
+  timezone: ${CALENDAR_TIMEZONE:Asia/Colombo}
   query:
     max-range-days: ${CALENDAR_QUERY_MAX_RANGE_DAYS:31}
     default-upcoming-limit: ${CALENDAR_QUERY_DEFAULT_LIMIT:20}

@@ -114,7 +114,7 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.message").value("User registered successfully. Sign-in credentials will be sent by email."))
                 .andExpect(jsonPath("$.data.email").value("student@gmail.com"))
                 .andExpect(jsonPath("$.data.role").value("STUDENT"))
-                .andExpect(jsonPath("$.data.accountStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.accountStatus").value("INVITED"))
                 .andExpect(jsonPath("$.data.temporaryPassword").doesNotExist());
 
         verify(userRegistrationService).registerUser(any(AdminRegisterUserRequest.class));
@@ -379,7 +379,7 @@ class AdminUserControllerTest {
                 "Perera",
                 "0771234567",
                 role,
-                role == Role.STUDENT ? AccountStatus.ACTIVE : AccountStatus.INVITED,
+                AccountStatus.INVITED,
                 null,
                 null,
                 null,
