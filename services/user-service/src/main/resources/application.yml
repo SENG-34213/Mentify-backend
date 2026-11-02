@@ -32,6 +32,8 @@ spring:
     baseline-version: 0
 
 mentify:
+  pre-registration:
+    api-token: ${PRE_REGISTRATION_API_TOKEN:}
   auth:
     internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
     service-url: ${AUTH_SERVICE_URL:http://localhost:8085}
@@ -67,7 +69,6 @@ mentify:
     reset-password-on-startup: ${MENTIFY_SAMPLE_USERS_RESET_PASSWORD:true}
     retry-attempts: ${MENTIFY_SAMPLE_USERS_RETRY_ATTEMPTS:10}
     retry-delay-millis: ${MENTIFY_SAMPLE_USERS_RETRY_DELAY_MILLIS:2000}
-
 
 eureka:
   instance:
