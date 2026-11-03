@@ -34,8 +34,6 @@ public class CreateAssignmentRequest {
 
     private String instructions;
 
-    private String submissionType;
-
     @NotNull(message = "Start date is required")
     private LocalDateTime startDate;
 

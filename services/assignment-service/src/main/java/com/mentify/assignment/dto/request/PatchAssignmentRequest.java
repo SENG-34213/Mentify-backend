@@ -24,7 +24,6 @@ public class PatchAssignmentRequest {
 
     private String description;
     private String instructions;
-    private String submissionType;
     private LocalDateTime startDate;
     private LocalDateTime dueDate;
 
@@ -60,7 +59,6 @@ public class PatchAssignmentRequest {
                 && allowLateSubmission == null
                 && allowStudentEdits == null
                 && latePenaltyPercentage == null
-                && submissionType == null
                 && rubricItems == null;
     }
 }

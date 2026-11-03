@@ -25,8 +25,6 @@ public class UpdateAssignmentRequest {
 
     private String instructions;
 
-    private String submissionType;
-
     @NotNull(message = "Start date is required")
     private LocalDateTime startDate;
 
@@ -49,7 +47,7 @@ public class UpdateAssignmentRequest {
     @Max(value = 100, message = "Late penalty cannot exceed 100")
     private Integer latePenaltyPercentage;
 
-    private AssignmentSubmissionType submissionType = AssignmentSubmissionType.TEXT;
+    private AssignmentSubmissionType submissionType;
 
     @Valid
     @Size(max = 50, message = "An assignment cannot have more than 50 rubric items")

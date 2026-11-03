@@ -41,10 +41,6 @@ public class Assignment extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String instructions;
 
-    @Column(nullable = false, length = 20)
-    @Builder.Default
-    private String submissionType = "TEXT";
-
     @Column(nullable = false)
     private LocalDateTime startDate;
 

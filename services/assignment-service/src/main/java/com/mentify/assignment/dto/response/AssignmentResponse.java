@@ -26,7 +26,6 @@ public class AssignmentResponse {
     private String title;
     private String description;
     private String instructions;
-    private String submissionType;
     private LocalDateTime startDate;
     private LocalDateTime dueDate;
     private Integer maxMarks;

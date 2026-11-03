@@ -9,6 +9,7 @@ import com.mentify.assignment.dto.response.RubricItemResponse;
 import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.entity.AssignmentRubricItem;
 import com.mentify.assignment.enums.AssignmentStatus;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.AssignmentService;
@@ -356,8 +357,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         return value.trim();
     }
 
-    private String normalizeSubmissionType(String submissionType) {
-        return "DOCUMENT".equalsIgnoreCase(submissionType) ? "DOCUMENT" : "TEXT";
+    private AssignmentSubmissionType normalizeSubmissionType(AssignmentSubmissionType submissionType) {
+        return submissionType == null ? AssignmentSubmissionType.TEXT : submissionType;
     }
 
     private void replaceRubricItems(Assignment assignment, List<RubricItemRequest> rubricItems) {
