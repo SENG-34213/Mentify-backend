@@ -59,10 +59,6 @@ public class Submission extends BaseEntity {
     @Column(columnDefinition = "uuid")
     private UUID gradedBy;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean gradeReleased = false;
-
     private LocalDateTime returnedAt;
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)

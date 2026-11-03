@@ -114,6 +114,12 @@ public class GradingServiceImpl implements GradingService {
 
     @Override
     @Transactional
+    public ApiResponse<SubmissionResponse> holdSubmissionGrade(UUID submissionId, String authorizationHeader) {
+        return holdSubmission(submissionId, authorizationHeader);
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<SubmissionResponse> returnSubmission(UUID submissionId, String authorizationHeader) {
         return releaseSubmission(submissionId, authorizationHeader);
     }
