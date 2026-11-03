@@ -94,27 +94,6 @@ material:
       - material-type: IMAGE
         extensions: [webp]
         content-types: [image/webp]
-      - material-type: VIDEO
-        extensions: [mp4]
-        content-types: [video/mp4]
-      - material-type: VIDEO
-        extensions: [mov]
-        content-types: [video/quicktime]
-      - material-type: VIDEO
-        extensions: [webm]
-        content-types: [video/webm]
-      - material-type: AUDIO
-        extensions: [mp3]
-        content-types: [audio/mpeg]
-      - material-type: AUDIO
-        extensions: [wav]
-        content-types: [audio/wav, audio/x-wav]
-      - material-type: AUDIO
-        extensions: [m4a]
-        content-types: [audio/mp4]
-      - material-type: AUDIO
-        extensions: [ogg]
-        content-types: [audio/ogg]
 
 eureka:
   instance:
