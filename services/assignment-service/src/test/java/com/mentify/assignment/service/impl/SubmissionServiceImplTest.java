@@ -148,7 +148,7 @@ class SubmissionServiceImplTest {
     }
 
     @Test
-    void createSubmission_whenMaximumAttemptsReached_rejectsWithoutSaving() {
+    void createSubmission_whenAttemptLimitReached_rejectsSubmission() {
         UUID assignmentId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
@@ -167,15 +167,15 @@ class SubmissionServiceImplTest {
 
         when(assignmentRepository.findByIdAndIsActiveTrue(assignmentId)).thenReturn(Optional.of(assignment));
         when(currentUserService.getCurrentUserId()).thenReturn(studentId);
-        when(userServiceClient.isStudentExists(studentId, "Bearer token")).thenReturn(true);
-        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, "Bearer token"))
-                .thenReturn(true);
+        when(userServiceClient.isStudentExists(studentId, "******")).thenReturn(true);
+        when(enrollmentServiceClient.isStudentEnrolledInCourse(studentId, courseId, "******")).thenReturn(true);
         when(submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, studentId))
                 .thenReturn(1L);
 
-        org.junit.jupiter.api.Assertions.assertThrows(SubmissionConflictException.class,
-                () -> submissionService.createSubmission(assignmentId, new CreateSubmissionRequest(), "Bearer token"));
-
+        org.junit.jupiter.api.Assertions.assertThrows(
+                SubmissionConflictException.class,
+                () -> submissionService.createSubmission(
+                        assignmentId, new CreateSubmissionRequest(), "******"));
         verify(submissionRepository, never()).save(any(Submission.class));
     }
 }

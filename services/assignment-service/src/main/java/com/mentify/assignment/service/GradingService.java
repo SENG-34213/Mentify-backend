@@ -8,5 +8,8 @@ import java.util.UUID;
 
 public interface GradingService {
     ApiResponse<SubmissionResponse> gradeSubmission(UUID submissionId, GradeSubmissionRequest request, String authorizationHeader);
+    ApiResponse<SubmissionResponse> releaseSubmission(UUID submissionId, String authorizationHeader);
+    ApiResponse<SubmissionResponse> holdSubmission(UUID submissionId, String authorizationHeader);
     ApiResponse<SubmissionResponse> returnSubmission(UUID submissionId, String authorizationHeader);
+    ApiResponse<SubmissionResponse> holdSubmissionGrade(UUID submissionId, String authorizationHeader);
 }

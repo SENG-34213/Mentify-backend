@@ -91,9 +91,12 @@ public class AssignmentController {
     @NotifyOnSuccess(type = "ASSIGNMENT_PUBLISHED", title = "Assignment published", message = "Your assignment was published successfully.")
     public ResponseEntity<ApiResponse<AssignmentResponse>> publishAssignment(
             @PathVariable UUID assignmentId,
+            @RequestParam(defaultValue = "false") boolean openImmediately,
             @RequestHeader("Authorization") String authorizationHeader
     ) {
-        ApiResponse<AssignmentResponse> response = assignmentService.publishAssignment(assignmentId, authorizationHeader);
+        ApiResponse<AssignmentResponse> response = openImmediately
+                ? assignmentService.publishAssignment(assignmentId, authorizationHeader, true)
+                : assignmentService.publishAssignment(assignmentId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
 

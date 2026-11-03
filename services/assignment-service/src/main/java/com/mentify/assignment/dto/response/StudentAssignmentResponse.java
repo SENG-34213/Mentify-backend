@@ -1,6 +1,7 @@
 package com.mentify.assignment.dto.response;
 
 import com.mentify.assignment.enums.SubmissionStatus;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import lombok.Builder;
 import lombok.Value;
 
@@ -18,14 +19,19 @@ public class StudentAssignmentResponse {
     String title;
     String description;
     String instructions;
+    AssignmentSubmissionType submissionType;
     LocalDateTime startDate;
     LocalDateTime dueDate;
     Integer maxMarks;
+    Boolean allowLateSubmission;
+    Integer latePenaltyPercentage;
     String assignmentStatus;
     UUID submissionId;
     SubmissionStatus submissionStatus;
     Integer attemptNumber;
     LocalDateTime submittedAt;
+    Boolean gradeReleased;
     BigDecimal marks;
     String feedback;
+    Boolean allowStudentEdits;
 }

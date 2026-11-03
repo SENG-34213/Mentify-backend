@@ -1,6 +1,7 @@
 package com.mentify.assignment.dto.request;
 
 import jakarta.validation.Valid;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -34,9 +35,13 @@ public class PatchAssignmentRequest {
 
     private Boolean allowLateSubmission;
 
+    private Boolean allowStudentEdits;
+
     @Min(value = 0, message = "Late penalty cannot be negative")
     @Max(value = 100, message = "Late penalty cannot exceed 100")
     private Integer latePenaltyPercentage;
+
+    private AssignmentSubmissionType submissionType;
 
     @Valid
     @Size(max = 50, message = "An assignment cannot have more than 50 rubric items")
@@ -46,11 +51,13 @@ public class PatchAssignmentRequest {
         return title == null
                 && description == null
                 && instructions == null
+                && submissionType == null
                 && startDate == null
                 && dueDate == null
                 && maxMarks == null
                 && allowedAttempts == null
                 && allowLateSubmission == null
+                && allowStudentEdits == null
                 && latePenaltyPercentage == null
                 && rubricItems == null;
     }

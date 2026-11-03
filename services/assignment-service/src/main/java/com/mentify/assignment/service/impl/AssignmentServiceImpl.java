@@ -9,6 +9,7 @@ import com.mentify.assignment.dto.response.RubricItemResponse;
 import com.mentify.assignment.entity.Assignment;
 import com.mentify.assignment.entity.AssignmentRubricItem;
 import com.mentify.assignment.enums.AssignmentStatus;
+import com.mentify.assignment.enums.AssignmentSubmissionType;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
 import com.mentify.assignment.service.AssignmentService;
@@ -44,7 +45,11 @@ public class AssignmentServiceImpl implements AssignmentService {
     public ApiResponse<AssignmentResponse> createAssignment(CreateAssignmentRequest request, String authorizationHeader) {
         CourseLookupResponse course = getCourseOrThrow(request.getCourseId(), authorizationHeader);
         assertTeacherCanManageCourse(course);
-        validateAssignmentDates(request.getStartDate(), request.getDueDate());
+        LocalDateTime startDate = Boolean.TRUE.equals(request.getPublishImmediately())
+                && Boolean.TRUE.equals(request.getOpenImmediately())
+                ? LocalDateTime.now()
+                : request.getStartDate();
+        validateAssignmentDates(startDate, request.getDueDate());
         validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
 
         Assignment assignment = Assignment.builder()
@@ -55,17 +60,27 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .title(request.getTitle().trim())
                 .description(trimToNull(request.getDescription()))
                 .instructions(trimToNull(request.getInstructions()))
-                .startDate(request.getStartDate())
+                .submissionType(normalizeSubmissionType(request.getSubmissionType()))
+                .startDate(startDate)
                 .dueDate(request.getDueDate())
                 .maxMarks(request.getMaxMarks())
                 .allowedAttempts(request.getAllowedAttempts())
                 .allowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()))
+                .allowStudentEdits(request.getAllowStudentEdits() == null || request.getAllowStudentEdits())
                 .latePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage())
-                .status(AssignmentStatus.DRAFT)
+                .status(Boolean.TRUE.equals(request.getPublishImmediately())
+                        ? AssignmentStatus.PUBLISHED
+                        : AssignmentStatus.DRAFT)
                 .build();
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            assignment.setPublishedAt(LocalDateTime.now());
+        }
         replaceRubricItems(assignment, request.getRubricItems());
 
         Assignment saved = assignmentRepository.save(assignment);
+        if (Boolean.TRUE.equals(request.getPublishImmediately())) {
+            calendarProjectionService.projectAssignmentIfEligible(saved, authorizationHeader);
+        }
         return response(HttpStatus.CREATED, "Assignment created successfully",
                 withCourseDetails(mapToResponse(saved), course));
     }
@@ -75,8 +90,8 @@ public class AssignmentServiceImpl implements AssignmentService {
     public ApiResponse<AssignmentResponse> updateAssignment(UUID assignmentId, UpdateAssignmentRequest request, String authorizationHeader) {
         Assignment assignment = getAssignmentOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
-        if (assignment.getStatus() != AssignmentStatus.DRAFT) {
-            throw new RuntimeException("Assignment can only be updated while it is in DRAFT status");
+        if (!isEditable(assignment)) {
+            throw new RuntimeException("Only draft or published assignments can be edited");
         }
         validateAssignmentDates(request.getStartDate(), request.getDueDate());
         validateRubricMarks(request.getRubricItems(), request.getMaxMarks());
@@ -85,11 +100,19 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.setTitle(request.getTitle().trim());
         assignment.setDescription(trimToNull(request.getDescription()));
         assignment.setInstructions(trimToNull(request.getInstructions()));
+        if (request.getSubmissionType() != null) {
+            assignment.setSubmissionType(normalizeSubmissionType(request.getSubmissionType()));
+        }
         assignment.setStartDate(request.getStartDate());
         assignment.setDueDate(request.getDueDate());
         assignment.setMaxMarks(request.getMaxMarks());
-        assignment.setAllowedAttempts(request.getAllowedAttempts());
+        if (request.getAllowedAttempts() != null) {
+            assignment.setAllowedAttempts(request.getAllowedAttempts());
+        }
         assignment.setAllowLateSubmission(Boolean.TRUE.equals(request.getAllowLateSubmission()));
+        if (request.getAllowStudentEdits() != null) {
+            assignment.setAllowStudentEdits(request.getAllowStudentEdits());
+        }
         assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage() == null ? 0 : request.getLatePenaltyPercentage());
         if (request.getRubricItems() != null) {
             replaceRubricItems(assignment, request.getRubricItems());
@@ -113,8 +136,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         Assignment assignment = getAssignmentOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
-        if (assignment.getStatus() != AssignmentStatus.DRAFT) {
-            throw new RuntimeException("Assignment can only be updated while in DRAFT status");
+        if (!isEditable(assignment)) {
+            throw new RuntimeException("Only draft or published assignments can be edited");
         }
         CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
 
@@ -143,6 +166,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         if (request.getInstructions() != null) {
             assignment.setInstructions(trimToNull(request.getInstructions()));
         }
+        if (request.getSubmissionType() != null) {
+            assignment.setSubmissionType(normalizeSubmissionType(request.getSubmissionType()));
+        }
         assignment.setStartDate(startDate);
         assignment.setDueDate(dueDate);
         assignment.setMaxMarks(maxMarks);
@@ -151,6 +177,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         if (request.getAllowLateSubmission() != null) {
             assignment.setAllowLateSubmission(request.getAllowLateSubmission());
+        }
+        if (request.getAllowStudentEdits() != null) {
+            assignment.setAllowStudentEdits(request.getAllowStudentEdits());
         }
         if (request.getLatePenaltyPercentage() != null) {
             assignment.setLatePenaltyPercentage(request.getLatePenaltyPercentage());
@@ -214,6 +243,16 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Override
     @Transactional
     public ApiResponse<AssignmentResponse> publishAssignment(UUID assignmentId, String authorizationHeader) {
+        return publishAssignment(assignmentId, authorizationHeader, false);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<AssignmentResponse> publishAssignment(
+            UUID assignmentId,
+            String authorizationHeader,
+            boolean openImmediately
+    ) {
         Assignment assignment = getAssignmentOrThrow(assignmentId);
         assertTeacherCanManageAssignment(assignment);
         CourseLookupResponse course = getCourseOrThrow(assignment.getCourseId(), authorizationHeader);
@@ -221,6 +260,12 @@ public class AssignmentServiceImpl implements AssignmentService {
             throw new RuntimeException("Assignment can only be published from DRAFT status");
         }
 
+        if (openImmediately) {
+            if (!LocalDateTime.now().isBefore(assignment.getDueDate())) {
+                throw new RuntimeException("Assignment cannot open immediately because its due date has passed");
+            }
+            assignment.setStartDate(LocalDateTime.now());
+        }
         assignment.setStatus(AssignmentStatus.PUBLISHED);
         assignment.setPublishedAt(LocalDateTime.now());
         Assignment saved = assignmentRepository.save(assignment);
@@ -245,6 +290,11 @@ public class AssignmentServiceImpl implements AssignmentService {
     private Assignment getAssignmentOrThrow(UUID assignmentId) {
         return assignmentRepository.findByIdAndIsActiveTrue(assignmentId)
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
+    }
+
+    private boolean isEditable(Assignment assignment) {
+        return assignment.getStatus() == AssignmentStatus.DRAFT
+                || assignment.getStatus() == AssignmentStatus.PUBLISHED;
     }
 
     private CourseLookupResponse getCourseOrThrow(UUID courseId, String authorizationHeader) {
@@ -307,6 +357,10 @@ public class AssignmentServiceImpl implements AssignmentService {
         return value.trim();
     }
 
+    private AssignmentSubmissionType normalizeSubmissionType(AssignmentSubmissionType submissionType) {
+        return submissionType == null ? AssignmentSubmissionType.TEXT : submissionType;
+    }
+
     private void replaceRubricItems(Assignment assignment, List<RubricItemRequest> rubricItems) {
         assignment.getRubricItems().clear();
         if (rubricItems == null) {
@@ -366,11 +420,13 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .title(assignment.getTitle())
                 .description(assignment.getDescription())
                 .instructions(assignment.getInstructions())
+                .submissionType(assignment.getSubmissionType())
                 .startDate(assignment.getStartDate())
                 .dueDate(assignment.getDueDate())
                 .maxMarks(assignment.getMaxMarks())
                 .allowedAttempts(assignment.getAllowedAttempts())
                 .allowLateSubmission(assignment.getAllowLateSubmission())
+                .allowStudentEdits(Boolean.TRUE.equals(assignment.getAllowStudentEdits()))
                 .latePenaltyPercentage(assignment.getLatePenaltyPercentage())
                 .status(assignment.getStatus())
                 .publishedAt(assignment.getPublishedAt())
