@@ -9,8 +9,6 @@ import com.mentify.assignment.enums.SubmissionStatus;
 import com.mentify.assignment.exception.SubmissionConflictException;
 import com.mentify.assignment.repository.AssignmentRepository;
 import com.mentify.assignment.repository.SubmissionRepository;
-import com.mentify.assignment.repository.SubmissionFileRepository;
-import com.mentify.assignment.enums.AssignmentSubmissionType;
 import com.mentify.assignment.service.SubmissionService;
 import com.mentify.assignment.service.SubmissionResponseMapper;
 import com.mentify.common.notification.NotificationEventPublisher;
@@ -36,7 +34,6 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
-    private final SubmissionFileRepository submissionFileRepository;
     private final EnrollmentServiceClient enrollmentServiceClient;
     private final UserServiceClient userServiceClient;
     private final CurrentUserService currentUserService;
@@ -55,6 +52,15 @@ public class SubmissionServiceImpl implements SubmissionService {
         if (assignment.getStatus() != com.mentify.assignment.enums.AssignmentStatus.PUBLISHED) {
             throw new RuntimeException("Assignment is not published yet");
         }
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(assignment.getStartDate())) {
+            throw new SubmissionConflictException(
+                    "Assignment submissions open on " + assignment.getStartDate());
+        }
+        if (now.isAfter(assignment.getDueDate())
+                && !Boolean.TRUE.equals(assignment.getAllowLateSubmission())) {
+            throw new SubmissionConflictException("This assignment is closed and does not accept late submissions");
+        }
 
         UUID currentUserId = currentUserService.getCurrentUserId();
         if (!userServiceClient.isStudentExists(currentUserId, authorizationHeader)) {
@@ -64,23 +70,10 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new RuntimeException("Student is not enrolled in this course");
         }
 
-        if (LocalDateTime.now().isBefore(assignment.getStartDate())
-                || !LocalDateTime.now().isBefore(assignment.getDueDate())) {
-            throw new SubmissionConflictException("Assignment is not open for submission");
-        }
-        java.util.Optional<Submission> existingSubmission =
-                submissionRepository.findFirstByAssignmentIdAndStudentIdAndIsActiveTrueOrderByAttemptNumberDesc(
-                        assignmentId, currentUserId);
-        if (existingSubmission.isPresent()) {
-            Submission submission = existingSubmission.get();
-            if (submission.getStatus() == SubmissionStatus.GRADED || submission.getStatus() == SubmissionStatus.RETURNED) {
-                throw new SubmissionConflictException("Submission can no longer be edited");
-            }
-            submission.setContent(request == null ? submission.getContent() : request.getContent());
-            return response(HttpStatus.OK, "Submission opened successfully",
-                    submissionResponseMapper.toResponse(submissionRepository.save(submission), authorizationHeader));
-        }
         long existingAttempts = submissionRepository.countByAssignmentIdAndStudentIdAndIsActiveTrue(assignmentId, currentUserId);
+        if (assignment.getAllowedAttempts() != null && existingAttempts >= assignment.getAllowedAttempts()) {
+            throw new SubmissionConflictException("Maximum submission attempts reached");
+        }
 
         Submission submission = Submission.builder()
                 .assignment(assignment)
@@ -101,11 +94,17 @@ public class SubmissionServiceImpl implements SubmissionService {
     public ApiResponse<SubmissionResponse> updateSubmission(UUID submissionId, UpdateSubmissionRequest request, String authorizationHeader) {
         Submission submission = getSubmissionOrThrow(submissionId);
         ensureCanAccessSubmission(submission);
-        if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.SUBMITTED) {
-            throw new RuntimeException("Submission can only be updated while in DRAFT status");
+        if (!Boolean.TRUE.equals(submission.getAssignment().getAllowStudentEdits())) {
+            throw new RuntimeException("Editing this submission is disabled by the teacher");
         }
-        if (!LocalDateTime.now().isBefore(submission.getAssignment().getDueDate())) {
-            throw new SubmissionConflictException("Assignment submission window has closed");
+        if (submission.getStatus() != SubmissionStatus.DRAFT
+                && submission.getStatus() != SubmissionStatus.SUBMITTED) {
+            throw new RuntimeException("This submission can no longer be edited");
+        }
+        if (submission.getStatus() == SubmissionStatus.SUBMITTED) {
+            submission.setStatus(SubmissionStatus.DRAFT);
+            submission.setSubmittedAt(null);
+            submission.setIsLate(false);
         }
         submission.setContent(request.getContent());
         return response(HttpStatus.OK, "Submission updated successfully",
@@ -124,30 +123,24 @@ public class SubmissionServiceImpl implements SubmissionService {
         if (assignment.getStatus() != com.mentify.assignment.enums.AssignmentStatus.PUBLISHED) {
             throw new RuntimeException("Assignment is not open for submission");
         }
-
-        if (LocalDateTime.now().isAfter(assignment.getDueDate()) && !Boolean.TRUE.equals(assignment.getAllowLateSubmission())) {
-            throw new SubmissionConflictException("Late submission is not allowed for this assignment");
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(assignment.getStartDate())) {
+            throw new SubmissionConflictException(
+                    "Assignment submissions open on " + assignment.getStartDate());
         }
 
-        if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.SUBMITTED) {
+        boolean late = now.isAfter(assignment.getDueDate());
+        if (late && !Boolean.TRUE.equals(assignment.getAllowLateSubmission())) {
+            throw new SubmissionConflictException("This assignment is closed and does not accept late submissions");
+        }
+
+        if (submission.getStatus() != SubmissionStatus.DRAFT) {
             throw new RuntimeException("Submission has already been submitted");
         }
 
-        AssignmentSubmissionType submissionType = assignment.getSubmissionType() == null
-                ? AssignmentSubmissionType.TEXT
-                : assignment.getSubmissionType();
-        if (submissionType == AssignmentSubmissionType.DOCUMENT
-                && submissionFileRepository.countBySubmissionIdAndIsActiveTrue(submission.getId()) == 0) {
-            throw new SubmissionConflictException("A document attachment is required for this assignment");
-        }
-        if (submissionType == AssignmentSubmissionType.TEXT
-                && (submission.getContent() == null || submission.getContent().trim().isEmpty())) {
-            throw new SubmissionConflictException("A text answer is required for this assignment");
-        }
-
         submission.setStatus(SubmissionStatus.SUBMITTED);
-        submission.setSubmittedAt(LocalDateTime.now());
-        submission.setIsLate(LocalDateTime.now().isAfter(assignment.getDueDate()));
+        submission.setSubmittedAt(now);
+        submission.setIsLate(late);
 
         Submission saved = submissionRepository.save(submission);
         SubmissionResponse submissionDetails = submissionResponseMapper.toResponse(saved, authorizationHeader);

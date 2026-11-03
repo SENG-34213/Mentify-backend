@@ -41,6 +41,10 @@ public class Assignment extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String instructions;
 
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String submissionType = "TEXT";
+
     @Column(nullable = false)
     private LocalDateTime startDate;
 
@@ -56,6 +60,10 @@ public class Assignment extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean allowLateSubmission = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean allowStudentEdits = true;
 
     @Column(nullable = false)
     @Builder.Default

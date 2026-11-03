@@ -18,9 +18,12 @@ public class StudentAssignmentResponse {
     String title;
     String description;
     String instructions;
+    String submissionType;
     LocalDateTime startDate;
     LocalDateTime dueDate;
     Integer maxMarks;
+    Boolean allowLateSubmission;
+    Integer latePenaltyPercentage;
     String assignmentStatus;
     UUID submissionId;
     SubmissionStatus submissionStatus;
@@ -30,4 +33,6 @@ public class StudentAssignmentResponse {
     Boolean gradeReleased;
     BigDecimal marks;
     String feedback;
+    Boolean gradeReleased;
+    Boolean allowStudentEdits;
 }

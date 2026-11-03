@@ -25,6 +25,8 @@ public class UpdateAssignmentRequest {
 
     private String instructions;
 
+    private String submissionType;
+
     @NotNull(message = "Start date is required")
     private LocalDateTime startDate;
 
@@ -40,6 +42,8 @@ public class UpdateAssignmentRequest {
 
     @NotNull(message = "Late submission flag is required")
     private Boolean allowLateSubmission;
+
+    private Boolean allowStudentEdits;
 
     @Min(value = 0, message = "Late penalty cannot be negative")
     @Max(value = 100, message = "Late penalty cannot exceed 100")

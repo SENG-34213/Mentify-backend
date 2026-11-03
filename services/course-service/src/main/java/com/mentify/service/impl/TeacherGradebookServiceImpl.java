@@ -20,6 +20,7 @@ import com.mentify.dto.TeacherGradebookSummaryResponse;
 import com.mentify.entity.Course;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.payload.response.ApiResponse;
+import feign.FeignException;
 import com.mentify.repository.CourseRepository;
 import com.mentify.service.TeacherGradebookService;
 import lombok.RequiredArgsConstructor;
@@ -215,7 +216,8 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
     private List<AssignmentDashboardResponse> assignments(UUID courseId, String auth) {
         ApiResponse<List<AssignmentDashboardResponse>> response = assignmentDashboardClient.getAssignments(courseId, auth);
         return response == null || response.getData() == null ? List.of() : response.getData().stream()
-                .filter(assignment -> "CLOSED".equals(assignment.getStatus()))
+                .filter(assignment -> "PUBLISHED".equals(assignment.getStatus())
+                        || "CLOSED".equals(assignment.getStatus()))
                 .toList();
     }
 
@@ -230,14 +232,22 @@ public class TeacherGradebookServiceImpl implements TeacherGradebookService {
     }
 
     private List<ExamDashboardResponse> exams(UUID courseId, String auth) {
-        ApiResponse<List<ExamDashboardResponse>> response = examDashboardClient.getExams(courseId, auth);
-        return response == null || response.getData() == null ? List.of() : response.getData().stream()
-                .filter(exam -> "MARKING".equals(exam.getStatus()) || "COMPLETED".equals(exam.getStatus()))
-                .toList();
+        try {
+            ApiResponse<List<ExamDashboardResponse>> response = examDashboardClient.getExams(courseId, auth);
+            return response == null || response.getData() == null ? List.of() : response.getData().stream()
+                    .filter(exam -> "MARKING".equals(exam.getStatus()) || "COMPLETED".equals(exam.getStatus()))
+                    .toList();
+        } catch (FeignException.ServiceUnavailable ignored) {
+            return List.of();
+        }
     }
 
     private ExamResultSheetResponse examResults(UUID examId, String auth) {
-        ApiResponse<ExamResultSheetResponse> response = examDashboardClient.getExamResults(examId, auth);
-        return response == null ? null : response.getData();
+        try {
+            ApiResponse<ExamResultSheetResponse> response = examDashboardClient.getExamResults(examId, auth);
+            return response == null ? null : response.getData();
+        } catch (FeignException.ServiceUnavailable ignored) {
+            return null;
+        }
     }
 }

@@ -26,11 +26,13 @@ public class AssignmentResponse {
     private String title;
     private String description;
     private String instructions;
+    private String submissionType;
     private LocalDateTime startDate;
     private LocalDateTime dueDate;
     private Integer maxMarks;
     private Integer allowedAttempts;
     private Boolean allowLateSubmission;
+    private Boolean allowStudentEdits;
     private Integer latePenaltyPercentage;
     private AssignmentSubmissionType submissionType;
     private AssignmentStatus status;

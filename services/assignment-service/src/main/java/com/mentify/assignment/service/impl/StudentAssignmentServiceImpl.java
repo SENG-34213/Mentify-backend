@@ -105,6 +105,7 @@ public class StudentAssignmentServiceImpl implements StudentAssignmentService {
     }
 
     private StudentAssignmentResponse toResponse(Assignment assignment, Submission submission) {
+        boolean gradeReleased = submission != null && Boolean.TRUE.equals(submission.getGradeReleased());
         return StudentAssignmentResponse.builder()
                 .id(assignment.getId())
                 .courseId(assignment.getCourseId())
@@ -113,18 +114,21 @@ public class StudentAssignmentServiceImpl implements StudentAssignmentService {
                 .title(assignment.getTitle())
                 .description(assignment.getDescription())
                 .instructions(assignment.getInstructions())
+                .submissionType(assignment.getSubmissionType())
                 .startDate(assignment.getStartDate())
                 .dueDate(assignment.getDueDate())
                 .maxMarks(assignment.getMaxMarks())
-                .allowLateSubmission(assignment.getAllowLateSubmission())
+                .allowLateSubmission(Boolean.TRUE.equals(assignment.getAllowLateSubmission()))
+                .latePenaltyPercentage(assignment.getLatePenaltyPercentage())
                 .assignmentStatus(assignment.getStatus().name())
                 .submissionId(submission == null ? null : submission.getId())
                 .submissionStatus(submission == null ? null : submission.getStatus())
                 .attemptNumber(submission == null ? null : submission.getAttemptNumber())
                 .submittedAt(submission == null ? null : submission.getSubmittedAt())
-                .gradeReleased(submission != null && Boolean.TRUE.equals(submission.getGradeReleased()))
-                .marks(submission == null || !Boolean.TRUE.equals(submission.getGradeReleased()) ? null : submission.getMarks())
-                .feedback(submission == null || !Boolean.TRUE.equals(submission.getGradeReleased()) ? null : submission.getFeedback())
+                .gradeReleased(gradeReleased)
+                .allowStudentEdits(Boolean.TRUE.equals(assignment.getAllowStudentEdits()))
+                .marks(gradeReleased && submission != null ? submission.getMarks() : null)
+                .feedback(gradeReleased && submission != null ? submission.getFeedback() : null)
                 .build();
     }
 }

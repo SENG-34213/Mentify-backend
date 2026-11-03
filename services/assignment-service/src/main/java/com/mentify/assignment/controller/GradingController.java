@@ -59,4 +59,24 @@ public class GradingController {
         ApiResponse<SubmissionResponse> response = gradingService.returnSubmission(submissionId, authorizationHeader);
         return new ResponseEntity<>(response, response.getStatus());
     }
+
+    @PostMapping("/submissions/{submissionId}/release")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> releaseSubmission(
+            @PathVariable UUID submissionId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<SubmissionResponse> response = gradingService.releaseSubmission(submissionId, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
+    @PostMapping("/submissions/{submissionId}/hold")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> holdSubmission(
+            @PathVariable UUID submissionId,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        ApiResponse<SubmissionResponse> response = gradingService.holdSubmission(submissionId, authorizationHeader);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
 }

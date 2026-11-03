@@ -24,6 +24,7 @@ public class PatchAssignmentRequest {
 
     private String description;
     private String instructions;
+    private String submissionType;
     private LocalDateTime startDate;
     private LocalDateTime dueDate;
 
@@ -34,6 +35,8 @@ public class PatchAssignmentRequest {
     private Integer allowedAttempts;
 
     private Boolean allowLateSubmission;
+
+    private Boolean allowStudentEdits;
 
     @Min(value = 0, message = "Late penalty cannot be negative")
     @Max(value = 100, message = "Late penalty cannot exceed 100")
@@ -49,11 +52,13 @@ public class PatchAssignmentRequest {
         return title == null
                 && description == null
                 && instructions == null
+                && submissionType == null
                 && startDate == null
                 && dueDate == null
                 && maxMarks == null
                 && allowedAttempts == null
                 && allowLateSubmission == null
+                && allowStudentEdits == null
                 && latePenaltyPercentage == null
                 && submissionType == null
                 && rubricItems == null;

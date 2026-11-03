@@ -62,6 +62,7 @@ public class SubmissionResponseMapper {
                 .status(submission.getStatus())
                 .content(submission.getContent())
                 .isLate(submission.getIsLate())
+                .gradeReleased(Boolean.TRUE.equals(submission.getGradeReleased()))
                 .submittedAt(submission.getSubmittedAt())
                 .marks(submission.getMarks())
                 .feedback(submission.getFeedback())
