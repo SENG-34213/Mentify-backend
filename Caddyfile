@@ -22,6 +22,6 @@
     }
 
     handle {
-        redir /admin/ 302
+        reverse_proxy website-frontend:3000
     }
 }
