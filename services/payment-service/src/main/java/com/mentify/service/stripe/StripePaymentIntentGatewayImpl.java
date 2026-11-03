@@ -23,7 +23,7 @@ public class StripePaymentIntentGatewayImpl implements StripePaymentIntentGatewa
             throw new PaymentProviderException("Stripe secret key is not configured");
         }
 
-        PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+        PaymentIntentCreateParams.Builder paramsBuilder = PaymentIntentCreateParams.builder()
                 .setAmount(request.amountInMinorUnits())
                 .setCurrency(request.currency().toLowerCase(Locale.ROOT))
                 .setAutomaticPaymentMethods(
@@ -32,9 +32,16 @@ public class StripePaymentIntentGatewayImpl implements StripePaymentIntentGatewa
                                 .build()
                 )
                 .putMetadata("payment_id", request.paymentId().toString())
-                .putMetadata("student_id", request.studentId().toString())
-                .putMetadata("course_id", request.courseId().toString())
-                .build();
+                .putMetadata("payment_type", request.paymentType())
+                ;
+
+        if (request.studentId() != null) paramsBuilder.putMetadata("student_id", request.studentId().toString());
+        if (request.courseId() != null) paramsBuilder.putMetadata("course_id", request.courseId().toString());
+        if (request.productId() != null) paramsBuilder.putMetadata("product_id", request.productId().toString());
+        if (request.receiptEmail() != null && !request.receiptEmail().isBlank()) {
+            paramsBuilder.setReceiptEmail(request.receiptEmail());
+        }
+        PaymentIntentCreateParams params = paramsBuilder.build();
 
         RequestOptions requestOptions = RequestOptions.builder()
                 .setApiKey(stripeProperties.getSecretKey())
@@ -49,6 +56,22 @@ public class StripePaymentIntentGatewayImpl implements StripePaymentIntentGatewa
             return new StripePaymentIntent(paymentIntent.getId(), paymentIntent.getClientSecret());
         } catch (StripeException ex) {
             throw new PaymentProviderException("Stripe payment intent creation failed", ex);
+        }
+    }
+
+    @Override
+    public String retrievePaymentIntentStatus(String paymentIntentId) {
+        if (stripeProperties.getSecretKey() == null || stripeProperties.getSecretKey().isBlank()) {
+            throw new PaymentProviderException("Stripe secret key is not configured");
+        }
+
+        try {
+            PaymentIntent paymentIntent = PaymentIntent.retrieve(
+                    paymentIntentId,
+                    RequestOptions.builder().setApiKey(stripeProperties.getSecretKey()).build());
+            return paymentIntent.getStatus();
+        } catch (StripeException ex) {
+            throw new PaymentProviderException("Stripe payment status lookup failed", ex);
         }
     }
 }

@@ -6,6 +6,7 @@ import com.mentify.dto.PreRegistrationUpdateRequest;
 import com.mentify.enums.PreRegistrationStatus;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.PreRegistrationService;
+import com.mentify.service.PreRegistrationRateLimiter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +33,7 @@ import org.springframework.beans.factory.annotation.Value;
 @RequiredArgsConstructor
 public class PreRegistrationController {
     private final PreRegistrationService service;
+    private final PreRegistrationRateLimiter rateLimiter;
 
     @Value("${mentify.pre-registration.api-token:}")
     private String submissionToken;
@@ -39,6 +41,8 @@ public class PreRegistrationController {
     @PostMapping("/public/pre-registrations")
     public ResponseEntity<ApiResponse<PreRegistrationResponse>> create(
             @RequestHeader(value = "X-Pre-Registration-Token", required = false) String requestToken,
+            @RequestHeader(value = "X-Forwarded-For", required = false) String forwardedFor,
+            @RequestHeader(value = "X-Real-IP", required = false) String realIp,
             @Valid @RequestBody PreRegistrationRequest request) {
         if (submissionToken.isBlank() || requestToken == null || !MessageDigest.isEqual(
                 submissionToken.getBytes(StandardCharsets.UTF_8),
@@ -46,9 +50,26 @@ public class PreRegistrationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.success(
                     HttpStatus.FORBIDDEN.value(), "Pre-registration submission is not authorized", null));
         }
+
+        String clientIp = firstForwardedIp(forwardedFor, realIp);
+        if (rateLimiter.check(clientIp, request.getEmail()) == PreRegistrationRateLimiter.Decision.BLOCKED) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(rateLimiter.retryAfterSeconds()))
+                    .body(ApiResponse.success(
+                            HttpStatus.TOO_MANY_REQUESTS.value(),
+                            "Too many registration attempts. Please try again later.", null));
+        }
+
         PreRegistrationResponse response = service.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
                 HttpStatus.CREATED.value(), "Pre-registration submitted successfully", response));
+    }
+
+    private String firstForwardedIp(String forwardedFor, String realIp) {
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return realIp == null || realIp.isBlank() ? "unknown" : realIp.trim();
     }
 
     @GetMapping("/admin/pre-registrations")

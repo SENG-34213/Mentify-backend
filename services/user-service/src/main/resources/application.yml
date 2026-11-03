@@ -34,6 +34,10 @@ spring:
 mentify:
   pre-registration:
     api-token: ${PRE_REGISTRATION_API_TOKEN:}
+    rate-limit:
+      ip-limit: ${PRE_REGISTRATION_RATE_LIMIT_IP:5}
+      email-limit: ${PRE_REGISTRATION_RATE_LIMIT_EMAIL:3}
+      window-seconds: ${PRE_REGISTRATION_RATE_LIMIT_WINDOW_SECONDS:600}
   auth:
     internal-token: ${AUTH_INTERNAL_TOKEN:change-me-internal-auth-token}
     service-url: ${AUTH_SERVICE_URL:http://localhost:8085}

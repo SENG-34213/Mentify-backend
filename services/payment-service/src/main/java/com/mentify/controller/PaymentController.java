@@ -11,6 +11,8 @@ import com.mentify.dto.RefundPaymentRequest;
 import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
+import com.mentify.dto.StartMarketplacePaymentRequest;
+import com.mentify.dto.StartMarketplacePaymentResponse;
 import com.mentify.enums.PaymentStatus;
 import com.mentify.common.notification.NotifyOnSuccess;
 import com.mentify.payload.response.ApiResponse;
@@ -59,6 +61,32 @@ public class PaymentController {
                 .data(data)
                 .build();
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/marketplace")
+    public ResponseEntity<ApiResponse<StartMarketplacePaymentResponse>> startMarketplacePayment(
+            @Valid @RequestBody StartMarketplacePaymentRequest request
+    ) {
+        StartMarketplacePaymentResponse data = paymentService.startMarketplacePayment(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<StartMarketplacePaymentResponse>builder()
+                .statusCode(HttpStatus.CREATED.value())
+                .status(HttpStatus.CREATED)
+                .message("Marketplace payment initiated")
+                .data(data)
+                .build());
+    }
+
+    @PostMapping("/marketplace/{paymentId}/sync")
+    public ResponseEntity<ApiResponse<PaymentStatusResponse>> synchronizeMarketplacePayment(
+            @PathVariable UUID paymentId
+    ) {
+        PaymentStatusResponse data = paymentService.synchronizeMarketplacePayment(paymentId);
+        return ResponseEntity.ok(ApiResponse.<PaymentStatusResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .status(HttpStatus.OK)
+                .message("Marketplace payment status synchronized")
+                .data(data)
+                .build());
     }
 
     @GetMapping("/me")

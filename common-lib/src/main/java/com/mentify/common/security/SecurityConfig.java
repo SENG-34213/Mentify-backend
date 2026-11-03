@@ -66,6 +66,8 @@ public class SecurityConfig {
                                                                 "/api/v1/public/pre-registrations",
                                                                 "/api/v1/marketplace/materials",
                                                                 "/api/v1/marketplace/materials/**",
+                                                                "/api/v1/payments/marketplace",
+                                                                "/api/v1/payments/marketplace/**",
                                                                 "/api/assignments/quizzes/ai/generate",
                                                                 "/api/v1/payments/stripe/webhook",
                                                                 "/ws",

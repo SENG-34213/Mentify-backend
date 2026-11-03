@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/internal/analytics/payments")
+@RequestMapping({"/api/v1/internal/analytics/payments", "/api/v1/payments/admin"})
 @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 public class PaymentAnalyticsController {
 

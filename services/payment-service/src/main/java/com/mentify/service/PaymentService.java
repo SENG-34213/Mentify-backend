@@ -11,6 +11,8 @@ import com.mentify.dto.RefundPaymentRequest;
 import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
+import com.mentify.dto.StartMarketplacePaymentRequest;
+import com.mentify.dto.StartMarketplacePaymentResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -20,6 +22,10 @@ import java.util.UUID;
 public interface PaymentService {
 
     StartCoursePaymentResponse startCoursePayment(StartCoursePaymentRequest request, String authorizationHeader);
+
+    StartMarketplacePaymentResponse startMarketplacePayment(StartMarketplacePaymentRequest request);
+
+    PaymentStatusResponse synchronizeMarketplacePayment(UUID paymentId);
 
     List<PaymentSummaryResponse> getCurrentStudentPayments();
 

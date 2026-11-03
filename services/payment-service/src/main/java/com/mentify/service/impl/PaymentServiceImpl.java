@@ -2,6 +2,7 @@ package com.mentify.service.impl;
 
 import com.mentify.client.CourseServiceClient;
 import com.mentify.client.dto.CourseLookupResponse;
+import com.mentify.client.dto.MarketplaceProductLookupResponse;
 import com.mentify.common.notification.NotificationEventPublisher;
 import com.mentify.config.StripeProperties;
 import com.mentify.dto.AdminPaymentDetailResponse;
@@ -15,9 +16,12 @@ import com.mentify.dto.RefundPaymentRequest;
 import com.mentify.dto.RefundPaymentResponse;
 import com.mentify.dto.StartCoursePaymentRequest;
 import com.mentify.dto.StartCoursePaymentResponse;
+import com.mentify.dto.StartMarketplacePaymentRequest;
+import com.mentify.dto.StartMarketplacePaymentResponse;
 import com.mentify.entity.Payment;
 import com.mentify.enums.PaymentProvider;
 import com.mentify.enums.PaymentStatus;
+import com.mentify.enums.PaymentType;
 import com.mentify.exception.PaymentDomainException;
 import com.mentify.exception.PaymentProviderException;
 import com.mentify.exception.ResourceNotFoundException;
@@ -101,12 +105,6 @@ public class PaymentServiceImpl implements PaymentService {
                         .paymentOperationKey(paymentOperationKey)
                         .build()));
 
-        if (payment.getCourseName() == null || payment.getCourseCode() == null) {
-            payment.setCourseName(course.getCourseName());
-            payment.setCourseCode(course.getCourseCode());
-            payment = paymentRepository.saveAndFlush(payment);
-        }
-
         if (hasReusableStripeIntent(payment)) {
             return toStartCoursePaymentResponse(payment);
         }
@@ -138,6 +136,80 @@ public class PaymentServiceImpl implements PaymentService {
             paymentRepository.saveAndFlush(payment);
             throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Course price cannot be converted to the configured payment currency");
         }
+    }
+
+    @Override
+    @Transactional
+    public StartMarketplacePaymentResponse startMarketplacePayment(StartMarketplacePaymentRequest request) {
+        MarketplaceProductLookupResponse product = fetchMarketplaceProduct(request.getProductId());
+        validatePayableMarketplaceProduct(product);
+
+        String currency = normalizeCurrency(product.getCurrency());
+        BigDecimal amount = (product.getFinalPrice() == null ? product.getPrice() : product.getFinalPrice()).setScale(2);
+        String buyerEmail = request.getBuyerEmail().trim().toLowerCase(Locale.ROOT);
+        String operationKey = marketplacePaymentOperationKey(buyerEmail, product.getId(), currency, amount);
+
+        Payment payment = paymentRepository
+                .findFirstByPaymentOperationKeyAndStatusOrderByCreatedAtDesc(operationKey, PaymentStatus.PENDING)
+                .orElseGet(() -> paymentRepository.saveAndFlush(Payment.builder()
+                        .marketplaceProductId(product.getId())
+                        .productName(product.getTitle())
+                        .buyerName(request.getBuyerName().trim())
+                        .buyerEmail(buyerEmail)
+                        .buyerPhone(request.getBuyerPhone().trim())
+                        .amount(amount)
+                        .currency(currency)
+                        .status(PaymentStatus.PENDING)
+                        .provider(PaymentProvider.STRIPE)
+                        .paymentType(PaymentType.MARKETPLACE)
+                        .paymentOperationKey(operationKey)
+                        .build()));
+
+        if (hasReusableStripeIntent(payment)) {
+            return toStartMarketplacePaymentResponse(payment);
+        }
+
+        try {
+            StripePaymentIntent paymentIntent = stripePaymentIntentGateway.createPaymentIntent(
+                    new CreateStripePaymentIntentRequest(
+                            StripeAmountConverter.toMinorUnits(amount, currency), currency, payment.getId(),
+                            null, null, "payment-intent:" + payment.getId(), product.getId(), "MARKETPLACE", buyerEmail));
+            validateStripePaymentIntentReference(payment, paymentIntent.id());
+            payment.setStripePaymentIntentId(paymentIntent.id());
+            payment.setStripeClientSecret(paymentIntent.clientSecret());
+            return toStartMarketplacePaymentResponse(paymentRepository.saveAndFlush(payment));
+        } catch (PaymentProviderException ex) {
+            transitionPaymentStatus(payment, PaymentStatus.FAILED, null);
+            paymentRepository.saveAndFlush(payment);
+            throw ex;
+        }
+    }
+
+    @Override
+    @Transactional
+    public PaymentStatusResponse synchronizeMarketplacePayment(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+
+        if (payment.getPaymentType() != PaymentType.MARKETPLACE) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Only marketplace payments can be synchronized publicly");
+        }
+        if (payment.getStripePaymentIntentId() == null || payment.getStripePaymentIntentId().isBlank()) {
+            throw new PaymentDomainException(HttpStatus.CONFLICT, "Payment does not have a Stripe payment intent");
+        }
+        if (payment.getStatus() == PaymentStatus.PENDING) {
+            String stripeStatus = stripePaymentIntentGateway.retrievePaymentIntentStatus(payment.getStripePaymentIntentId());
+            if ("succeeded".equalsIgnoreCase(stripeStatus)
+                    && transitionPaymentStatus(payment, PaymentStatus.SUCCESS, LocalDateTime.now())) {
+                paymentRepository.saveAndFlush(payment);
+                publishPaymentSuccessAfterCommit(payment);
+            } else if ("requires_payment_method".equalsIgnoreCase(stripeStatus)
+                    || "canceled".equalsIgnoreCase(stripeStatus)) {
+                transitionPaymentStatus(payment, PaymentStatus.FAILED, LocalDateTime.now());
+                paymentRepository.saveAndFlush(payment);
+            }
+        }
+        return toPaymentStatusResponse(payment);
     }
 
     @Override
@@ -268,21 +340,36 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void publishPaymentSuccessAfterCommit(Payment payment) {
+        String recipientUserId = payment.getStudentId() == null
+                ? "guest-payment-" + payment.getId()
+                : payment.getStudentId().toString();
+        String recipientEmail = payment.getStudentId() == null ? payment.getBuyerEmail() : null;
+        String itemName = payment.getProductName() != null && !payment.getProductName().isBlank()
+                ? payment.getProductName()
+                : (payment.getCourseName() == null || payment.getCourseName().isBlank()
+                ? "your purchase" : payment.getCourseName());
+        String title = payment.getStudentId() == null ? "Payment receipt" : "Payment successful";
+        String message = payment.getStudentId() != null
+                ? "Your payment for " + (payment.getCourseName() == null
+                || payment.getCourseName().isBlank() ? "your course" : payment.getCourseName())
+                + (payment.getCourseCode() == null || payment.getCourseCode().isBlank()
+                ? "" : " (" + payment.getCourseCode() + ")") + " was completed successfully. Amount: "
+                + payment.getAmount() + " " + payment.getCurrency() + "; paid at: " + payment.getPaidAt()
+                + "; payment status: " + payment.getStatus() + ". Your enrollment can now access this course."
+                : "Your payment for " + itemName + " was completed successfully. Amount: "
+                + payment.getAmount() + " " + payment.getCurrency() + "; paid at: " + payment.getPaidAt()
+                + "; customer name: " + payment.getBuyerName() + "; customer email: " + payment.getBuyerEmail()
+                + "; payment ID: " + payment.getId() + "; Stripe reference: "
+                + payment.getStripePaymentIntentId() + ". Thank you for your purchase.";
         Runnable publishEvent = () -> {
             NotificationEventPublisher publisher = notificationEventPublisher.getIfAvailable();
             if (publisher != null) {
                 publisher.publishForRecipient(
-                        payment.getStudentId().toString(),
-                        null,
+                        recipientUserId,
+                        recipientEmail,
                         "PAYMENT_SUCCEEDED",
-                        "Payment successful",
-                        "Your payment for " + (payment.getCourseName() == null
-                                || payment.getCourseName().isBlank() ? "your course" : payment.getCourseName())
-                                + (payment.getCourseCode() == null || payment.getCourseCode().isBlank()
-                                ? "" : " (" + payment.getCourseCode() + ")") + " was completed successfully. Amount: "
-                                + payment.getAmount() + " " + payment.getCurrency() + "; paid at: " + payment.getPaidAt()
-                                + "; payment status: " + payment.getStatus()
-                                + ". Your enrollment can now access this course."
+                        title,
+                        message
                 );
             }
         };
@@ -328,6 +415,43 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (FeignException ex) {
             throw new PaymentDomainException(HttpStatus.SERVICE_UNAVAILABLE, "Course validation is currently unavailable. Please try again later.");
         }
+    }
+
+    private MarketplaceProductLookupResponse fetchMarketplaceProduct(UUID productId) {
+        try {
+            ApiResponse<MarketplaceProductLookupResponse> response = courseServiceClient.getMarketplaceProduct(productId);
+            if (response == null || response.getData() == null) {
+                throw new ResourceNotFoundException("Marketplace product", "id", productId);
+            }
+            return response.getData();
+        } catch (FeignException.NotFound ex) {
+            throw new ResourceNotFoundException("Marketplace product", "id", productId);
+        } catch (FeignException ex) {
+            throw new PaymentDomainException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Marketplace validation is currently unavailable. Please try again later.");
+        }
+    }
+
+    private void validatePayableMarketplaceProduct(MarketplaceProductLookupResponse product) {
+        if (product.getStatus() == null || !"PUBLISHED".equalsIgnoreCase(product.getStatus())) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Marketplace product is not available for payment");
+        }
+        if (product.isFree()) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Free marketplace materials do not require payment");
+        }
+        if (product.getId() == null || product.getTitle() == null || product.getTitle().isBlank()
+                || (product.getFinalPrice() == null && product.getPrice() == null)
+                || (product.getFinalPrice() != null ? product.getFinalPrice() : product.getPrice()).compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PaymentDomainException(HttpStatus.BAD_REQUEST, "Marketplace product has an invalid price");
+        }
+    }
+
+    private String normalizeCurrency(String currency) {
+        String resolved = currency == null || currency.isBlank() ? stripeProperties.getCurrency() : currency;
+        if (resolved == null || resolved.trim().length() != 3) {
+            throw new PaymentDomainException(HttpStatus.INTERNAL_SERVER_ERROR, "Payment currency configuration is invalid");
+        }
+        return resolved.trim().toUpperCase(Locale.ROOT);
     }
 
     private void validatePayableCourse(CourseLookupResponse course) {
@@ -485,6 +609,18 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    private StartMarketplacePaymentResponse toStartMarketplacePaymentResponse(Payment payment) {
+        return StartMarketplacePaymentResponse.builder()
+                .paymentId(payment.getId())
+                .productId(payment.getMarketplaceProductId())
+                .productName(payment.getProductName())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .clientSecret(payment.getStripeClientSecret())
+                .build();
+    }
+
     private PaymentSummaryResponse toPaymentSummaryResponse(Payment payment) {
         return PaymentSummaryResponse.builder()
                 .paymentId(payment.getId())
@@ -527,6 +663,12 @@ public class PaymentServiceImpl implements PaymentService {
         return AdminPaymentSummaryResponse.builder()
                 .paymentId(payment.getId())
                 .studentId(payment.getStudentId())
+                .buyerName(payment.getBuyerName())
+                .buyerEmail(payment.getBuyerEmail())
+                .buyerPhone(payment.getBuyerPhone())
+                .paymentType(payment.getPaymentType())
+                .marketplaceProductId(payment.getMarketplaceProductId())
+                .productName(payment.getProductName())
                 .courseId(payment.getCourseId())
                 .amount(payment.getAmount())
                 .currency(payment.getCurrency())
@@ -542,6 +684,12 @@ public class PaymentServiceImpl implements PaymentService {
         return AdminPaymentDetailResponse.builder()
                 .paymentId(payment.getId())
                 .studentId(payment.getStudentId())
+                .buyerName(payment.getBuyerName())
+                .buyerEmail(payment.getBuyerEmail())
+                .buyerPhone(payment.getBuyerPhone())
+                .paymentType(payment.getPaymentType())
+                .marketplaceProductId(payment.getMarketplaceProductId())
+                .productName(payment.getProductName())
                 .courseId(payment.getCourseId())
                 .amount(payment.getAmount())
                 .currency(payment.getCurrency())
@@ -573,6 +721,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     private String paymentOperationKey(UUID studentId, UUID courseId, String currency, BigDecimal amount) {
         return studentId + "|" + courseId + "|" + currency + "|" + amount.setScale(2).toPlainString();
+    }
+
+    private String marketplacePaymentOperationKey(String buyerEmail, UUID productId, String currency, BigDecimal amount) {
+        return "guest|" + buyerEmail + "|marketplace|" + productId + "|" + currency + "|" + amount.toPlainString();
     }
 
     private String stripeIdempotencyKey(UUID paymentId) {
