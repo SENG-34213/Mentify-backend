@@ -2,6 +2,7 @@ package com.mentify.entity;
 
 import com.mentify.enums.PaymentProvider;
 import com.mentify.enums.PaymentStatus;
+import com.mentify.enums.PaymentType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,13 +39,36 @@ import java.util.UUID;
 @AllArgsConstructor
 public class Payment extends BaseEntity {
 
-    @NotNull
-    @Column(nullable = false, columnDefinition = "uuid")
+    @Column(columnDefinition = "uuid")
     private UUID studentId;
 
-    @NotNull
-    @Column(nullable = false, columnDefinition = "uuid")
+    @Size(max = 150)
+    @Column(name = "buyer_name", length = 150)
+    private String buyerName;
+
+    @Size(max = 320)
+    @Column(name = "buyer_email", length = 320)
+    private String buyerEmail;
+
+    @Size(max = 40)
+    @Column(name = "buyer_phone", length = 40)
+    private String buyerPhone;
+
+    @Column(columnDefinition = "uuid")
     private UUID courseId;
+
+    @Column(name = "marketplace_product_id", columnDefinition = "uuid")
+    private UUID marketplaceProductId;
+
+    @Size(max = 255)
+    @Column(name = "product_name", length = 255)
+    private String productName;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_type", nullable = false, length = 20)
+    @Builder.Default
+    private PaymentType paymentType = PaymentType.COURSE;
 
     @Size(max = 255)
     @Column(name = "course_name", length = 255)
@@ -106,12 +130,11 @@ public class Payment extends BaseEntity {
     @PrePersist
     @PreUpdate
     protected void ensurePaymentOperationKey() {
-        if (paymentOperationKey == null
-                && studentId != null
-                && courseId != null
+        if (paymentOperationKey == null && studentId != null
                 && currency != null
                 && amount != null) {
-            paymentOperationKey = studentId + "|" + courseId + "|" + currency + "|" + amount.setScale(2).toPlainString();
+            UUID itemId = paymentType == PaymentType.MARKETPLACE ? marketplaceProductId : courseId;
+            paymentOperationKey = studentId + "|" + itemId + "|" + currency + "|" + amount.setScale(2).toPlainString();
         }
     }
 }

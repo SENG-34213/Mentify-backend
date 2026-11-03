@@ -9,8 +9,8 @@ public class AuthProperties {
     private String issuer = "http://localhost:8085";
     private String audience = "mentify-api";
     private long accessTokenSeconds = 86400;
-    private long refreshTokenSeconds = 86400;
-    private long sessionRefreshTokenSeconds = 86400;
+    private long refreshTokenSeconds = 2592000;
+    private long sessionRefreshTokenSeconds = 28800;
     private String keyId = "mentify-auth-rsa";
     private String privateKeyBase64;
     private String publicKeyBase64;

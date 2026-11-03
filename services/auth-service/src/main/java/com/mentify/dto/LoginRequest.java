@@ -7,5 +7,5 @@ import lombok.Data;
 public class LoginRequest {
     @NotBlank private String identifier;
     @NotBlank private String password;
-    private boolean rememberMe = true;
+    private boolean rememberMe = false;
 }

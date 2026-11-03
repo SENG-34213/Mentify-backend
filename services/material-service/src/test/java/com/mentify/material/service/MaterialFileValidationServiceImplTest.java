@@ -120,23 +120,24 @@ class MaterialFileValidationServiceImplTest {
         assertThat(validationService.validate(file("photo.png", "image/png",
                 new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A})).materialType())
                 .isEqualTo(MaterialType.IMAGE);
-        assertThat(validationService.validate(file("clip.mp4", "video/mp4",
-                new byte[]{0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70})).materialType())
-                .isEqualTo(MaterialType.VIDEO);
-        assertThat(validationService.validate(file("audio.mp3", "audio/mpeg",
-                new byte[]{0x49, 0x44, 0x33, 0x04})).materialType())
-                .isEqualTo(MaterialType.AUDIO);
+        assertThatThrownBy(() -> validationService.validate(file("clip.mp4", "video/mp4",
+                new byte[]{0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70})))
+                .isInstanceOf(MaterialValidationException.class)
+                .hasMessage("Unsupported file type");
+        assertThatThrownBy(() -> validationService.validate(file("audio.mp3", "audio/mpeg",
+                new byte[]{0x49, 0x44, 0x33, 0x04})))
+                .isInstanceOf(MaterialValidationException.class)
+                .hasMessage("Unsupported file type");
     }
 
     @Test
-    void acceptsBrowserRecordedWebmAudio() {
+    void rejectsBrowserRecordedWebmAudio() {
         byte[] webmHeader = new byte[]{0x1A, 0x45, (byte) 0xDF, (byte) 0xA3, 0x42, (byte) 0x86};
 
-        ValidatedMaterialFile validated = validationService.validate(
-                file("voice.webm", "audio/webm;codecs=opus", webmHeader));
-
-        assertThat(validated.materialType()).isEqualTo(MaterialType.AUDIO);
-        assertThat(validated.contentType()).isEqualTo("audio/webm");
+        assertThatThrownBy(() -> validationService.validate(
+                file("voice.webm", "audio/webm;codecs=opus", webmHeader)))
+                .isInstanceOf(MaterialValidationException.class)
+                .hasMessage("Unsupported file type");
     }
 
     @Test

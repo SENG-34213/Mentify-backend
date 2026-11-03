@@ -1,0 +1,2 @@
+ALTER TABLE assignments
+    ADD COLUMN IF NOT EXISTS submission_type VARCHAR(20) NOT NULL DEFAULT 'TEXT';

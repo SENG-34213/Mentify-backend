@@ -389,7 +389,6 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<CourseResponse> getCourseById(UUID courseId) {
         ApiResponse<CourseResponse> response = getCourseById(courseId, null);
         // This overload is retained for internal callers that have no user token.
@@ -401,7 +400,6 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<CourseResponse> getCourseById(UUID courseId, String authorizationHeader) {
         log.info("Fetching course with ID [{}]", courseId);
 
@@ -423,13 +421,11 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<CourseResponse>> getAllCourses() {
         return getAllCourses(null);
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<CourseResponse>> getAllCourses(String authorizationHeader) {
         List<CourseResponse> courses = toCourseResponses(courseRepository.findAll(), authorizationHeader);
 
@@ -442,7 +438,6 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesForTeacher(UUID teacherId) {
         return getCoursesForTeacher(teacherId, null);
     }
@@ -535,13 +530,11 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids) {
         return getCoursesByIds(ids, null);
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<CourseResponse>> getCoursesByIds(Set<UUID> ids, String authorizationHeader) {
         log.info("Fetching {} courses in bulk", ids.size());
 

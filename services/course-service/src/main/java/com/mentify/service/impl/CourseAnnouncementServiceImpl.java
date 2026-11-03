@@ -47,7 +47,6 @@ public class CourseAnnouncementServiceImpl implements CourseAnnouncementService 
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<AnnouncementResponse> getMyAnnouncements(UUID courseId, int page, int size,
                                                         String authorizationHeader) {
         UUID studentId = currentUserId();

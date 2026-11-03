@@ -1,6 +1,7 @@
 package com.mentify.assignment.dto.request;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -21,5 +22,6 @@ public class RubricItemRequest {
 
     @NotNull(message = "Rubric marks are required")
     @Min(value = 0, message = "Rubric marks cannot be negative")
+    @Max(value = 100, message = "Rubric marks cannot exceed 100 percent")
     private Integer marks;
 }

@@ -6,6 +6,7 @@ import com.mentify.material.dto.request.UpdateMaterialRequest;
 import com.mentify.material.dto.response.MaterialDetailsResponse;
 import com.mentify.material.dto.response.MaterialDownloadResponse;
 import com.mentify.material.dto.response.MaterialResponse;
+import com.mentify.material.dto.response.S3DownloadResult;
 import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.enums.MaterialType;
@@ -38,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 import java.time.LocalDateTime;
+import java.net.URI;
 
 @RestController
 @RequiredArgsConstructor
@@ -165,6 +167,14 @@ public class MaterialController {
     ) {
         MaterialDownloadResponse response = materialRetrievalService.createDownload(materialId, authorizationHeader);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Material download URL generated", response));
+    }
+
+    @GetMapping("/{materialId}/public-thumbnail")
+    public ResponseEntity<Void> createPublicThumbnail(@PathVariable UUID materialId) {
+        S3DownloadResult response = materialRetrievalService.createPublicThumbnail(materialId);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(response.downloadUrl()))
+                .build();
     }
 
     @PutMapping("/{materialId}")

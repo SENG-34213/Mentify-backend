@@ -86,7 +86,6 @@ public class ModuleServiceImpl implements ModuleService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<ModuleResponse> getModule(UUID courseId, UUID moduleId, String authorizationHeader) {
         Module module = moduleRepository.findByIdAndCourse_Id(moduleId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module", "id", moduleId));
@@ -102,7 +101,6 @@ public class ModuleServiceImpl implements ModuleService {
     }
 
     @Override
-    @Transactional
     public ApiResponse<List<ModuleResponse>> getModules(UUID courseId, String authorizationHeader) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));

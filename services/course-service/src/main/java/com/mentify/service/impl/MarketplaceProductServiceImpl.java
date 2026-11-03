@@ -4,6 +4,7 @@ import com.mentify.dto.MarketplaceProductRequest;
 import com.mentify.dto.MarketplaceProductResponse;
 import com.mentify.entity.MarketplaceProduct;
 import com.mentify.enums.MarketplaceProductStatus;
+import com.mentify.enums.MarketplaceProductCategory;
 import com.mentify.exception.ResourceNotFoundException;
 import com.mentify.repository.MarketplaceProductRepository;
 import com.mentify.service.MarketplaceProductService;
@@ -27,7 +28,8 @@ public class MarketplaceProductServiceImpl implements MarketplaceProductService 
 
     @Override
     @Transactional(readOnly = true)
-    public Page<MarketplaceProductResponse> listPublic(String search, String subject, UUID gradeId, Pageable pageable) {
+    public Page<MarketplaceProductResponse> listPublic(String search, String subject, UUID gradeId,
+            MarketplaceProductCategory category, Boolean isFree, Pageable pageable) {
         Specification<MarketplaceProduct> specification = Specification.where(
                 (root, query, cb) -> cb.equal(root.get("status"), MarketplaceProductStatus.PUBLISHED));
         if (search != null && !search.isBlank()) {
@@ -42,6 +44,12 @@ public class MarketplaceProductServiceImpl implements MarketplaceProductService 
         }
         if (gradeId != null) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("gradeId"), gradeId));
+        }
+        if (category != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("category"), category));
+        }
+        if (isFree != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("free"), isFree));
         }
         return repository.findAll(specification, pageable).map(this::toResponse);
     }
@@ -126,6 +134,9 @@ public class MarketplaceProductServiceImpl implements MarketplaceProductService 
         }
         product.setCurrency(request.currency() == null || request.currency().isBlank() ? "LKR" : request.currency().toUpperCase());
         product.setThumbnailUrl(request.thumbnailUrl());
+        product.setFileFormat(request.fileFormat() == null || request.fileFormat().isBlank()
+                ? null : request.fileFormat().trim().toUpperCase());
+        product.setPageCount(request.pageCount());
         if (request.status() != null) product.setStatus(request.status());
     }
 
@@ -139,7 +150,8 @@ public class MarketplaceProductServiceImpl implements MarketplaceProductService 
                 product.getMaterialOwnerId(), product.getMaterialOwnerName(), product.getTitle(), product.getShortDescription(),
                 product.getDescription(), product.getCategory(), product.getSubject(), product.getCourseDomain(),
                 product.getGradeId(), product.getPrice(), product.isFree(), product.getDiscountPercent(), finalPrice,
-                product.getCurrency(), product.getStatus(), product.getThumbnailUrl(),
+                product.getCurrency(), product.getStatus(), product.getThumbnailUrl(), product.getFileFormat(),
+                product.getPageCount(),
                 product.getPublishedAt(), product.getCreatedAt(), product.getUpdatedAt());
     }
 }

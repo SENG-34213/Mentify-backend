@@ -2,6 +2,7 @@ package com.mentify.controller;
 
 import com.mentify.dto.MarketplaceProductRequest;
 import com.mentify.dto.MarketplaceProductResponse;
+import com.mentify.enums.MarketplaceProductCategory;
 import com.mentify.enums.MarketplaceProductStatus;
 import com.mentify.payload.response.ApiResponse;
 import com.mentify.service.MarketplaceProductService;
@@ -27,9 +28,11 @@ public class MarketplaceProductController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String subject,
             @RequestParam(required = false) UUID gradeId,
+            @RequestParam(required = false) MarketplaceProductCategory category,
+            @RequestParam(required = false) Boolean isFree,
             Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK.value(), "Marketplace materials retrieved",
-                service.listPublic(search, subject, gradeId, pageable)));
+                service.listPublic(search, subject, gradeId, category, isFree, pageable)));
     }
 
     @GetMapping("/api/v1/marketplace/materials/{productId}")

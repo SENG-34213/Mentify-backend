@@ -18,6 +18,9 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.UUID;
 
 @Slf4j
@@ -77,6 +80,10 @@ public class NotificationEmailDeliveryService {
     }
 
     private String htmlText(Notification notification) {
+        if ("PAYMENT_SUCCEEDED".equalsIgnoreCase(notification.getType())) {
+            return paymentReceiptHtml(notification);
+        }
+
         String safeTitle = HtmlUtils.htmlEscape(notification.getTitle());
         String safeMessage = HtmlUtils.htmlEscape(notification.getMessage())
                 .replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>");
@@ -94,6 +101,102 @@ public class NotificationEmailDeliveryService {
                   </body>
                 </html>
                 """.formatted(safeTitle, safeTitle, safeMessage);
+    }
+
+    private String paymentReceiptHtml(Notification notification) {
+        String message = notification.getMessage() == null ? "" : notification.getMessage();
+        String product = between(message, "Your payment for ", " was completed successfully.");
+        String amount = between(message, "Amount: ", "; paid at:");
+        String paidAt = between(message, "; paid at: ", "; payment ID:");
+        String customerName = between(message, "; customer name: ", "; customer email:");
+        String customerEmail = between(message, "; customer email: ", "; payment ID:");
+        String paymentId = between(message, "; payment ID: ", "; Stripe reference:");
+        String stripeReference = between(message, "; Stripe reference: ", ". Thank you for your purchase.");
+
+        if (product.isBlank()) product = "TiT Online Education purchase";
+        if (amount.isBlank()) amount = "Payment confirmed";
+        paidAt = formatPaymentDate(paidAt);
+        if (customerName.isBlank()) customerName = "—";
+        if (customerEmail.isBlank()) customerEmail = notification.getRecipientEmail() == null ? "—" : notification.getRecipientEmail();
+        if (paymentId.isBlank()) paymentId = "—";
+        if (stripeReference.isBlank()) stripeReference = "—";
+
+        return """
+                <!doctype html>
+                <html lang="en">
+                  <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Payment receipt</title>
+                  </head>
+                  <body style="margin:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#172033;">
+                    <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f7fb;padding:28px 12px;">
+                      <tr><td align="center">
+                        <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #e5eaf2;border-radius:18px;overflow:hidden;">
+                          <tr><td style="padding:24px 30px;background:#172554;color:#ffffff;">
+                            <div style="font-size:12px;font-weight:bold;letter-spacing:2px;color:#bfdbfe;">TiT ONLINE EDUCATION</div>
+                            <div style="margin-top:10px;font-size:26px;line-height:1.25;font-weight:700;">Payment receipt</div>
+                            <div style="margin-top:6px;font-size:14px;color:#dbeafe;">Thank you for your purchase.</div>
+                          </td></tr>
+                          <tr><td style="padding:28px 30px 12px;">
+                            <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0">
+                              <tr>
+                                <td style="font-size:15px;line-height:1.6;color:#526078;">Your payment was completed successfully.</td>
+                                <td align="right" style="white-space:nowrap;"><span style="display:inline-block;padding:7px 11px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:bold;">PAID</span></td>
+                              </tr>
+                            </table>
+                            <div style="margin-top:22px;padding:20px;border:1px solid #dbe4f0;border-radius:14px;background:#f8fbff;">
+                              <div style="font-size:12px;font-weight:bold;letter-spacing:.7px;text-transform:uppercase;color:#71809a;">Purchase</div>
+                              <div style="margin-top:8px;font-size:18px;line-height:1.4;font-weight:700;color:#172033;">%s</div>
+                              <div style="margin-top:18px;font-size:12px;font-weight:bold;letter-spacing:.7px;text-transform:uppercase;color:#71809a;">Total paid</div>
+                              <div style="margin-top:4px;font-size:28px;line-height:1.2;font-weight:800;color:#4338ca;">%s</div>
+                            </div>
+                          </td></tr>
+                          <tr><td style="padding:12px 30px 26px;">
+                            <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                              <tr><td style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;color:#71809a;">Payment date</td><td align="right" style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;font-weight:600;color:#172033;">%s</td></tr>
+                              <tr><td style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;color:#71809a;">Customer name</td><td align="right" style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;font-weight:600;color:#172033;">%s</td></tr>
+                              <tr><td style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;color:#71809a;">Customer email</td><td align="right" style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;font-weight:600;color:#172033;word-break:break-word;">%s</td></tr>
+                              <tr><td style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:13px;color:#71809a;">Payment ID</td><td align="right" style="padding:11px 0;border-bottom:1px solid #edf1f6;font-size:12px;font-weight:600;color:#172033;word-break:break-all;">%s</td></tr>
+                              <tr><td style="padding:11px 0;font-size:13px;color:#71809a;">Stripe reference</td><td align="right" style="padding:11px 0;font-size:12px;font-weight:600;color:#172033;word-break:break-all;">%s</td></tr>
+                            </table>
+                          </td></tr>
+                          <tr><td style="padding:20px 30px;background:#f8fafc;border-top:1px solid #edf1f6;font-size:13px;line-height:1.65;color:#667085;">
+                            Keep this email for your records. If you have any questions about this payment, please contact the TiT Online Education support team and include your payment ID.
+                          </td></tr>
+                        </table>
+                        <div style="max-width:620px;padding:18px 12px 0;font-size:11px;line-height:1.6;color:#98a2b3;">This is an automated payment confirmation from TiT Online Education. Please do not reply to this email.</div>
+                      </td></tr>
+                    </table>
+                  </body>
+                </html>
+                """.formatted(
+                HtmlUtils.htmlEscape(product),
+                HtmlUtils.htmlEscape(amount),
+                HtmlUtils.htmlEscape(paidAt),
+                HtmlUtils.htmlEscape(customerName),
+                HtmlUtils.htmlEscape(customerEmail),
+                HtmlUtils.htmlEscape(paymentId),
+                HtmlUtils.htmlEscape(stripeReference)
+        );
+    }
+
+    private String formatPaymentDate(String value) {
+        if (value == null || value.isBlank()) return "—";
+        try {
+            return LocalDateTime.parse(value.trim())
+                    .format(DateTimeFormatter.ofPattern("dd MMMM yyyy, h:mm a"));
+        } catch (DateTimeParseException exception) {
+            return value;
+        }
+    }
+
+    private String between(String value, String start, String end) {
+        int startIndex = value.indexOf(start);
+        if (startIndex < 0) return "";
+        startIndex += start.length();
+        int endIndex = value.indexOf(end, startIndex);
+        return (endIndex < 0 ? value.substring(startIndex) : value.substring(startIndex, endIndex)).trim();
     }
 
     private void recordFailure(Notification notification, UUID notificationId, MailException exception) {

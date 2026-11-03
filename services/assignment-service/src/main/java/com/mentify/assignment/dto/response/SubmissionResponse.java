@@ -23,6 +23,7 @@ public class SubmissionResponse {
     private SubmissionStatus status;
     private String content;
     private Boolean isLate;
+    private Boolean gradeReleased;
     private LocalDateTime submittedAt;
     private BigDecimal marks;
     private String feedback;

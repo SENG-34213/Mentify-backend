@@ -42,6 +42,10 @@ public class Submission extends BaseEntity {
     @Builder.Default
     private Boolean isLate = false;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean gradeReleased = false;
+
     private LocalDateTime submittedAt;
 
     @Column(precision = 10, scale = 2)

@@ -5,6 +5,7 @@ import com.mentify.material.dto.response.MaterialDownloadResponse;
 import com.mentify.material.dto.response.S3DownloadResult;
 import com.mentify.material.entity.Material;
 import com.mentify.material.enums.MaterialAuditAction;
+import com.mentify.material.enums.MaterialPurpose;
 import com.mentify.material.enums.MaterialStatus;
 import com.mentify.material.exception.MaterialNotFoundException;
 import com.mentify.material.exception.MaterialUnavailableException;
@@ -58,6 +59,21 @@ public class MaterialRetrievalServiceImpl implements MaterialRetrievalService {
         auditService.record(MaterialAuditAction.DOWNLOAD_ACCESS_GENERATED, material, null, "SUCCESS", null);
 
         return materialMapper.toDownloadResponse(material, download);
+    }
+
+    @Override
+    public S3DownloadResult createPublicThumbnail(UUID materialId) {
+        Material material = loadVisibleMaterial(materialId);
+        if (material.getPurpose() != MaterialPurpose.MARKETPLACE_PRODUCT
+                || material.getContentType() == null
+                || !material.getContentType().toLowerCase().startsWith("image/")) {
+            throw new MaterialNotFoundException("Marketplace thumbnail not found");
+        }
+        if (!DOWNLOADABLE_STATUSES.contains(material.getStatus())) {
+            throw new MaterialUnavailableException("Marketplace thumbnail is not available");
+        }
+        return storageService.createPresignedDownload(
+                material.getStorageKey(), material.getOriginalFilename(), material.getContentType());
     }
 
     private Material loadVisibleMaterial(UUID materialId) {

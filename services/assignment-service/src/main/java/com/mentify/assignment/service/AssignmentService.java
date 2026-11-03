@@ -17,5 +17,6 @@ public interface AssignmentService {
     ApiResponse<List<AssignmentResponse>> listAssignmentsForCourse(UUID courseId, String authorizationHeader);
     ApiResponse<Object> deleteAssignment(UUID assignmentId, String authorizationHeader);
     ApiResponse<AssignmentResponse> publishAssignment(UUID assignmentId, String authorizationHeader);
+    ApiResponse<AssignmentResponse> publishAssignment(UUID assignmentId, String authorizationHeader, boolean openImmediately);
     ApiResponse<AssignmentResponse> closeAssignment(UUID assignmentId, String authorizationHeader);
 }

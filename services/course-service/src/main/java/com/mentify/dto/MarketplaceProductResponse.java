@@ -27,6 +27,8 @@ public record MarketplaceProductResponse(
         String currency,
         MarketplaceProductStatus status,
         String thumbnailUrl,
+        String fileFormat,
+        Integer pageCount,
         LocalDateTime publishedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
