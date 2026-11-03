@@ -87,5 +87,11 @@ public class MarketplaceProduct extends BaseEntity {
     @Column(name = "thumbnail_url", length = 500)
     private String thumbnailUrl;
 
+    @Column(name = "file_format", length = 20)
+    private String fileFormat;
+
+    @Column(name = "page_count")
+    private Integer pageCount;
+
     private LocalDateTime publishedAt;
 }
