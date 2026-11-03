@@ -5,6 +5,28 @@
         max_size 110MB
     }
 
+    # Website server routes must reach Next.js first. Next.js then calls the
+    # internal gateway with the correct public backend path and headers.
+    handle /api/preregister {
+        reverse_proxy website-frontend:3000
+    }
+
+    handle /api/contact {
+        reverse_proxy website-frontend:3000
+    }
+
+    handle /api/marketplace/* {
+        reverse_proxy website-frontend:3000
+    }
+
+    handle /api/payments/* {
+        reverse_proxy website-frontend:3000
+    }
+
+    handle /api/resources/* {
+        reverse_proxy website-frontend:3000
+    }
+
     handle /api/* {
         reverse_proxy api-gateway:8080
     }

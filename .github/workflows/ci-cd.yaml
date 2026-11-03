@@ -682,7 +682,7 @@
               --env-file .env.prod \
               --env-file .deploy.env \
               -f docker-compose.prod.yml \
-              up -d --remove-orphans
+              up -d --force-recreate --remove-orphans
 
             docker image prune -f
             REMOTE_COMMANDS
